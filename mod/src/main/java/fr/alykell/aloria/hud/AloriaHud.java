@@ -4,7 +4,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import fr.alykell.aloria.hud.config.HudConfig;
 import fr.alykell.aloria.hud.module.HudModule;
 import fr.alykell.aloria.hud.module.Modules;
-import fr.alykell.aloria.hud.screen.HudEditorScreen;
+import fr.alykell.aloria.hud.screen.HudMenuScreen;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
@@ -48,19 +48,24 @@ public class AloriaHud implements ClientModInitializer {
 			new KeyMapping("key.aloriahud.editor", InputConstants.KEY_RSHIFT, category)
 		);
 
+		if (SelfTest.enabled()) SelfTest.init();
+
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> {
 			Stats.tick(mc);
+			if (SelfTest.enabled()) SelfTest.tick(mc);
 			while (openEditor.consumeClick()) {
-				if (mc.gui.screen() == null && mc.player != null) mc.gui.setScreen(new HudEditorScreen(null));
+				if (mc.gui.screen() == null && mc.player != null) mc.gui.setScreen(new HudMenuScreen(null));
 			}
 		});
 
 		// Bouton « Aloria HUD » dans le menu Échap
 		ScreenEvents.AFTER_INIT.register((mc, screen, width, height) -> {
 			if (!(screen instanceof PauseScreen pause) || !pause.showsPauseMenu()) return;
+			// Sous le dernier bouton du menu, à la même largeur
+			int bottom = Screens.getWidgets(screen).stream().mapToInt(w -> w.getY() + w.getHeight()).max().orElse(height / 2);
 			Screens.getWidgets(screen).add(
-				Button.builder(Component.literal("✦ Aloria HUD"), b -> mc.gui.setScreen(new HudEditorScreen(screen)))
-					.bounds(width / 2 - 60, height - 32, 120, 20)
+				Button.builder(Component.literal("✦ Aloria HUD"), b -> mc.gui.setScreen(new HudMenuScreen(screen)))
+					.bounds(width / 2 - 102, Math.min(bottom + 8, height - 24), 204, 20)
 					.build()
 			);
 		});

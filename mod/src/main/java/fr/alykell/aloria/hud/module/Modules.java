@@ -36,7 +36,7 @@ public final class Modules {
 
 		@Override
 		public ModuleSettings defaults() {
-			return new ModuleSettings(true, 0.01f, 0.015f);
+			return new ModuleSettings(true, 1f, 0f);
 		}
 
 		@Override
@@ -51,8 +51,13 @@ public final class Modules {
 		}
 
 		@Override
+		public String category() {
+			return "pvp";
+		}
+
+		@Override
 		public ModuleSettings defaults() {
-			return new ModuleSettings(true, 0.01f, 0.06f);
+			return new ModuleSettings(false, 1f, 0.06f);
 		}
 
 		@Override
@@ -68,7 +73,7 @@ public final class Modules {
 
 		@Override
 		public ModuleSettings defaults() {
-			return new ModuleSettings(true, 0.01f, 0.105f);
+			return new ModuleSettings(false, 0f, 0f);
 		}
 
 		private static String facing(Direction direction) {
@@ -103,7 +108,7 @@ public final class Modules {
 
 		@Override
 		public ModuleSettings defaults() {
-			return new ModuleSettings(false, 0.01f, 0.22f);
+			return new ModuleSettings(false, 0f, 0.16f);
 		}
 
 		@Override
@@ -121,7 +126,7 @@ public final class Modules {
 
 		@Override
 		public ModuleSettings defaults() {
-			return new ModuleSettings(false, 0.92f, 0.015f);
+			return new ModuleSettings(false, 1f, 0.11f);
 		}
 
 		@Override

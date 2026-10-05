@@ -1,5 +1,6 @@
 package fr.alykell.aloria.hud.module;
 
+import fr.alykell.aloria.hud.Theme;
 import fr.alykell.aloria.hud.config.ModuleSettings;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -23,7 +24,7 @@ public final class ArmorModule extends HudModule {
 
 	@Override
 	public ModuleSettings defaults() {
-		return new ModuleSettings(true, 0.93f, 0.4f);
+		return new ModuleSettings(false, 1f, 0.45f);
 	}
 
 	private static List<ItemStack> items(Minecraft mc, boolean preview) {
@@ -59,6 +60,11 @@ public final class ArmorModule extends HudModule {
 	}
 
 	@Override
+	public String category() {
+		return "pvp";
+	}
+
+	@Override
 	public boolean hasContent(Minecraft mc) {
 		return !items(mc, false).isEmpty();
 	}
@@ -77,7 +83,7 @@ public final class ArmorModule extends HudModule {
 
 	@Override
 	public void draw(GuiGraphicsExtractor g, Minecraft mc, ModuleSettings s, boolean preview) {
-		if (s.background) g.fill(0, 0, width(mc, s, preview), height(mc, s, preview), 0x900A2C3D);
+		if (s.background) g.fill(0, 0, width(mc, s, preview), height(mc, s, preview), Theme.HUD_BG);
 		int y = 2;
 		for (ItemStack stack : items(mc, preview)) {
 			g.item(stack, 2, y);

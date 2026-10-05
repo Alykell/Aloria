@@ -13,6 +13,9 @@ export interface LaunchOptions {
   player: { name: string; uuid: string; accessToken: string; xuid: string }
   demo: boolean
   launcherVersion: string
+  /** Arguments ajoutés pour les tests en développement */
+  extraJvmArgs?: string[]
+  extraGameArgs?: string[]
 }
 
 // Arguments JVM utilisés par les versions d'avant 1.13 (qui n'en fournissent pas)
@@ -72,9 +75,11 @@ export function buildArguments(opts: LaunchOptions): string[] {
     `-Xmx${opts.ramMb}M`,
     `-Xms${Math.min(1024, opts.ramMb)}M`,
     ...jvm.map(fill),
+    ...(opts.extraJvmArgs ?? []),
     ...(installed.loggingArg ? [installed.loggingArg] : []),
     version.mainClass,
-    ...game.map(fill)
+    ...game.map(fill),
+    ...(opts.extraGameArgs ?? [])
   ]
 }
 

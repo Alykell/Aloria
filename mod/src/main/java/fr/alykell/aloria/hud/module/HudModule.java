@@ -22,6 +22,11 @@ public abstract class HudModule {
 		return name;
 	}
 
+	/** Onglet du menu : « info » ou « pvp » */
+	public String category() {
+		return "info";
+	}
+
 	/** Réglages par défaut (actif ou non, position) à la première utilisation */
 	public abstract ModuleSettings defaults();
 

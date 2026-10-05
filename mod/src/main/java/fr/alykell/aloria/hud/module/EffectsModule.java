@@ -17,13 +17,18 @@ public final class EffectsModule extends TextModule {
 
 	@Override
 	public ModuleSettings defaults() {
-		return new ModuleSettings(true, 0.01f, 0.3f);
+		return new ModuleSettings(false, 0f, 0.3f);
 	}
 
 	private static String duration(MobEffectInstance effect) {
 		if (effect.isInfiniteDuration()) return "∞";
 		int seconds = effect.getDuration() / 20;
 		return String.format("%d:%02d", seconds / 60, seconds % 60);
+	}
+
+	@Override
+	public String category() {
+		return "pvp";
 	}
 
 	@Override

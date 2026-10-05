@@ -1,5 +1,6 @@
 package fr.alykell.aloria.hud;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 
@@ -17,11 +18,11 @@ public final class Stats {
 	private Stats() {
 	}
 
-	/** Appelé par MouseHandlerMixin à chaque clic en jeu (0 = gauche, 1 = droit). */
+	/** Appelé par MouseHandlerMixin à chaque clic en jeu (boutons SDL : 1 = gauche, 3 = droit). */
 	public static void onClick(int button) {
 		long now = System.currentTimeMillis();
-		if (button == 0) LEFT_CLICKS.addLast(now);
-		else if (button == 1) RIGHT_CLICKS.addLast(now);
+		if (button == InputConstants.MOUSE_BUTTON_LEFT) LEFT_CLICKS.addLast(now);
+		else if (button == InputConstants.MOUSE_BUTTON_RIGHT) RIGHT_CLICKS.addLast(now);
 	}
 
 	private static int cps(ArrayDeque<Long> clicks) {

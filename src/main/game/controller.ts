@@ -27,6 +27,8 @@ function setStatus(next: GameStatus): void {
 
 export const getStatus = () => status
 
+const splitArgs = (value: string | undefined) => (value ?? '').split(' ').filter(Boolean)
+
 export async function listVersions(includeSnapshots: boolean): Promise<VersionEntry[]> {
   const manifest = await getManifest()
   return manifest.versions
@@ -82,7 +84,10 @@ export async function play(sender: WebContents, profileId: string): Promise<void
       ramMb: profile.ramMb ?? settings.ramMb,
       player,
       demo: !active,
-      launcherVersion: app.getVersion()
+      launcherVersion: app.getVersion(),
+      // Tests en développement, ex. ALORIA_EXTRA_GAME_ARGS="--quickPlaySingleplayer Demo_World"
+      extraJvmArgs: app.isPackaged ? [] : splitArgs(process.env.ALORIA_EXTRA_JVM_ARGS),
+      extraGameArgs: app.isPackaged ? [] : splitArgs(process.env.ALORIA_EXTRA_GAME_ARGS)
     })
 
     // On garde la fin de la sortie du jeu pour l'afficher en cas de crash

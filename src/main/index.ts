@@ -133,6 +133,17 @@ ipcMain.handle('library:openFolder', async (_e, profileId: string, type: Content
   await shell.openPath(await openContentFolder(profileId, type))
 })
 
+// Une seule fenêtre Aloria : relancer le raccourci ramène celle déjà ouverte au premier plan
+if (!app.requestSingleInstanceLock()) app.quit()
+
+app.on('second-instance', () => {
+  const win = BrowserWindow.getAllWindows()[0]
+  if (!win) return
+  if (win.isMinimized()) win.restore()
+  win.show()
+  win.focus()
+})
+
 app.whenReady().then(() => {
   const win = createWindow()
   initUpdater(win)

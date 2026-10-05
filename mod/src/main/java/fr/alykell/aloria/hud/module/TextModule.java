@@ -45,7 +45,7 @@ public abstract class TextModule extends HudModule {
 	@Override
 	public void draw(GuiGraphicsExtractor g, Minecraft mc, ModuleSettings s, boolean preview) {
 		if (s.background) {
-			g.fill(0, 0, width(mc, s, preview), height(mc, s, preview), 0x900A2C3D);
+			g.fill(0, 0, width(mc, s, preview), height(mc, s, preview), Theme.HUD_BG);
 		}
 		int y = PADDING;
 		for (Line line : lines(mc, preview)) {

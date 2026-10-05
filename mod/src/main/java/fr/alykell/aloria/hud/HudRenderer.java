@@ -2,13 +2,16 @@ package fr.alykell.aloria.hud;
 
 import fr.alykell.aloria.hud.config.ModuleSettings;
 import fr.alykell.aloria.hud.module.HudModule;
-import fr.alykell.aloria.hud.screen.HudEditorScreen;
+import fr.alykell.aloria.hud.screen.HudLayoutScreen;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 /** Dessine les modules actifs à leur place, en jeu comme dans l'éditeur. */
 public final class HudRenderer {
+	/** Écart minimal entre un module et le bord de l'écran */
+	public static final int MARGIN = 3;
+
 	private HudRenderer() {
 	}
 
@@ -23,8 +26,8 @@ public final class HudRenderer {
 		int w = Math.round(module.width(mc, s, preview) * s.scale);
 		int h = Math.round(module.height(mc, s, preview) * s.scale);
 		// La position est gardée en fraction de l'écran, et le module reste toujours visible
-		int x = Math.clamp(Math.round(s.x * screenW), 0, Math.max(0, screenW - w));
-		int y = Math.clamp(Math.round(s.y * screenH), 0, Math.max(0, screenH - h));
+		int x = Math.clamp(Math.round(s.x * screenW), MARGIN, Math.max(MARGIN, screenW - w - MARGIN));
+		int y = Math.clamp(Math.round(s.y * screenH), MARGIN, Math.max(MARGIN, screenH - h - MARGIN));
 		return new Bounds(x, y, w, h);
 	}
 
@@ -39,8 +42,8 @@ public final class HudRenderer {
 	/** Élément enregistré dans le HUD de Fabric */
 	public static void extract(GuiGraphicsExtractor g, DeltaTracker delta) {
 		Minecraft mc = Minecraft.getInstance();
-		// Interface masquée (F1), ou éditeur ouvert : il dessine lui-même les modules
-		if (mc.gui.hud.isHidden() || mc.gui.screen() instanceof HudEditorScreen) return;
+		// Interface masquée (F1), ou disposition en cours : l'écran dessine lui-même les modules
+		if (mc.gui.hud.isHidden() || mc.gui.screen() instanceof HudLayoutScreen) return;
 
 		for (HudModule module : AloriaHud.modules()) {
 			ModuleSettings s = AloriaHud.config().get(module);

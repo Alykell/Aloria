@@ -21,7 +21,12 @@ public final class KeystrokesModule extends HudModule {
 
 	@Override
 	public ModuleSettings defaults() {
-		return new ModuleSettings(true, 0.01f, 0.55f);
+		return new ModuleSettings(false, 0f, 1f);
+	}
+
+	@Override
+	public String category() {
+		return "pvp";
 	}
 
 	@Override
@@ -35,7 +40,7 @@ public final class KeystrokesModule extends HudModule {
 	}
 
 	private static void key(GuiGraphicsExtractor g, Minecraft mc, ModuleSettings s, int x, int y, int w, int h, String label, boolean down) {
-		int bg = down ? Theme.withAlpha(s.color, 0xD0) : (s.background ? 0x900A2C3D : 0x00000000);
+		int bg = down ? Theme.withAlpha(s.color, 0xD0) : (s.background ? Theme.HUD_BG : 0x00000000);
 		g.fill(x, y, x + w, y + h, bg);
 		if (!s.background && !down) g.outline(x, y, w, h, Theme.withAlpha(s.color, 0x80));
 		int color = down ? Theme.SEA_DEEP : Theme.WHITE;
@@ -62,7 +67,7 @@ public final class KeystrokesModule extends HudModule {
 		key(g, mc, s, 0, row3, MOUSE_W, KEY, Stats.leftCps() + " CPS", o.keyAttack.isDown());
 		key(g, mc, s, WIDTH - MOUSE_W, row3, MOUSE_W, KEY, Stats.rightCps() + " CPS", o.keyUse.isDown());
 
-		int spaceBg = o.keyJump.isDown() ? Theme.withAlpha(s.color, 0xD0) : (s.background ? 0x900A2C3D : 0x00000000);
+		int spaceBg = o.keyJump.isDown() ? Theme.withAlpha(s.color, 0xD0) : (s.background ? Theme.HUD_BG : 0x00000000);
 		g.fill(0, row4, WIDTH, row4 + SPACE_H, spaceBg);
 		if (!s.background && !o.keyJump.isDown()) g.outline(0, row4, WIDTH, SPACE_H, Theme.withAlpha(s.color, 0x80));
 		int barColor = o.keyJump.isDown() ? Theme.SEA_DEEP : Theme.WHITE;
