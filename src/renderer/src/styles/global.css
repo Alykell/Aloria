@@ -375,3 +375,21 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .switch span::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: white; transition: transform 0.15s; }
 .switch input:checked + span { background: var(--sea); }
 .switch input:checked + span::after { transform: translateX(18px); }
+
+/* Mise à jour du launcher */
+.update {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.14);
+  font-size: 13px;
+  text-align: left;
+}
+.update__bar { height: 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.2); overflow: hidden; }
+.update__bar div { height: 100%; background: var(--sand); transition: width 0.3s; }
+.update.ready { background: var(--sand); color: var(--sea-deep); }
+.update.ready:hover { background: white; }
+.update.ready strong { font-size: 14px; }

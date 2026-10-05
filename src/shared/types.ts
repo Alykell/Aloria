@@ -91,3 +91,9 @@ export interface InstalledContent {
   /** Installé automatiquement comme dépendance d'un autre contenu */
   auto?: boolean
 }
+
+export type UpdateStatus =
+  | { state: 'idle' }
+  | { state: 'checking' }
+  | { state: 'downloading'; version: string; percent: number }
+  | { state: 'ready'; version: string }

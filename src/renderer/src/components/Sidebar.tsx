@@ -1,4 +1,5 @@
 import AccountPanel from './AccountPanel'
+import UpdateBanner from './UpdateBanner'
 import type { AccountsState } from '../hooks/useAccounts'
 
 export type Page = 'home' | 'library' | 'profiles' | 'settings'
@@ -34,6 +35,7 @@ export default function Sidebar({ page, onChange, accounts }: Props) {
         </button>
       ))}
       <div className="sidebar__spacer" />
+      <UpdateBanner />
       <AccountPanel state={accounts} />
     </nav>
   )

@@ -7,6 +7,7 @@ import { fabricLoaders } from './game/fabric'
 import { installContent, listInstalled, openContentFolder, removeContent, searchContent, setContentEnabled } from './modrinth/content'
 import { createProfile, deleteProfile, listProfiles, openProfileFolder, selectProfile, updateProfile } from './profiles'
 import { getSettings, systemRamMb, updateSettings } from './settings'
+import { getUpdateStatus, initUpdater, installUpdate } from './updater'
 import type {
   ContentType,
   LoaderVersion,
@@ -29,6 +30,8 @@ function createWindow(): BrowserWindow {
     backgroundColor: '#e8f6fb',
     show: false,
     title: 'Aloria',
+    // Une fois installé, l'icône est intégrée à l'exécutable
+    icon: app.isPackaged ? undefined : join(__dirname, '../../resources/icon.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -61,6 +64,8 @@ ipcMain.on('window:maximize', (e) => {
 })
 ipcMain.on('window:close', (e) => BrowserWindow.fromWebContents(e.sender)?.close())
 ipcMain.handle('app:version', () => app.getVersion())
+ipcMain.handle('updater:status', () => getUpdateStatus())
+ipcMain.on('updater:install', () => installUpdate())
 
 ipcMain.handle('accounts:list', () => listAccounts())
 ipcMain.handle('accounts:add', async (e): Promise<Result<PublicAccount>> => {
@@ -130,6 +135,7 @@ ipcMain.handle('library:openFolder', async (_e, profileId: string, type: Content
 
 app.whenReady().then(() => {
   const win = createWindow()
+  initUpdater(win)
   // Test de bout en bout en développement : lance le jeu dès l'ouverture
   if (!app.isPackaged && process.env.ALORIA_AUTOPLAY) {
     win.webContents.once('did-finish-load', async () => {

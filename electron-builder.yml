@@ -1,5 +1,6 @@
 appId: fr.alykell.aloria
 productName: Aloria
+copyright: Copyright © 2026 Alykell
 directories:
   buildResources: resources
   output: dist
@@ -8,6 +9,23 @@ files:
   - package.json
 win:
   target: nsis
+  icon: resources/icon.png
+  artifactName: Aloria-Setup-${version}.${ext}
 nsis:
   oneClick: false
+  perMachine: false
   allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: Aloria
+  installerLanguages:
+    - fr_FR
+  language: '1036'
+  # Garde les jeux, profils et comptes si on désinstalle
+  deleteAppDataOnUninstall: false
+# Les mises à jour sont publiées dans les Releases GitHub du dépôt
+publish:
+  provider: github
+  owner: Alykell
+  repo: Aloria
+  releaseType: release

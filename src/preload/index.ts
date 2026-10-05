@@ -5,6 +5,7 @@ import type {
   InstalledContent,
   SearchHit,
   SearchQuery,
+  UpdateStatus,
   GameStatus,
   LoaderVersion,
   Profile,
@@ -28,6 +29,11 @@ const api = {
     close: () => ipcRenderer.send('window:close')
   },
   getVersion: (): Promise<string> => ipcRenderer.invoke('app:version'),
+  updater: {
+    status: (): Promise<UpdateStatus> => ipcRenderer.invoke('updater:status'),
+    install: () => ipcRenderer.send('updater:install'),
+    onStatus: (cb: (s: UpdateStatus) => void) => subscribe('updater:status', cb)
+  },
   accounts: {
     list: (): Promise<{ active: string | null; accounts: PublicAccount[] }> => ipcRenderer.invoke('accounts:list'),
     add: (): Promise<Result<PublicAccount>> => ipcRenderer.invoke('accounts:add'),
