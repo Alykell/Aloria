@@ -9,6 +9,7 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.KeyMapping;
@@ -41,6 +42,11 @@ public class AloriaHud implements ClientModInitializer {
 		config = HudConfig.load(MODULES);
 
 		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(MOD_ID, "hud"), HudRenderer::extract);
+		// Le module Effets remplace les icônes d'effets de Minecraft (en haut à droite) quand il est activé
+		HudElementRegistry.replaceElement(VanillaHudElements.MOB_EFFECTS, vanilla -> (g, delta) -> {
+			HudModule effects = MODULES.stream().filter(m -> m.id().equals("effects")).findFirst().orElseThrow();
+			if (!config.get(effects).enabled) vanilla.extractRenderState(g, delta);
+		});
 
 		// Maj droite ouvre l'éditeur, comme sur Lunar / Feather (modifiable dans les contrôles)
 		KeyMapping.Category category = KeyMapping.Category.register(Identifier.fromNamespaceAndPath(MOD_ID, "main"));

@@ -150,7 +150,8 @@ app.whenReady().then(() => {
   // Test de bout en bout en développement : lance le jeu dès l'ouverture
   if (!app.isPackaged && process.env.ALORIA_AUTOPLAY) {
     win.webContents.once('did-finish-load', async () => {
-      const profileId = listProfiles().selectedId
+      // ALORIA_AUTOPLAY_PROFILE : profil dédié aux tests, pour ne pas toucher aux réglages des vrais profils
+      const profileId = process.env.ALORIA_AUTOPLAY_PROFILE ?? listProfiles().selectedId
       try {
         // ALORIA_TEST_INSTALL="mod:sodium,shader:complementary-reimagined" : installe avant de lancer
         for (const item of (process.env.ALORIA_TEST_INSTALL ?? '').split(',').filter(Boolean)) {

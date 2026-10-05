@@ -2,8 +2,8 @@ package fr.alykell.aloria.hud.screen;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import fr.alykell.aloria.hud.Draw;
+import fr.alykell.aloria.hud.Fonts;
 import fr.alykell.aloria.hud.Theme;
-import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -120,7 +120,24 @@ public abstract class AloriaScreen extends Screen {
 	}
 
 	protected static Component bold(String text) {
-		return Component.literal(text).withStyle(ChatFormatting.BOLD);
+		return Fonts.bold(text);
+	}
+
+	/** Texte dans la police d'Aloria */
+	protected void text(GuiGraphicsExtractor g, String text, int x, int y, int color, boolean shadow) {
+		g.text(font, Fonts.text(text), x, y, color, shadow);
+	}
+
+	protected void text(GuiGraphicsExtractor g, Component text, int x, int y, int color, boolean shadow) {
+		g.text(font, text, x, y, color, shadow);
+	}
+
+	protected void centered(GuiGraphicsExtractor g, String text, int x, int y, int color) {
+		g.centeredText(font, Fonts.text(text), x, y, color);
+	}
+
+	protected int w(String text) {
+		return font.width(Fonts.text(text));
 	}
 
 	/** Bouton plat ; « accent » = turquoise plein */
@@ -129,7 +146,7 @@ public abstract class AloriaScreen extends Screen {
 		int bg = accent ? (hover ? Theme.LAGOON : Theme.SEA) : (hover ? Theme.CARD_HOVER : Theme.CARD);
 		round(g, x, y, w, h, bg);
 		if (!accent) roundOutline(g, x, y, w, h, hover ? Theme.BORDER_HOVER : Theme.BORDER);
-		g.centeredText(font, label, x + w / 2, y + (h - 8) / 2, accent || hover ? Theme.WHITE : Theme.FOAM);
+		centered(g, label, x + w / 2, y + (h - 8) / 2, accent || hover ? Theme.WHITE : Theme.FOAM);
 		onClick("btn:" + label, x, y, w, h, action);
 	}
 

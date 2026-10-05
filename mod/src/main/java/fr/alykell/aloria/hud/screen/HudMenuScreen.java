@@ -75,8 +75,11 @@ public class HudMenuScreen extends AloriaScreen {
 		int h = winH();
 
 		// En-tête au-dessus de la fenêtre : titre à gauche, actions à droite
-		g.text(font, bold("✦ ALORIA HUD"), x + 2, y - 22, Theme.WHITE, true);
+		text(g, bold("✦ ALORIA HUD"), x + 2, y - 22, Theme.WHITE, true);
 		button(g, mouseX, mouseY, x + w - 22, y - 26, 22, 18, "✕", false, () -> minecraft.gui.setScreen(parent));
+		var global = AloriaHud.config().global();
+		toggle("font", g, x + w - 156, y - 23, global.smoothFont, () -> global.smoothFont = !global.smoothFont);
+		text(g, "Police lisse", x + w - 162 - w("Police lisse"), y - 21, Theme.FOAM, false);
 		button(g, mouseX, mouseY, x + w - 126, y - 26, 100, 18, "✥ Disposition", true,
 			() -> minecraft.gui.setScreen(new HudLayoutScreen(this)));
 
@@ -92,11 +95,11 @@ public class HudMenuScreen extends AloriaScreen {
 	private void drawGrid(GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int y, int w, int h) {
 		int tx = x + PAD;
 		for (String[] t : TABS) {
-			int tw = font.width(t[1]) + 22;
+			int tw = w(t[1]) + 22;
 			boolean active = tab.equals(t[0]);
 			boolean hover = hovered(mouseX, mouseY, tx, y + PAD, tw, 18);
 			round(g, tx, y + PAD, tw, 18, active ? Theme.SEA : hover ? Theme.CARD_HOVER : Theme.CARD);
-			g.centeredText(font, t[1], tx + tw / 2, y + PAD + 5, active ? Theme.WHITE : Theme.FOAM);
+			centered(g, t[1], tx + tw / 2, y + PAD + 5, active ? Theme.WHITE : Theme.FOAM);
 			String id = t[0];
 			onClick("tab:" + id, tx, y + PAD, tw, 18, () -> {
 				tab = id;
@@ -141,7 +144,7 @@ public class HudMenuScreen extends AloriaScreen {
 		boolean hover = clickable && hovered(mouseX, mouseY, x, y, w, CARD_H);
 		round(g, x, y, w, CARD_H, s.enabled ? (hover ? Theme.CARD_HOVER : Theme.CARD) : Theme.CARD_OFF);
 		roundOutline(g, x, y, w, CARD_H, hover ? Theme.BORDER_HOVER : Theme.BORDER);
-		g.text(font, bold(module.name()), x + 8, y + 8, s.enabled ? Theme.WHITE : Theme.TEXT_SOFT, false);
+		text(g, bold(module.name()), x + 8, y + 8, s.enabled ? Theme.WHITE : Theme.TEXT_SOFT, false);
 
 		// Aperçu réel du module, réduit pour tenir dans la carte
 		int areaY = y + 22;
@@ -150,19 +153,19 @@ public class HudMenuScreen extends AloriaScreen {
 
 		int by = y + CARD_H - 24;
 		boolean gearHover = clickable && hovered(mouseX, mouseY, x + 8, by, 18, 18);
-		round(g, x + 8, by, 18, 18, gearHover ? Theme.CARD_HOVER : 0xFF0B2130);
-		g.centeredText(font, "⚙", x + 17, by + 5, gearHover ? Theme.LAGOON : Theme.FOAM);
+		round(g, x + 8, by, 18, 18, gearHover ? Theme.CARD_HOVER : 0x800B2130);
+		centered(g, "⚙", x + 17, by + 5, gearHover ? Theme.LAGOON : Theme.FOAM);
 		clippedClick("gear:" + module.id(), x + 8, by, 18, 18, top, bottom, () -> editing = module);
 
 		int tx = x + 30;
 		int tw = w - 38;
 		boolean toggleHover = clickable && hovered(mouseX, mouseY, tx, by, tw, 18);
-		int bg = s.enabled ? (toggleHover ? Theme.LAGOON : Theme.SEA) : (toggleHover ? 0xFF1E4053 : 0xFF17323F);
+		int bg = s.enabled ? (toggleHover ? Theme.LAGOON : Theme.SEA) : (toggleHover ? 0xC01E4053 : 0xA017323F);
 		round(g, tx, by, tw, 18, bg);
 		// Libellé court si la carte est étroite (petite fenêtre)
 		String label = s.enabled ? "Activé" : "Désactivé";
-		if (font.width(label) > tw - 6) label = s.enabled ? "On" : "Off";
-		g.centeredText(font, label, tx + tw / 2, by + 5, s.enabled ? Theme.WHITE : Theme.TEXT_SOFT);
+		if (w(label) > tw - 6) label = s.enabled ? "On" : "Off";
+		centered(g, label, tx + tw / 2, by + 5, s.enabled ? Theme.WHITE : Theme.TEXT_SOFT);
 		clippedClick("toggle:" + module.id(), tx, by, tw, 18, top, bottom, () -> s.enabled = !s.enabled);
 	}
 
@@ -184,23 +187,23 @@ public class HudMenuScreen extends AloriaScreen {
 	private void drawSettings(GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int y, int w, int h, HudModule module) {
 		ModuleSettings s = settings(module);
 		button(g, mouseX, mouseY, x + PAD, y + PAD, 70, 18, "← Retour", false, () -> editing = null);
-		g.text(font, bold(module.name()), x + PAD + 80, y + PAD + 5, Theme.WHITE, false);
+		text(g, bold(module.name()), x + PAD + 80, y + PAD + 5, Theme.WHITE, false);
 		String hint = module.hint();
 		toggle("enabled", g, x + w - PAD - 24, y + PAD + 3, s.enabled, () -> s.enabled = !s.enabled);
 		String state = s.enabled ? "Activé" : "Désactivé";
-		int stateX = x + w - PAD - 30 - font.width(state);
-		g.text(font, state, stateX, y + PAD + 5, Theme.TEXT_SOFT, false);
-		int resetW = font.width("Réinitialiser") + 14;
+		int stateX = x + w - PAD - 30 - w(state);
+		text(g, state, stateX, y + PAD + 5, Theme.TEXT_SOFT, false);
+		int resetW = w("Réinitialiser") + 14;
 		button(g, mouseX, mouseY, stateX - 10 - resetW, y + PAD, resetW, 18, "Réinitialiser", false, () -> AloriaHud.config().reset(module));
 
 		// Aperçu à gauche
 		int top = y + PAD + 30;
 		int previewW = (w - PAD * 3) * 2 / 5;
 		int previewH = h - (top - y) - PAD;
-		round(g, x + PAD, top, previewW, previewH, 0xFF0B2130);
+		round(g, x + PAD, top, previewW, previewH, 0x800B2130);
 		roundOutline(g, x + PAD, top, previewW, previewH, Theme.BORDER);
 		drawPreview(g, module, s, x + PAD + 8, top + 8, previewW - 16, previewH - 16);
-		if (hint != null) g.centeredText(font, hint, x + PAD + previewW / 2, top + previewH - 12, Theme.TEXT_SOFT);
+		if (hint != null) centered(g, hint, x + PAD + previewW / 2, top + previewH - 12, Theme.TEXT_SOFT);
 
 		// Options à droite, une ligne par réglage
 		int ox = x + PAD * 2 + previewW;
@@ -210,18 +213,18 @@ public class HudMenuScreen extends AloriaScreen {
 		int cx = ox + labelW;
 		int cw = ow - labelW;
 
-		g.text(font, "Taille", ox, oy + 2, Theme.FOAM, false);
+		text(g, "Taille", ox, oy + 2, Theme.FOAM, false);
 		drawSlider("slider", g, mouseX, mouseY, cx, oy, cw - 32, (s.scale - 0.5f) / 2.5f,
 			t -> s.scale = Math.round((0.5 + t * 2.5) * 10) / 10f);
-		g.text(font, String.format("%.1fx", s.scale), ox + ow - 26, oy + 2, Theme.LAGOON, false);
+		text(g, String.format("%.1fx", s.scale), ox + ow - 26, oy + 2, Theme.LAGOON, false);
 		oy += 20;
 
-		g.text(font, "Opacité", ox, oy + 2, s.background ? Theme.FOAM : Theme.TEXT_SOFT, false);
+		text(g, "Opacité", ox, oy + 2, s.background ? Theme.FOAM : Theme.TEXT_SOFT, false);
 		drawSlider("opacity", g, mouseX, mouseY, cx, oy, cw - 32, s.opacity / 100f, t -> s.opacity = (int) Math.round(t * 20) * 5);
-		g.text(font, s.opacity + "%", ox + ow - 26, oy + 2, Theme.LAGOON, false);
+		text(g, s.opacity + "%", ox + ow - 26, oy + 2, Theme.LAGOON, false);
 		oy += 20;
 
-		g.text(font, "Couleur", ox, oy + 3, Theme.FOAM, false);
+		text(g, "Couleur", ox, oy + 3, Theme.FOAM, false);
 		int swatch = Math.max(8, Math.min(14, (cw - 7 * 4) / 8));
 		int sx = cx;
 		for (int i = 0; i < Theme.PALETTE.length; i++) {
@@ -235,9 +238,9 @@ public class HudMenuScreen extends AloriaScreen {
 		oy += Math.max(swatch, 12) + 8;
 
 		int half = ow / 2;
-		g.text(font, "Fond", ox, oy + 2, Theme.FOAM, false);
+		text(g, "Fond", ox, oy + 2, Theme.FOAM, false);
 		toggle("background", g, ox + half - 34, oy, s.background, () -> s.background = !s.background);
-		g.text(font, "Ombre", ox + half, oy + 2, Theme.FOAM, false);
+		text(g, "Ombre", ox + half, oy + 2, Theme.FOAM, false);
 		toggle("shadow", g, ox + ow - 24, oy, s.shadow, () -> s.shadow = !s.shadow);
 	}
 
@@ -254,7 +257,7 @@ public class HudMenuScreen extends AloriaScreen {
 	private void drawSlider(String id, GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int y, int w, float t, DoubleConsumer setter) {
 		sliders.put(id, new Slider(x, w, setter));
 		int knob = x + Math.round(Math.clamp(t, 0, 1) * (w - 8));
-		round(g, x, y + 4, w, 4, 0xFF1B3A4B);
+		round(g, x, y + 4, w, 4, 0xC01B3A4B);
 		round(g, x, y + 4, knob - x + 4, 4, Theme.SEA);
 		boolean hover = id.equals(draggingSlider) || hovered(mouseX, mouseY, knob, y, 8, 12);
 		round(g, knob, y + 1, 8, 10, hover ? Theme.WHITE : Theme.FOAM);

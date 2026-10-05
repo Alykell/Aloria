@@ -16,6 +16,12 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.input.MouseButtonInfo;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
@@ -35,6 +41,10 @@ public final class SelfTest {
 	private static int wait;
 	private static int inWorldTicks;
 	private static int failures;
+	private static int retries;
+	private static String lastMissing = "";
+	/** Nombre de ticks d'attente maximum pour qu'une zone apparaisse (2 s) */
+	private static final int MAX_RETRIES = 40;
 
 	private SelfTest() {
 	}
@@ -79,17 +89,15 @@ public final class SelfTest {
 		return true;
 	}
 
-	/** Clique au centre d'une zone de l'écran Aloria ouvert */
+	/**
+	 * Clique au centre d'une zone de l'écran Aloria ouvert.
+	 * Renvoie faux tant que la zone n'est pas encore dessinée : l'étape sera réessayée.
+	 */
 	private static boolean click(Minecraft mc, String id) {
-		if (!(mc.gui.screen() instanceof AloriaScreen screen)) {
-			log("ÉCHEC : aucun écran Aloria ouvert pour cliquer sur " + id);
-			return false;
-		}
+		lastMissing = id;
+		if (!(mc.gui.screen() instanceof AloriaScreen screen)) return false;
 		int[] c = screen.hitCenter(id);
-		if (c == null) {
-			log("ÉCHEC : zone introuvable " + id);
-			return false;
-		}
+		if (c == null) return false;
 		return clickAt(mc, c[0], c[1]);
 	}
 
@@ -155,7 +163,10 @@ public final class SelfTest {
 		add("fond désactivé", 2, () -> click(mc, "background"));
 		add("fond appliqué", 2, () -> check("l'interrupteur Fond fonctionne", !settings("fps").background));
 		add("taille au curseur", 2, () -> {
-			if (!(mc.gui.screen() instanceof AloriaScreen screen) || screen.hitCenter("slider") == null) return check("curseur de taille présent", false);
+			if (!(mc.gui.screen() instanceof AloriaScreen screen) || screen.hitCenter("slider") == null) {
+				lastMissing = "slider";
+				return false;
+			}
 			int[] c = screen.hitCenter("slider");
 			return clickAt(mc, c[0] + 30, c[1]);
 		});
@@ -164,7 +175,10 @@ public final class SelfTest {
 			return screenshot(mc, "05-reglages-fps");
 		});
 		add("opacité au curseur", 2, () -> {
-			if (!(mc.gui.screen() instanceof AloriaScreen screen) || screen.hitCenter("opacity") == null) return check("curseur d'opacité présent", false);
+			if (!(mc.gui.screen() instanceof AloriaScreen screen) || screen.hitCenter("opacity") == null) {
+				lastMissing = "opacity";
+				return false;
+			}
 			int[] c = screen.hitCenter("opacity");
 			return clickAt(mc, c[0], c[1]);
 		});
@@ -213,6 +227,20 @@ public final class SelfTest {
 				AloriaHud.config().reset(m);
 				AloriaHud.config().get(m).enabled = !m.id().equals("speed") && !m.id().equals("clock");
 			}
+			// Monde de test uniquement : un peu d'armure et des effets pour voir les vrais modules
+			var server = mc.getSingleplayerServer();
+			if (server != null && mc.player != null) {
+				var uuid = mc.player.getUUID();
+				server.execute(() -> {
+					var player = server.getPlayerList().getPlayer(uuid);
+					if (player == null) return;
+					player.setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET));
+					player.setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.DIAMOND_CHESTPLATE));
+					player.addEffect(new MobEffectInstance(MobEffects.STRENGTH, 20 * 90, 1));
+					player.addEffect(new MobEffectInstance(MobEffects.SPEED, 20 * 45));
+					player.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 20 * 300));
+				});
+			}
 			return true;
 		});
 		add("capture HUD complet", 15, () -> screenshot(mc, "09-hud-complet"));
@@ -241,10 +269,20 @@ public final class SelfTest {
 			return;
 		}
 		Step step = STEPS.poll();
-		log("étape : " + step.name());
+		if (retries == 0) log("étape : " + step.name());
 		try {
-			step.action().getAsBoolean();
+			if (!step.action().getAsBoolean()) {
+				// Zone pas encore dessinée (jeu lent) : on réessaie au tick suivant
+				if (++retries < MAX_RETRIES) {
+					STEPS.addFirst(step);
+					return;
+				}
+				log("ÉCHEC : zone introuvable " + lastMissing);
+				failures++;
+			}
+			retries = 0;
 		} catch (Exception e) {
+			retries = 0;
 			failures++;
 			AloriaHud.LOGGER.error("[selftest] ÉCHEC (exception) à l'étape " + step.name(), e);
 		}

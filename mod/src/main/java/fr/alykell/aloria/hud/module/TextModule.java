@@ -1,6 +1,7 @@
 package fr.alykell.aloria.hud.module;
 
 import fr.alykell.aloria.hud.Draw;
+import fr.alykell.aloria.hud.Fonts;
 import fr.alykell.aloria.hud.Theme;
 import fr.alykell.aloria.hud.config.ModuleSettings;
 import net.minecraft.client.Minecraft;
@@ -31,8 +32,8 @@ public abstract class TextModule extends HudModule {
 		int max = 0;
 		for (Line line : lines(mc, preview)) {
 			int w = line.label().isEmpty()
-				? mc.font.width(line.value())
-				: mc.font.width(spaced(line)) + mc.font.width(line.value());
+				? Fonts.width(mc, line.value())
+				: Fonts.width(mc, spaced(line)) + Fonts.width(mc, line.value());
 			max = Math.max(max, w);
 		}
 		return max + PADDING * 2;
@@ -49,11 +50,11 @@ public abstract class TextModule extends HudModule {
 		int y = PADDING;
 		for (Line line : lines(mc, preview)) {
 			if (line.label().isEmpty()) {
-				g.text(mc.font, line.value(), PADDING, y, s.color, s.shadow);
+				Fonts.draw(g, mc, line.value(), PADDING, y, s.color, s.shadow);
 			} else {
 				String label = spaced(line);
-				g.text(mc.font, label, PADDING, y, s.color, s.shadow);
-				g.text(mc.font, line.value(), PADDING + mc.font.width(label), y, Theme.WHITE, s.shadow);
+				Fonts.draw(g, mc, label, PADDING, y, s.color, s.shadow);
+				Fonts.draw(g, mc, line.value(), PADDING + Fonts.width(mc, label), y, Theme.WHITE, s.shadow);
 			}
 			y += LINE_HEIGHT;
 		}

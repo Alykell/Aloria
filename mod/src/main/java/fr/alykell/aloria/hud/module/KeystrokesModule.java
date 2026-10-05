@@ -1,6 +1,7 @@
 package fr.alykell.aloria.hud.module;
 
 import fr.alykell.aloria.hud.Draw;
+import fr.alykell.aloria.hud.Fonts;
 import fr.alykell.aloria.hud.Stats;
 import fr.alykell.aloria.hud.Theme;
 import fr.alykell.aloria.hud.config.ModuleSettings;
@@ -46,7 +47,7 @@ public final class KeystrokesModule extends HudModule {
 		else Draw.roundOutline(g, x, y, w, h, Theme.withAlpha(s.color, 0x80));
 		int color = down ? Theme.SEA_DEEP : Theme.WHITE;
 		int textY = y + (h - 8) / 2;
-		g.centeredText(mc.font, label, x + w / 2, textY, color);
+		Fonts.centered(g, mc, label, x + w / 2, textY, color);
 	}
 
 	private static String name(KeyMapping key) {

@@ -1,6 +1,7 @@
 package fr.alykell.aloria.hud.module;
 
 import fr.alykell.aloria.hud.Draw;
+import fr.alykell.aloria.hud.Fonts;
 import fr.alykell.aloria.hud.config.ModuleSettings;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -82,7 +83,7 @@ public final class ArmorModule extends HudModule {
 	@Override
 	public int width(Minecraft mc, ModuleSettings s, boolean preview) {
 		int text = 0;
-		for (Slot slot : slots(mc)) text = Math.max(text, mc.font.width(label(slot.stack())));
+		for (Slot slot : slots(mc)) text = Math.max(text, Fonts.width(mc, label(slot.stack())));
 		return PAD * 2 + 16 + (text > 0 ? text + 5 : 0);
 	}
 
@@ -101,7 +102,7 @@ public final class ArmorModule extends HudModule {
 			} else {
 				g.item(slot.stack(), PAD, y);
 				String label = label(slot.stack());
-				if (!label.isEmpty()) g.text(mc.font, label, PAD + 21, y + 4, durabilityColor(slot.stack(), s.color), s.shadow);
+				if (!label.isEmpty()) Fonts.draw(g, mc, label, PAD + 21, y + 4, durabilityColor(slot.stack(), s.color), s.shadow);
 			}
 			y += ROW;
 		}

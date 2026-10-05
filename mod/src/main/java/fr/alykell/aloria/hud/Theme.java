@@ -12,10 +12,10 @@ public final class Theme {
 	public static final int CORAL = 0xFFE5534B;
 
 	/** Fond des fenêtres, cartes et bordures */
-	public static final int WINDOW = 0xF2091C27;
-	public static final int CARD = 0xFF0F2A39;
-	public static final int CARD_HOVER = 0xFF143649;
-	public static final int CARD_OFF = 0xFF0C2230;
+	public static final int WINDOW = 0xB4091C27;
+	public static final int CARD = 0xA00F2A39;
+	public static final int CARD_HOVER = 0xC0143649;
+	public static final int CARD_OFF = 0x800C2230;
 	public static final int BORDER = 0x305CC8E0;
 	public static final int BORDER_HOVER = 0x905CC8E0;
 

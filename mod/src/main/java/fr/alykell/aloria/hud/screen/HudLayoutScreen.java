@@ -80,20 +80,20 @@ public class HudLayoutScreen extends AloriaScreen {
 		if (hovered != null && dragging == null) {
 			Bounds b = bounds(hovered);
 			String name = hovered.name();
-			int tw = font.width(name) + 8;
+			int tw = w(name) + 8;
 			int ty = b.y() > 16 ? b.y() - 15 : b.y() + b.height() + 4;
 			round(g, b.x() - 2, ty, tw, 12, Theme.WINDOW);
-			g.text(font, name, b.x() + 2, ty + 2, Theme.LAGOON, false);
+			text(g, name, b.x() + 2, ty + 2, Theme.LAGOON, false);
 		}
 
 		// Barre d'outils en bas au centre, au-dessus de la barre d'objets (les modules sont rarement là)
 		String hint = "Glisser : déplacer  ·  Molette : taille  ·  Clic droit : réglages";
-		int barW = font.width(hint) + 24 + 70;
+		int barW = w(hint) + 24 + 70;
 		int bx = (width - barW) / 2;
 		int by = height - 70;
 		round(g, bx, by, barW, 22, Theme.WINDOW);
 		roundOutline(g, bx, by, barW, 22, Theme.BORDER);
-		g.text(font, hint, bx + 10, by + 7, Theme.FOAM, false);
+		text(g, hint, bx + 10, by + 7, Theme.FOAM, false);
 		button(g, mouseX, mouseY, bx + barW - 68, by + 2, 64, 18, "Terminé", true, this::onClose);
 	}
 
