@@ -1,0 +1,13 @@
+appId: fr.alykell.aloria
+productName: Aloria
+directories:
+  buildResources: resources
+  output: dist
+files:
+  - out/**
+  - package.json
+win:
+  target: nsis
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
