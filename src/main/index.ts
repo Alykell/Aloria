@@ -4,9 +4,20 @@ import { addAccount, listAccounts, removeAccount, selectAccount } from './auth/a
 import { toAuthError } from './auth/errors'
 import { getStatus, listVersions, play } from './game/controller'
 import { fabricLoaders } from './game/fabric'
+import { installContent, listInstalled, openContentFolder, removeContent, searchContent, setContentEnabled } from './modrinth/content'
 import { createProfile, deleteProfile, listProfiles, openProfileFolder, selectProfile, updateProfile } from './profiles'
 import { getSettings, systemRamMb, updateSettings } from './settings'
-import type { LoaderVersion, Profile, ProfileInput, PublicAccount, Result, Settings, VersionEntry } from '../shared/types'
+import type {
+  ContentType,
+  LoaderVersion,
+  Profile,
+  ProfileInput,
+  PublicAccount,
+  Result,
+  SearchQuery,
+  Settings,
+  VersionEntry
+} from '../shared/types'
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -87,7 +98,10 @@ const wrap = async <T>(fn: () => T | Promise<T>): Promise<Result<T>> => {
   try {
     return { ok: true, value: await fn() }
   } catch (err) {
-    return { ok: false, code: 'error', error: err instanceof Error ? err.message : String(err) }
+    // Fichier verrouillé par Windows : le plus souvent, le jeu est encore ouvert
+    const locked = ['EBUSY', 'EPERM'].includes((err as NodeJS.ErrnoException)?.code ?? '')
+    const message = locked ? 'Ferme le jeu avant de modifier ce profil.' : err instanceof Error ? err.message : String(err)
+    return { ok: false, code: 'error', error: message }
   }
 }
 
@@ -99,12 +113,39 @@ ipcMain.handle('profiles:delete', (_e, id: string, deleteFiles: boolean) => wrap
 ipcMain.handle('profiles:openFolder', (_e, id: string) => openProfileFolder(id))
 ipcMain.handle('fabric:loaders', (_e, gameVersion: string): Promise<Result<LoaderVersion[]>> => wrap(() => fabricLoaders(gameVersion)))
 
+ipcMain.handle('library:search', (_e, q: SearchQuery) => wrap(() => searchContent(q)))
+ipcMain.handle('library:installed', (_e, profileId: string) => wrap(() => listInstalled(profileId)))
+ipcMain.handle('library:install', (_e, profileId: string, projectId: string, type: ContentType) =>
+  wrap(() => installContent(profileId, projectId, type))
+)
+ipcMain.handle('library:toggle', (_e, profileId: string, type: ContentType, fileName: string, enabled: boolean) =>
+  wrap(() => setContentEnabled(profileId, type, fileName, enabled))
+)
+ipcMain.handle('library:remove', (_e, profileId: string, type: ContentType, fileName: string) =>
+  wrap(() => removeContent(profileId, type, fileName))
+)
+ipcMain.handle('library:openFolder', async (_e, profileId: string, type: ContentType) => {
+  await shell.openPath(await openContentFolder(profileId, type))
+})
+
 app.whenReady().then(() => {
   const win = createWindow()
   // Test de bout en bout en développement : lance le jeu dès l'ouverture
   if (!app.isPackaged && process.env.ALORIA_AUTOPLAY) {
-    win.webContents.once('did-finish-load', () => {
-      play(win.webContents, listProfiles().selectedId).catch((err) => console.log('[game] erreur', err))
+    win.webContents.once('did-finish-load', async () => {
+      const profileId = listProfiles().selectedId
+      try {
+        // ALORIA_TEST_INSTALL="mod:sodium,shader:complementary-reimagined" : installe avant de lancer
+        for (const item of (process.env.ALORIA_TEST_INSTALL ?? '').split(',').filter(Boolean)) {
+          const [type, slug] = item.split(':') as [ContentType, string]
+          await installContent(profileId, slug, type)
+          console.log('[game] installé', item)
+        }
+        console.log('[game] contenu', JSON.stringify(await listInstalled(profileId)))
+        await play(win.webContents, profileId)
+      } catch (err) {
+        console.log('[game] erreur', err)
+      }
     })
   }
   app.on('activate', () => {

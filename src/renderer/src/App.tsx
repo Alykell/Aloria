@@ -3,6 +3,7 @@ import TitleBar from './components/TitleBar'
 import Sidebar, { type Page } from './components/Sidebar'
 import HomePage from './components/HomePage'
 import ProfilesPage from './components/ProfilesPage'
+import LibraryPage from './components/LibraryPage'
 import SettingsPage from './components/SettingsPage'
 import CrashDialog from './components/CrashDialog'
 import { useAccounts } from './hooks/useAccounts'
@@ -60,10 +61,7 @@ export default function App() {
           )}
           {page === 'settings' && <SettingsPage state={settings} />}
           {page === 'library' && (
-            <section className="placeholder">
-              <h2>Bibliothèque</h2>
-              <p>En construction…</p>
-            </section>
+            <LibraryPage profiles={profiles} onError={setPageError} onOpenProfiles={() => setPage('profiles')} />
           )}
           <footer className="version">v{version}</footer>
         </main>

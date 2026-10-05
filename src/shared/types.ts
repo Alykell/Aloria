@@ -53,3 +53,41 @@ export interface Profile extends ProfileInput {
   createdAt: number
   lastPlayed: number | null
 }
+
+export type ContentType = 'mod' | 'resourcepack' | 'shader'
+
+export type SearchSort = 'relevance' | 'downloads' | 'newest' | 'updated'
+
+export interface SearchQuery {
+  profileId: string
+  type: ContentType
+  query: string
+  sort: SearchSort
+  offset: number
+}
+
+export interface SearchHit {
+  projectId: string
+  slug: string
+  title: string
+  author: string
+  description: string
+  downloads: number
+  iconUrl: string | null
+  categories: string[]
+}
+
+export interface InstalledContent {
+  /** Nom du fichier sans « .disabled » : sert d'identifiant */
+  fileName: string
+  type: ContentType
+  enabled: boolean
+  /** Absent pour un fichier ajouté à la main dans le dossier */
+  projectId?: string
+  versionId?: string
+  versionNumber?: string
+  title: string
+  iconUrl?: string | null
+  /** Installé automatiquement comme dépendance d'un autre contenu */
+  auto?: boolean
+}

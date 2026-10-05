@@ -1,6 +1,10 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import type {
+  ContentType,
   GameExit,
+  InstalledContent,
+  SearchHit,
+  SearchQuery,
   GameStatus,
   LoaderVersion,
   Profile,
@@ -41,6 +45,18 @@ const api = {
     select: (id: string): Promise<void> => ipcRenderer.invoke('profiles:select', id),
     remove: (id: string, deleteFiles: boolean): Promise<Result<void>> => ipcRenderer.invoke('profiles:delete', id, deleteFiles),
     openFolder: (id: string): Promise<void> => ipcRenderer.invoke('profiles:openFolder', id)
+  },
+  library: {
+    search: (q: SearchQuery): Promise<Result<{ hits: SearchHit[]; total: number; gameVersion: string }>> =>
+      ipcRenderer.invoke('library:search', q),
+    installed: (profileId: string): Promise<Result<InstalledContent[]>> => ipcRenderer.invoke('library:installed', profileId),
+    install: (profileId: string, projectId: string, type: ContentType): Promise<Result<void>> =>
+      ipcRenderer.invoke('library:install', profileId, projectId, type),
+    toggle: (profileId: string, type: ContentType, fileName: string, enabled: boolean): Promise<Result<void>> =>
+      ipcRenderer.invoke('library:toggle', profileId, type, fileName, enabled),
+    remove: (profileId: string, type: ContentType, fileName: string): Promise<Result<void>> =>
+      ipcRenderer.invoke('library:remove', profileId, type, fileName),
+    openFolder: (profileId: string, type: ContentType): Promise<void> => ipcRenderer.invoke('library:openFolder', profileId, type)
   },
   game: {
     versions: (snapshots: boolean): Promise<Result<VersionEntry[]>> => ipcRenderer.invoke('game:versions', snapshots),
