@@ -66,10 +66,10 @@ public class HudLayoutScreen extends AloriaScreen {
 			ModuleSettings s = settings(module);
 			if (!s.enabled) continue;
 			Bounds b = bounds(module);
-			if (module == hovered || module == selected) g.fill(b.x() - 2, b.y() - 2, b.x() + b.width() + 2, b.y() + b.height() + 2, 0x205CC8E0);
+			if (module == hovered || module == selected) round(g, b.x() - 2, b.y() - 2, b.width() + 4, b.height() + 4, 0x205CC8E0);
 			HudRenderer.drawModule(g, minecraft, module, s, b, true);
 			int outline = module == selected ? Theme.LAGOON : module == hovered ? 0xB0FFFFFF : 0x40FFFFFF;
-			g.outline(b.x() - 2, b.y() - 2, b.width() + 4, b.height() + 4, outline);
+			roundOutline(g, b.x() - 2, b.y() - 2, b.width() + 4, b.height() + 4, outline);
 		}
 
 		for (int[] guide : guides) {

@@ -1,22 +1,37 @@
 package fr.alykell.aloria.hud.module;
 
-import fr.alykell.aloria.hud.Theme;
+import fr.alykell.aloria.hud.Draw;
 import fr.alykell.aloria.hud.config.ModuleSettings;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
 
-/** Armure portée et objet en main, avec la durabilité restante. */
+/**
+ * Armure portée et objet en main, avec la durabilité restante.
+ * Les emplacements vides restent visibles (silhouette pâle), comme dans l'inventaire.
+ */
 public final class ArmorModule extends HudModule {
-	private static final EquipmentSlot[] SLOTS = {
-		EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET, EquipmentSlot.MAINHAND
+	private record Slot(ItemStack stack, @Nullable Identifier emptySprite) {
+	}
+
+	private static final EquipmentSlot[] ARMOR = {EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET};
+	private static final Identifier[] EMPTY = {
+		InventoryMenu.EMPTY_ARMOR_SLOT_HELMET,
+		InventoryMenu.EMPTY_ARMOR_SLOT_CHESTPLATE,
+		InventoryMenu.EMPTY_ARMOR_SLOT_LEGGINGS,
+		InventoryMenu.EMPTY_ARMOR_SLOT_BOOTS
 	};
 	private static final int ROW = 17;
+	private static final int PAD = 3;
 
 	public ArmorModule() {
 		super("armor", "Armure");
@@ -27,25 +42,30 @@ public final class ArmorModule extends HudModule {
 		return new ModuleSettings(false, 1f, 0.45f);
 	}
 
-	private static List<ItemStack> items(Minecraft mc, boolean preview) {
-		List<ItemStack> list = new ArrayList<>();
-		if (mc.player != null) {
-			for (EquipmentSlot slot : SLOTS) {
-				ItemStack stack = mc.player.getItemBySlot(slot);
-				if (!stack.isEmpty()) list.add(stack);
-			}
+	@Override
+	public String category() {
+		return "pvp";
+	}
+
+	private static List<Slot> slots(Minecraft mc) {
+		List<Slot> list = new ArrayList<>();
+		if (mc.player == null) {
+			// Pas de joueur (aperçu hors partie) : exemple en diamant
+			list.add(new Slot(new ItemStack(Items.DIAMOND_HELMET), EMPTY[0]));
+			list.add(new Slot(new ItemStack(Items.DIAMOND_CHESTPLATE), EMPTY[1]));
+			list.add(new Slot(new ItemStack(Items.DIAMOND_LEGGINGS), EMPTY[2]));
+			list.add(new Slot(new ItemStack(Items.DIAMOND_BOOTS), EMPTY[3]));
+			list.add(new Slot(new ItemStack(Items.DIAMOND_SWORD), null));
+			return list;
 		}
-		if (list.isEmpty() && preview) {
-			list.add(new ItemStack(Items.DIAMOND_HELMET));
-			list.add(new ItemStack(Items.DIAMOND_CHESTPLATE));
-			list.add(new ItemStack(Items.DIAMOND_LEGGINGS));
-			list.add(new ItemStack(Items.DIAMOND_BOOTS));
-			list.add(new ItemStack(Items.DIAMOND_SWORD));
-		}
+		for (int i = 0; i < ARMOR.length; i++) list.add(new Slot(mc.player.getItemBySlot(ARMOR[i]), EMPTY[i]));
+		ItemStack hand = mc.player.getMainHandItem();
+		if (!hand.isEmpty()) list.add(new Slot(hand, null));
 		return list;
 	}
 
 	private static String label(ItemStack stack) {
+		if (stack.isEmpty()) return "";
 		if (stack.isDamageableItem()) return String.valueOf(stack.getMaxDamage() - stack.getDamageValue());
 		return stack.getCount() > 1 ? String.valueOf(stack.getCount()) : "";
 	}
@@ -60,35 +80,29 @@ public final class ArmorModule extends HudModule {
 	}
 
 	@Override
-	public String category() {
-		return "pvp";
-	}
-
-	@Override
-	public boolean hasContent(Minecraft mc) {
-		return !items(mc, false).isEmpty();
-	}
-
-	@Override
 	public int width(Minecraft mc, ModuleSettings s, boolean preview) {
 		int text = 0;
-		for (ItemStack stack : items(mc, preview)) text = Math.max(text, mc.font.width(label(stack)));
-		return 16 + (text > 0 ? text + 6 : 0) + 4;
+		for (Slot slot : slots(mc)) text = Math.max(text, mc.font.width(label(slot.stack())));
+		return PAD * 2 + 16 + (text > 0 ? text + 5 : 0);
 	}
 
 	@Override
 	public int height(Minecraft mc, ModuleSettings s, boolean preview) {
-		return Math.max(1, items(mc, preview).size()) * ROW + 3;
+		return slots(mc).size() * ROW - 1 + PAD * 2;
 	}
 
 	@Override
 	public void draw(GuiGraphicsExtractor g, Minecraft mc, ModuleSettings s, boolean preview) {
-		if (s.background) g.fill(0, 0, width(mc, s, preview), height(mc, s, preview), Theme.HUD_BG);
-		int y = 2;
-		for (ItemStack stack : items(mc, preview)) {
-			g.item(stack, 2, y);
-			String label = label(stack);
-			if (!label.isEmpty()) g.text(mc.font, label, 22, y + 4, durabilityColor(stack, s.color), s.shadow);
+		if (s.background) Draw.glass(g, 0, 0, width(mc, s, preview), height(mc, s, preview), s.opacity);
+		int y = PAD;
+		for (Slot slot : slots(mc)) {
+			if (slot.stack().isEmpty()) {
+				if (slot.emptySprite() != null) g.blitSprite(RenderPipelines.GUI_TEXTURED, slot.emptySprite(), PAD, y, 16, 16, 0.45f);
+			} else {
+				g.item(slot.stack(), PAD, y);
+				String label = label(slot.stack());
+				if (!label.isEmpty()) g.text(mc.font, label, PAD + 21, y + 4, durabilityColor(slot.stack(), s.color), s.shadow);
+			}
 			y += ROW;
 		}
 	}

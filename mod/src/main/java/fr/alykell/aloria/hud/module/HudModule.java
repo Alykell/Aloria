@@ -27,6 +27,11 @@ public abstract class HudModule {
 		return "info";
 	}
 
+	/** Précision affichée dans les réglages (ex. quand le module est masqué), ou null */
+	public @org.jspecify.annotations.Nullable String hint() {
+		return null;
+	}
+
 	/** Réglages par défaut (actif ou non, position) à la première utilisation */
 	public abstract ModuleSettings defaults();
 

@@ -11,7 +11,10 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import org.jspecify.annotations.Nullable;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.DoubleConsumer;
 
 /** Menu des modules, façon Lunar : une carte par module avec aperçu, réglages et activation. */
 public class HudMenuScreen extends AloriaScreen {
@@ -23,7 +26,6 @@ public class HudMenuScreen extends AloriaScreen {
 
 	private String tab = "all";
 	private @Nullable HudModule editing;
-	private boolean draggingSlider;
 	private int scroll;
 
 	public HudMenuScreen(@Nullable Screen parent) {
@@ -183,6 +185,7 @@ public class HudMenuScreen extends AloriaScreen {
 		ModuleSettings s = settings(module);
 		button(g, mouseX, mouseY, x + PAD, y + PAD, 70, 18, "← Retour", false, () -> editing = null);
 		g.text(font, bold(module.name()), x + PAD + 80, y + PAD + 5, Theme.WHITE, false);
+		String hint = module.hint();
 		toggle("enabled", g, x + w - PAD - 24, y + PAD + 3, s.enabled, () -> s.enabled = !s.enabled);
 		String state = s.enabled ? "Activé" : "Désactivé";
 		int stateX = x + w - PAD - 30 - font.width(state);
@@ -197,68 +200,79 @@ public class HudMenuScreen extends AloriaScreen {
 		round(g, x + PAD, top, previewW, previewH, 0xFF0B2130);
 		roundOutline(g, x + PAD, top, previewW, previewH, Theme.BORDER);
 		drawPreview(g, module, s, x + PAD + 8, top + 8, previewW - 16, previewH - 16);
+		if (hint != null) g.centeredText(font, hint, x + PAD + previewW / 2, top + previewH - 12, Theme.TEXT_SOFT);
 
-		// Options à droite
+		// Options à droite, une ligne par réglage
 		int ox = x + PAD * 2 + previewW;
 		int ow = x + w - PAD - ox;
 		int oy = top + 2;
+		int labelW = 56;
+		int cx = ox + labelW;
+		int cw = ow - labelW;
 
-		g.text(font, "Taille", ox, oy, Theme.FOAM, false);
-		g.text(font, String.format("%.1fx", s.scale), ox + ow - font.width(String.format("%.1fx", s.scale)), oy, Theme.LAGOON, false);
-		oy += 14;
-		drawSlider(g, mouseX, mouseY, ox, oy, ow, s);
+		g.text(font, "Taille", ox, oy + 2, Theme.FOAM, false);
+		drawSlider("slider", g, mouseX, mouseY, cx, oy, cw - 32, (s.scale - 0.5f) / 2.5f,
+			t -> s.scale = Math.round((0.5 + t * 2.5) * 10) / 10f);
+		g.text(font, String.format("%.1fx", s.scale), ox + ow - 26, oy + 2, Theme.LAGOON, false);
 		oy += 20;
 
-		g.text(font, "Couleur", ox, oy, Theme.FOAM, false);
-		oy += 13;
-		int sx = ox;
-		int swatch = Math.min(16, (ow - 7 * 6) / 8);
+		g.text(font, "Opacité", ox, oy + 2, s.background ? Theme.FOAM : Theme.TEXT_SOFT, false);
+		drawSlider("opacity", g, mouseX, mouseY, cx, oy, cw - 32, s.opacity / 100f, t -> s.opacity = (int) Math.round(t * 20) * 5);
+		g.text(font, s.opacity + "%", ox + ow - 26, oy + 2, Theme.LAGOON, false);
+		oy += 20;
+
+		g.text(font, "Couleur", ox, oy + 3, Theme.FOAM, false);
+		int swatch = Math.max(8, Math.min(14, (cw - 7 * 4) / 8));
+		int sx = cx;
 		for (int i = 0; i < Theme.PALETTE.length; i++) {
 			int color = Theme.PALETTE[i];
 			round(g, sx, oy, swatch, swatch, color);
 			if (s.color == color) roundOutline(g, sx - 2, oy - 2, swatch + 4, swatch + 4, Theme.WHITE);
 			int c = color;
 			onClick("color:" + i, sx, oy, swatch, swatch, () -> s.color = c);
-			sx += swatch + 6;
+			sx += swatch + 4;
 		}
-		oy += swatch + 14;
+		oy += Math.max(swatch, 12) + 8;
 
+		int half = ow / 2;
 		g.text(font, "Fond", ox, oy + 2, Theme.FOAM, false);
-		toggle("background", g, ox + ow - 24, oy, s.background, () -> s.background = !s.background);
-		oy += 20;
-		g.text(font, "Ombre du texte", ox, oy + 2, Theme.FOAM, false);
+		toggle("background", g, ox + half - 34, oy, s.background, () -> s.background = !s.background);
+		g.text(font, "Ombre", ox + half, oy + 2, Theme.FOAM, false);
 		toggle("shadow", g, ox + ow - 24, oy, s.shadow, () -> s.shadow = !s.shadow);
-
 	}
 
-	// Curseur de taille, de 0,5x à 3x
-	private int sliderX;
-	private int sliderW;
+	// ---------------------------------------------------------------- curseurs
 
-	private void drawSlider(GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int y, int w, ModuleSettings s) {
-		sliderX = x;
-		sliderW = w;
-		float t = (s.scale - 0.5f) / 2.5f;
-		int knob = x + Math.round(t * (w - 8));
-		round(g, x, y + 3, w, 4, 0xFF1B3A4B);
-		round(g, x, y + 3, knob - x + 4, 4, Theme.SEA);
-		boolean hover = draggingSlider || hovered(mouseX, mouseY, knob, y, 8, 10);
-		round(g, knob, y, 8, 10, hover ? Theme.WHITE : Theme.FOAM);
-		onClick("slider", x, y - 3, w, 16, () -> {
-			draggingSlider = true;
-			setSlider(mouseX);
+	/** Position des curseurs dessinés, pour les suivre pendant le glisser */
+	private record Slider(int x, int w, DoubleConsumer setter) {
+	}
+
+	private final Map<String, Slider> sliders = new HashMap<>();
+	private @Nullable String draggingSlider;
+
+	/** Curseur horizontal ; t est la valeur entre 0 et 1 */
+	private void drawSlider(String id, GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int y, int w, float t, DoubleConsumer setter) {
+		sliders.put(id, new Slider(x, w, setter));
+		int knob = x + Math.round(Math.clamp(t, 0, 1) * (w - 8));
+		round(g, x, y + 4, w, 4, 0xFF1B3A4B);
+		round(g, x, y + 4, knob - x + 4, 4, Theme.SEA);
+		boolean hover = id.equals(draggingSlider) || hovered(mouseX, mouseY, knob, y, 8, 12);
+		round(g, knob, y + 1, 8, 10, hover ? Theme.WHITE : Theme.FOAM);
+		onClick(id, x, y - 2, w, 16, () -> {
+			draggingSlider = id;
+			setSlider(lastClickX);
 		});
 	}
 
 	private void setSlider(double mouseX) {
-		if (editing == null || sliderW <= 8) return;
-		float t = (float) Math.clamp((mouseX - sliderX - 4) / (sliderW - 8), 0, 1);
-		settings(editing).scale = Math.round((0.5f + t * 2.5f) * 10) / 10f;
+		Slider slider = draggingSlider == null ? null : sliders.get(draggingSlider);
+		if (slider == null || slider.w() <= 8) return;
+		slider.setter().accept(Math.clamp((mouseX - slider.x() - 4) / (slider.w() - 8), 0, 1));
 	}
 
 	@Override
 	public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
-		if (draggingSlider) {
+		if (draggingSlider != null) {
 			setSlider(event.x());
 			return true;
 		}
@@ -267,7 +281,7 @@ public class HudMenuScreen extends AloriaScreen {
 
 	@Override
 	public boolean mouseReleased(MouseButtonEvent event) {
-		draggingSlider = false;
+		draggingSlider = null;
 		return true;
 	}
 

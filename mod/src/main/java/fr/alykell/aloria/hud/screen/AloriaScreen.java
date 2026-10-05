@@ -1,6 +1,7 @@
 package fr.alykell.aloria.hud.screen;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import fr.alykell.aloria.hud.Draw;
 import fr.alykell.aloria.hud.Theme;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -20,6 +21,8 @@ public abstract class AloriaScreen extends Screen {
 	protected final @Nullable Screen parent;
 	private final List<Hit> hits = new ArrayList<>();
 	private final List<Hit> pending = new ArrayList<>();
+	/** Position du clic en cours, pour les actions qui en dépendent (curseurs) */
+	protected double lastClickX;
 
 	/** id : nom stable de la zone, utilisé par l'auto-test */
 	protected record Hit(String id, int x, int y, int w, int h, Runnable action) {
@@ -74,6 +77,7 @@ public abstract class AloriaScreen extends Screen {
 			for (int i = hits.size() - 1; i >= 0; i--) {
 				Hit hit = hits.get(i);
 				if (hit.contains(event.x(), event.y())) {
+					lastClickX = event.x();
 					hit.action().run();
 					return true;
 				}
@@ -107,25 +111,12 @@ public abstract class AloriaScreen extends Screen {
 		return mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h;
 	}
 
-	/** Rectangle aux coins arrondis (rayon 2 px) */
 	protected static void round(GuiGraphicsExtractor g, int x, int y, int w, int h, int color) {
-		g.fill(x + 2, y, x + w - 2, y + h, color);
-		g.fill(x + 1, y + 1, x + 2, y + h - 1, color);
-		g.fill(x + w - 2, y + 1, x + w - 1, y + h - 1, color);
-		g.fill(x, y + 2, x + 1, y + h - 2, color);
-		g.fill(x + w - 1, y + 2, x + w, y + h - 2, color);
+		Draw.round(g, x, y, w, h, color);
 	}
 
-	/** Contour arrondi d'un pixel */
 	protected static void roundOutline(GuiGraphicsExtractor g, int x, int y, int w, int h, int color) {
-		g.horizontalLine(x + 2, x + w - 3, y, color);
-		g.horizontalLine(x + 2, x + w - 3, y + h - 1, color);
-		g.verticalLine(x, y + 2, y + h - 3, color);
-		g.verticalLine(x + w - 1, y + 2, y + h - 3, color);
-		g.fill(x + 1, y + 1, x + 2, y + 2, color);
-		g.fill(x + w - 2, y + 1, x + w - 1, y + 2, color);
-		g.fill(x + 1, y + h - 2, x + 2, y + h - 1, color);
-		g.fill(x + w - 2, y + h - 2, x + w - 1, y + h - 1, color);
+		Draw.roundOutline(g, x, y, w, h, color);
 	}
 
 	protected static Component bold(String text) {

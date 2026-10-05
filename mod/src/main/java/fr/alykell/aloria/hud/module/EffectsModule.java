@@ -27,6 +27,11 @@ public final class EffectsModule extends TextModule {
 	}
 
 	@Override
+	public String hint() {
+		return "Visible quand un effet est actif";
+	}
+
+	@Override
 	public String category() {
 		return "pvp";
 	}

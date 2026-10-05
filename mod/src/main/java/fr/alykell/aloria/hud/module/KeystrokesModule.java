@@ -1,5 +1,6 @@
 package fr.alykell.aloria.hud.module;
 
+import fr.alykell.aloria.hud.Draw;
 import fr.alykell.aloria.hud.Stats;
 import fr.alykell.aloria.hud.Theme;
 import fr.alykell.aloria.hud.config.ModuleSettings;
@@ -40,9 +41,9 @@ public final class KeystrokesModule extends HudModule {
 	}
 
 	private static void key(GuiGraphicsExtractor g, Minecraft mc, ModuleSettings s, int x, int y, int w, int h, String label, boolean down) {
-		int bg = down ? Theme.withAlpha(s.color, 0xD0) : (s.background ? Theme.HUD_BG : 0x00000000);
-		g.fill(x, y, x + w, y + h, bg);
-		if (!s.background && !down) g.outline(x, y, w, h, Theme.withAlpha(s.color, 0x80));
+		if (down) Draw.round(g, x, y, w, h, Theme.withAlpha(s.color, 0xC8));
+		else if (s.background) Draw.glass(g, x, y, w, h, s.opacity);
+		else Draw.roundOutline(g, x, y, w, h, Theme.withAlpha(s.color, 0x80));
 		int color = down ? Theme.SEA_DEEP : Theme.WHITE;
 		int textY = y + (h - 8) / 2;
 		g.centeredText(mc.font, label, x + w / 2, textY, color);
@@ -67,9 +68,9 @@ public final class KeystrokesModule extends HudModule {
 		key(g, mc, s, 0, row3, MOUSE_W, KEY, Stats.leftCps() + " CPS", o.keyAttack.isDown());
 		key(g, mc, s, WIDTH - MOUSE_W, row3, MOUSE_W, KEY, Stats.rightCps() + " CPS", o.keyUse.isDown());
 
-		int spaceBg = o.keyJump.isDown() ? Theme.withAlpha(s.color, 0xD0) : (s.background ? Theme.HUD_BG : 0x00000000);
-		g.fill(0, row4, WIDTH, row4 + SPACE_H, spaceBg);
-		if (!s.background && !o.keyJump.isDown()) g.outline(0, row4, WIDTH, SPACE_H, Theme.withAlpha(s.color, 0x80));
+		if (o.keyJump.isDown()) Draw.round(g, 0, row4, WIDTH, SPACE_H, Theme.withAlpha(s.color, 0xC8));
+		else if (s.background) Draw.glass(g, 0, row4, WIDTH, SPACE_H, s.opacity);
+		else Draw.roundOutline(g, 0, row4, WIDTH, SPACE_H, Theme.withAlpha(s.color, 0x80));
 		int barColor = o.keyJump.isDown() ? Theme.SEA_DEEP : Theme.WHITE;
 		g.horizontalLine(WIDTH / 2 - 12, WIDTH / 2 + 12, row4 + SPACE_H / 2, barColor);
 	}

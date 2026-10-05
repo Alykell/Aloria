@@ -10,6 +10,8 @@ public class ModuleSettings {
 	public int color = 0xFF5CC8E0;
 	public boolean background = true;
 	public boolean shadow = true;
+	/** Opacité du fond, en pourcentage */
+	public int opacity = 35;
 
 	public ModuleSettings() {
 	}

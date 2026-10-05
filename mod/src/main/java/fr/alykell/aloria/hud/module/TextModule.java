@@ -1,5 +1,6 @@
 package fr.alykell.aloria.hud.module;
 
+import fr.alykell.aloria.hud.Draw;
 import fr.alykell.aloria.hud.Theme;
 import fr.alykell.aloria.hud.config.ModuleSettings;
 import net.minecraft.client.Minecraft;
@@ -44,9 +45,7 @@ public abstract class TextModule extends HudModule {
 
 	@Override
 	public void draw(GuiGraphicsExtractor g, Minecraft mc, ModuleSettings s, boolean preview) {
-		if (s.background) {
-			g.fill(0, 0, width(mc, s, preview), height(mc, s, preview), Theme.HUD_BG);
-		}
+		if (s.background) Draw.glass(g, 0, 0, width(mc, s, preview), height(mc, s, preview), s.opacity);
 		int y = PADDING;
 		for (Line line : lines(mc, preview)) {
 			if (line.label().isEmpty()) {

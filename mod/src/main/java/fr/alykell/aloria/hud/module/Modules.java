@@ -57,7 +57,7 @@ public final class Modules {
 
 		@Override
 		public ModuleSettings defaults() {
-			return new ModuleSettings(false, 1f, 0.06f);
+			return new ModuleSettings(false, 1f, 0.085f);
 		}
 
 		@Override
@@ -126,7 +126,7 @@ public final class Modules {
 
 		@Override
 		public ModuleSettings defaults() {
-			return new ModuleSettings(false, 1f, 0.11f);
+			return new ModuleSettings(false, 1f, 0.17f);
 		}
 
 		@Override

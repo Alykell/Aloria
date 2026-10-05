@@ -163,6 +163,12 @@ public final class SelfTest {
 			check("le curseur change la taille", settings("fps").scale > 1.0f);
 			return screenshot(mc, "05-reglages-fps");
 		});
+		add("opacité au curseur", 2, () -> {
+			if (!(mc.gui.screen() instanceof AloriaScreen screen) || screen.hitCenter("opacity") == null) return check("curseur d'opacité présent", false);
+			int[] c = screen.hitCenter("opacity");
+			return clickAt(mc, c[0], c[1]);
+		});
+		add("opacité appliquée", 2, () -> check("le curseur d'opacité fonctionne (" + settings("fps").opacity + "%)", Math.abs(settings("fps").opacity - 50) <= 5));
 		add("retour à la grille", 2, () -> click(mc, "btn:← Retour"));
 		add("ouvrir la disposition", 3, () -> click(mc, "btn:✥ Disposition"));
 		add("écran de disposition", 5, () -> {
@@ -202,6 +208,14 @@ public final class SelfTest {
 			return true;
 		});
 		add("capture finale", 15, () -> screenshot(mc, "08-hud-final"));
+		add("HUD complet (style)", 2, () -> {
+			for (HudModule m : AloriaHud.modules()) {
+				AloriaHud.config().reset(m);
+				AloriaHud.config().get(m).enabled = !m.id().equals("speed") && !m.id().equals("clock");
+			}
+			return true;
+		});
+		add("capture HUD complet", 15, () -> screenshot(mc, "09-hud-complet"));
 		add("fin", 20, () -> {
 			log(failures == 0 ? "TERMINÉ : tout est OK" : "TERMINÉ : " + failures + " échec(s)");
 			mc.stop();
