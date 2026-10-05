@@ -1,5 +1,8 @@
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import { join } from 'node:path'
+import { addAccount, listAccounts, removeAccount, selectAccount } from './auth/accounts'
+import { toAuthError } from './auth/errors'
+import type { PublicAccount, Result } from '../shared/types'
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -43,6 +46,18 @@ ipcMain.on('window:maximize', (e) => {
 })
 ipcMain.on('window:close', (e) => BrowserWindow.fromWebContents(e.sender)?.close())
 ipcMain.handle('app:version', () => app.getVersion())
+
+ipcMain.handle('accounts:list', () => listAccounts())
+ipcMain.handle('accounts:add', async (e): Promise<Result<PublicAccount>> => {
+  try {
+    return { ok: true, value: await addAccount(BrowserWindow.fromWebContents(e.sender)) }
+  } catch (err) {
+    const { code, message } = toAuthError(err)
+    return { ok: false, code, error: message }
+  }
+})
+ipcMain.handle('accounts:select', (_e, uuid: string) => selectAccount(uuid))
+ipcMain.handle('accounts:remove', (_e, uuid: string) => removeAccount(uuid))
 
 app.whenReady().then(() => {
   createWindow()

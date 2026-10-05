@@ -1,3 +1,6 @@
+import AccountPanel from './AccountPanel'
+import type { AccountsState } from '../hooks/useAccounts'
+
 export type Page = 'home' | 'library' | 'profiles' | 'settings'
 
 const ITEMS: { id: Page; label: string; icon: string }[] = [
@@ -7,7 +10,13 @@ const ITEMS: { id: Page; label: string; icon: string }[] = [
   { id: 'settings', label: 'Paramètres', icon: '⚙️' }
 ]
 
-export default function Sidebar({ page, onChange }: { page: Page; onChange: (p: Page) => void }) {
+interface Props {
+  page: Page
+  onChange: (p: Page) => void
+  accounts: AccountsState
+}
+
+export default function Sidebar({ page, onChange, accounts }: Props) {
   return (
     <nav className="sidebar">
       <div className="sidebar__logo">
@@ -24,6 +33,8 @@ export default function Sidebar({ page, onChange }: { page: Page; onChange: (p: 
           {it.label}
         </button>
       ))}
+      <div className="sidebar__spacer" />
+      <AccountPanel state={accounts} />
     </nav>
   )
 }
