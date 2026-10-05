@@ -38,7 +38,8 @@ export async function listVersions(includeSnapshots: boolean): Promise<VersionEn
 
 /**
  * Installe puis lance un profil.
- * Sans compte, uniquement en développement : lancement en mode démo officiel pour tester.
+ * Il faut un compte Microsoft qui possède Minecraft. Seule exception : les tests automatiques en
+ * développement (ALORIA_TEST_DEMO=1) lancent la démo officielle, sans compte.
  */
 export async function play(sender: WebContents, profileId: string): Promise<void> {
   if (status.state !== 'idle') throw new Error('Le jeu est déjà en cours de lancement.')
@@ -48,7 +49,8 @@ export async function play(sender: WebContents, profileId: string): Promise<void
     const settings = getSettings()
     const profile = getProfile(profileId)
     const { active } = listAccounts()
-    if (!active && app.isPackaged) throw new Error('Connecte-toi avec ton compte Microsoft pour jouer.')
+    const testDemo = !app.isPackaged && process.env.ALORIA_TEST_DEMO === '1'
+    if (!active && !testDemo) throw new Error('Connecte-toi avec ton compte Microsoft pour jouer.')
 
     setStatus({ state: 'preparing', label: 'Préparation de la version…' })
     const player = active

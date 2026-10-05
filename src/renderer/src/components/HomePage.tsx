@@ -11,8 +11,7 @@ interface Props {
 }
 
 export default function HomePage({ accounts, profiles, game }: Props) {
-  // En développement, on peut tester le lancement en mode démo sans compte
-  const canPlay = !!accounts.active || import.meta.env.DEV
+  const canPlay = !!accounts.active
   const selected = profiles.selected
 
   return (
@@ -36,7 +35,6 @@ export default function HomePage({ accounts, profiles, game }: Props) {
               ))}
             </select>
           )}
-          {!accounts.active && <small>Mode démo (test en développement) : connecte-toi pour jouer normalement</small>}
         </>
       ) : (
         <>

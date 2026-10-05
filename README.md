@@ -12,10 +12,17 @@
 |---|---|
 | Connexion avec un compte Microsoft (Microsoft → Xbox Live → Minecraft), plusieurs comptes | ✅ |
 | Vérification que le compte possède Minecraft Java | ✅ |
-| Téléchargement du jeu depuis les serveurs officiels de Mojang + Java automatique | 🚧 |
-| Profils (version, RAM, dossier) et support de Fabric | 🚧 |
-| Bibliothèque de mods, resource packs et shaders via [Modrinth](https://modrinth.com) | 🚧 |
-| Installeur Windows et mises à jour automatiques | 🚧 |
+| Téléchargement du jeu depuis les serveurs officiels de Mojang + Java automatique | ✅ |
+| Profils (version, RAM, dossier) et support de Fabric | ✅ |
+| Bibliothèque de mods, resource packs et shaders via [Modrinth](https://modrinth.com), dépendances automatiques | ✅ |
+| **Aloria HUD** : FPS, CPS, coordonnées, touches, armure, effets… personnalisables en jeu (Échap ou Maj droite) | ✅ |
+| Installeur Windows et mises à jour automatiques | ✅ |
+
+## Installation
+
+Télécharge `Aloria-Setup-x.y.z.exe` dans les [Releases](https://github.com/Alykell/Aloria/releases/latest) et lance-le.
+L'installeur n'est pas signé : si Windows SmartScreen s'affiche, clique sur **Informations complémentaires** puis **Exécuter quand même**.
+Il faut un compte Microsoft qui possède **Minecraft: Java Edition**.
 
 ## Authentification / Authentication
 

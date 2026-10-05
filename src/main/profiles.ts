@@ -1,4 +1,4 @@
-import { shell } from 'electron'
+import { app, shell } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
@@ -46,8 +46,15 @@ function save(store: Store): void {
 
 export const gameDirOf = (id: string) => join(paths.instances, id)
 
+/** Profil réservé aux tests automatiques en développement, masqué dans la version installée */
+const TEST_PROFILE = 'selftest'
+
 export function listProfiles(): Store {
-  return load()
+  const store = load()
+  if (!app.isPackaged) return store
+  const profiles = store.profiles.filter((p) => p.id !== TEST_PROFILE)
+  const selectedId = store.selectedId === TEST_PROFILE ? profiles[0]?.id ?? store.selectedId : store.selectedId
+  return { selectedId, profiles }
 }
 
 export function getProfile(id: string): Profile {
