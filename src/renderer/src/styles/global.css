@@ -184,3 +184,63 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 }
 .toast button { opacity: 0.7; }
 .toast button:hover { opacity: 1; }
+
+/* Lancement */
+.version-select {
+  margin-top: 4px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(26, 155, 199, 0.35);
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.progress { margin-top: 18px; width: min(460px, 100%); display: flex; flex-direction: column; gap: 8px; }
+.progress__label { display: flex; justify-content: space-between; color: var(--sea-deep); }
+.progress small { color: var(--text-soft); }
+.progress__bar { height: 14px; border-radius: 999px; background: rgba(26, 155, 199, 0.15); overflow: hidden; }
+.progress__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--sea), var(--lagoon));
+  transition: width 0.25s ease-out;
+}
+.progress__bar.indeterminate .progress__fill { width: 35%; animation: tide 1.4s ease-in-out infinite; }
+@keyframes tide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+
+/* Pages */
+.page { max-width: 720px; display: flex; flex-direction: column; gap: 14px; }
+.page h2 { font-family: 'Quicksand', sans-serif; color: var(--sea-deep); font-size: 28px; margin-bottom: 6px; }
+.card { background: var(--card); border-radius: var(--radius); padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; }
+.card__row { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.card__row p { color: var(--text-soft); font-size: 14px; margin-top: 2px; }
+.toggle { cursor: pointer; }
+.toggle input { width: 20px; height: 20px; accent-color: var(--sea); cursor: pointer; }
+.slider { width: 100%; accent-color: var(--sea); cursor: pointer; }
+.secondary, .primary { padding: 9px 18px; border-radius: 10px; font-weight: 700; white-space: nowrap; }
+.secondary { background: rgba(26, 155, 199, 0.12); color: var(--sea-deep); }
+.secondary:hover { background: rgba(26, 155, 199, 0.22); }
+.primary { background: var(--sea); color: white; }
+.primary:hover { background: var(--sea-deep); }
+
+/* Fenêtre de crash */
+.overlay { position: fixed; inset: 0; background: rgba(13, 58, 79, 0.35); display: grid; place-items: center; z-index: 20; }
+.dialog { width: min(720px, 90vw); background: white; border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 12px; }
+.dialog h3 { font-family: 'Quicksand', sans-serif; color: var(--sea-deep); }
+.dialog pre {
+  max-height: 300px;
+  overflow: auto;
+  padding: 12px;
+  border-radius: 10px;
+  background: #0d2a38;
+  color: #cfeaf3;
+  font-size: 12px;
+  user-select: text;
+  white-space: pre-wrap;
+}
+.dialog__actions { display: flex; justify-content: flex-end; gap: 10px; }

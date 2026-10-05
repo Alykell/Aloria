@@ -9,6 +9,7 @@ interface StoredAccount extends PublicAccount {
   msRefreshToken: string
   mcAccessToken: string
   mcExpiresAt: number
+  xuid?: string
 }
 
 interface Store {
@@ -52,7 +53,8 @@ export async function addAccount(parent: BrowserWindow | null): Promise<PublicAc
     name: mc.name,
     msRefreshToken: ms.refreshToken,
     mcAccessToken: mc.accessToken,
-    mcExpiresAt: mc.expiresAt
+    mcExpiresAt: mc.expiresAt,
+    xuid: mc.xuid
   }
   const store = load()
   store.accounts = [...store.accounts.filter((a) => a.uuid !== account.uuid), account]
@@ -77,7 +79,7 @@ export function removeAccount(uuid: string): void {
 }
 
 /** Renvoie un jeton Minecraft valide pour le compte, en le rafraîchissant si besoin (utilisé au lancement du jeu). */
-export async function getValidSession(uuid: string): Promise<{ uuid: string; name: string; accessToken: string }> {
+export async function getValidSession(uuid: string): Promise<{ uuid: string; name: string; accessToken: string; xuid: string }> {
   const store = load()
   const account = store.accounts.find((a) => a.uuid === uuid)
   if (!account) throw new Error('Compte introuvable.')
@@ -89,9 +91,10 @@ export async function getValidSession(uuid: string): Promise<{ uuid: string; nam
       name: mc.name,
       msRefreshToken: ms.refreshToken ?? account.msRefreshToken,
       mcAccessToken: mc.accessToken,
-      mcExpiresAt: mc.expiresAt
+      mcExpiresAt: mc.expiresAt,
+      xuid: mc.xuid
     })
     save(store)
   }
-  return { uuid: account.uuid, name: account.name, accessToken: account.mcAccessToken }
+  return { uuid: account.uuid, name: account.name, accessToken: account.mcAccessToken, xuid: account.xuid ?? '0' }
 }

@@ -5,6 +5,7 @@ export interface MinecraftSession {
   name: string
   accessToken: string
   expiresAt: number
+  xuid: string
 }
 
 const JSON_HEADERS = { 'Content-Type': 'application/json', Accept: 'application/json' }
@@ -38,8 +39,8 @@ async function xboxLive(msAccessToken: string): Promise<{ token: string; uhs: st
   return { token: json.Token, uhs: json.DisplayClaims.xui[0].uhs }
 }
 
-async function xsts(xblToken: string): Promise<string> {
-  const { res, json } = await postJson<{ Token: string; XErr?: number }>('https://xsts.auth.xboxlive.com/xsts/authorize', {
+async function xsts(xblToken: string): Promise<{ token: string; xuid: string }> {
+  const { res, json } = await postJson<{ Token: string; XErr?: number; DisplayClaims?: { xui: { xid?: string }[] } }>('https://xsts.auth.xboxlive.com/xsts/authorize', {
     Properties: { SandboxId: 'RETAIL', UserTokens: [xblToken] },
     RelyingParty: 'rp://api.minecraftservices.com/',
     TokenType: 'JWT'
@@ -49,7 +50,7 @@ async function xsts(xblToken: string): Promise<string> {
     if (known) throw new AuthError(known[0], known[1])
     throw new AuthError('xbox', `Échec de l'autorisation Xbox (${res.status}).`)
   }
-  return json.Token
+  return { token: json.Token, xuid: json.DisplayClaims?.xui[0]?.xid ?? '0' }
 }
 
 async function minecraftLogin(uhs: string, xstsToken: string): Promise<{ token: string; expiresIn: number }> {
@@ -76,8 +77,8 @@ async function getJson<T>(url: string, token: string): Promise<{ res: Response; 
 /** Chaîne complète : jeton Microsoft → Xbox Live → XSTS → Minecraft → vérification du jeu et du profil. */
 export async function authenticateMinecraft(msAccessToken: string): Promise<MinecraftSession> {
   const xbl = await xboxLive(msAccessToken)
-  const xstsToken = await xsts(xbl.token)
-  const mc = await minecraftLogin(xbl.uhs, xstsToken)
+  const xstsRes = await xsts(xbl.token)
+  const mc = await minecraftLogin(xbl.uhs, xstsRes.token)
 
   const ent = await getJson<{ items?: { name: string }[] }>('https://api.minecraftservices.com/entitlements/mcstore', mc.token)
   const owned = ent.json.items?.some((i) => i.name === 'game_minecraft' || i.name === 'product_minecraft')
@@ -97,6 +98,7 @@ export async function authenticateMinecraft(msAccessToken: string): Promise<Mine
     uuid: profile.json.id,
     name: profile.json.name,
     accessToken: mc.token,
-    expiresAt: Date.now() + mc.expiresIn * 1000
+    expiresAt: Date.now() + mc.expiresIn * 1000,
+    xuid: xstsRes.xuid
   }
 }
