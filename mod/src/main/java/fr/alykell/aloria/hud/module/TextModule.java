@@ -32,8 +32,8 @@ public abstract class TextModule extends HudModule {
 		int max = 0;
 		for (Line line : lines(mc, preview)) {
 			int w = line.label().isEmpty()
-				? Fonts.width(mc, line.value())
-				: Fonts.width(mc, spaced(line)) + Fonts.width(mc, line.value());
+				? Fonts.width(mc, s.font, line.value())
+				: Fonts.width(mc, s.font, spaced(line)) + Fonts.width(mc, s.font, line.value());
 			max = Math.max(max, w);
 		}
 		return max + PADDING * 2;
@@ -46,15 +46,15 @@ public abstract class TextModule extends HudModule {
 
 	@Override
 	public void draw(GuiGraphicsExtractor g, Minecraft mc, ModuleSettings s, boolean preview) {
-		if (s.background) Draw.glass(g, 0, 0, width(mc, s, preview), height(mc, s, preview), s.opacity);
+		Draw.panel(g, 0, 0, width(mc, s, preview), height(mc, s, preview), s);
 		int y = PADDING;
 		for (Line line : lines(mc, preview)) {
 			if (line.label().isEmpty()) {
-				Fonts.draw(g, mc, line.value(), PADDING, y, s.color, s.shadow);
+				Fonts.draw(g, mc, s.font, line.value(), PADDING, y, s.color, s.shadow);
 			} else {
 				String label = spaced(line);
-				Fonts.draw(g, mc, label, PADDING, y, s.color, s.shadow);
-				Fonts.draw(g, mc, line.value(), PADDING + Fonts.width(mc, label), y, Theme.WHITE, s.shadow);
+				Fonts.draw(g, mc, s.font, label, PADDING, y, s.color, s.shadow);
+				Fonts.draw(g, mc, s.font, line.value(), PADDING + Fonts.width(mc, s.font, label), y, Theme.WHITE, s.shadow);
 			}
 			y += LINE_HEIGHT;
 		}

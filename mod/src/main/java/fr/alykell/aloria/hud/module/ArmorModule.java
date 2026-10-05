@@ -83,7 +83,7 @@ public final class ArmorModule extends HudModule {
 	@Override
 	public int width(Minecraft mc, ModuleSettings s, boolean preview) {
 		int text = 0;
-		for (Slot slot : slots(mc)) text = Math.max(text, Fonts.width(mc, label(slot.stack())));
+		for (Slot slot : slots(mc)) text = Math.max(text, Fonts.width(mc, s.font, label(slot.stack())));
 		return PAD * 2 + 16 + (text > 0 ? text + 5 : 0);
 	}
 
@@ -94,7 +94,7 @@ public final class ArmorModule extends HudModule {
 
 	@Override
 	public void draw(GuiGraphicsExtractor g, Minecraft mc, ModuleSettings s, boolean preview) {
-		if (s.background) Draw.glass(g, 0, 0, width(mc, s, preview), height(mc, s, preview), s.opacity);
+		Draw.panel(g, 0, 0, width(mc, s, preview), height(mc, s, preview), s);
 		int y = PAD;
 		for (Slot slot : slots(mc)) {
 			if (slot.stack().isEmpty()) {
@@ -102,7 +102,7 @@ public final class ArmorModule extends HudModule {
 			} else {
 				g.item(slot.stack(), PAD, y);
 				String label = label(slot.stack());
-				if (!label.isEmpty()) Fonts.draw(g, mc, label, PAD + 21, y + 4, durabilityColor(slot.stack(), s.color), s.shadow);
+				if (!label.isEmpty()) Fonts.draw(g, mc, s.font, label, PAD + 21, y + 4, durabilityColor(slot.stack(), s.color), s.shadow);
 			}
 			y += ROW;
 		}

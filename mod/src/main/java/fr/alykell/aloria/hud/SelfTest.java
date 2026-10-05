@@ -158,10 +158,34 @@ public final class SelfTest {
 		add("capture onglet PvP", 5, () -> screenshot(mc, "04-onglet-pvp"));
 		add("onglet Tous", 2, () -> click(mc, "tab:all"));
 		add("ouvrir les réglages de FPS", 3, () -> click(mc, "gear:fps"));
-		add("couleur sable", 3, () -> click(mc, "color:2"));
-		add("couleur appliquée", 2, () -> check("la couleur se change", settings("fps").color == Theme.PALETTE[2]));
+		add("ouvrir le sélecteur (texte)", 3, () -> click(mc, "pick:text"));
+		add("capture du sélecteur", 5, () -> screenshot(mc, "05a-selecteur-couleur"));
+		add("couleur sable", 2, () -> click(mc, "preset:2"));
+		add("couleur appliquée", 2, () -> check("le sélecteur change la couleur du texte", settings("fps").color == Theme.PALETTE[2]));
+		add("teinte à la barre", 2, () -> click(mc, "picker:hue"));
+		add("teinte appliquée", 2, () -> check("la barre de teinte change la couleur", settings("fps").color != Theme.PALETTE[2]));
+		add("valider la couleur", 2, () -> click(mc, "btn:OK"));
+		add("ouvrir le sélecteur (fond)", 3, () -> click(mc, "pick:bg"));
+		add("fond vert", 2, () -> click(mc, "preset:4"));
+		add("fond appliqué (couleur)", 2, () -> check("le sélecteur change la couleur du fond", settings("fps").bgColor == (Theme.PALETTE[4] & 0xFFFFFF)));
+		add("clic hors du sélecteur", 2, () -> clickAt(mc, 2, 2));
+		add("sélecteur fermé", 2, () -> click(mc, "font:next"));
+		add("police suivante", 2, () -> check("le sélecteur de police change la police (" + settings("fps").font + ")", settings("fps").font.equals("inter")));
+		add("défiler les réglages", 2, () -> {
+			if (mc.gui.screen() instanceof HudMenuScreen menu) menu.mouseScrolled(0, 0, 0, -10);
+			return true;
+		});
+		add("bordure plus épaisse", 2, () -> click(mc, "border:+"));
+		add("bordure appliquée", 2, () -> check("le bouton + épaissit la bordure", settings("fps").borderWidth == 2));
+		add("capture bordure", 3, () -> screenshot(mc, "05d-bordure"));
+		add("remonter les réglages", 2, () -> {
+			if (mc.gui.screen() instanceof HudMenuScreen menu) menu.mouseScrolled(0, 0, 0, 10);
+			return true;
+		});
 		add("fond désactivé", 2, () -> click(mc, "background"));
 		add("fond appliqué", 2, () -> check("l'interrupteur Fond fonctionne", !settings("fps").background));
+		add("capture des réglages", 3, () -> screenshot(mc, "05b-reglages"));
+		add("fond réactivé", 2, () -> click(mc, "background"));
 		add("taille au curseur", 2, () -> {
 			if (!(mc.gui.screen() instanceof AloriaScreen screen) || screen.hitCenter("slider") == null) {
 				lastMissing = "slider";
@@ -184,6 +208,14 @@ public final class SelfTest {
 		});
 		add("opacité appliquée", 2, () -> check("le curseur d'opacité fonctionne (" + settings("fps").opacity + "%)", Math.abs(settings("fps").opacity - 50) <= 5));
 		add("retour à la grille", 2, () -> click(mc, "btn:← Retour"));
+		add("onglet Général", 2, () -> click(mc, "tab:general"));
+		add("police des menus", 3, () -> click(mc, "menufont:next"));
+		add("capture onglet Général", 5, () -> {
+			check("la police des menus change (" + AloriaHud.config().global().menuFont + ")", AloriaHud.config().global().menuFont.equals("inter"));
+			return screenshot(mc, "05c-general");
+		});
+		add("police des menus (retour)", 2, () -> click(mc, "menufont:prev"));
+		add("onglet Tous (fin)", 2, () -> click(mc, "tab:all"));
 		add("ouvrir la disposition", 3, () -> click(mc, "btn:✥ Disposition"));
 		add("écran de disposition", 5, () -> {
 			check("le bouton Disposition ouvre l'éditeur", mc.gui.screen() instanceof HudLayoutScreen);

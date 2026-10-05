@@ -19,10 +19,6 @@ public final class Theme {
 	public static final int BORDER = 0x305CC8E0;
 	public static final int BORDER_HOVER = 0x905CC8E0;
 
-	/** Fond des modules du HUD : bleu océan clair, opacité réglable (en %) */
-	public static int hudBackground(int opacityPercent) {
-		return withAlpha(0x2C7391, Math.round(Math.clamp(opacityPercent, 0, 100) * 2.55f));
-	}
 
 	/** Couleurs proposées pour le texte des modules */
 	public static final int[] PALETTE = {

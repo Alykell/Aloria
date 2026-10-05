@@ -77,7 +77,7 @@ public final class EffectsModule extends HudModule {
 	@Override
 	public int width(Minecraft mc, ModuleSettings s, boolean preview) {
 		int text = 0;
-		for (Row row : rows(mc, preview)) text = Math.max(text, Math.max(Fonts.width(mc, row.name()), Fonts.width(mc, row.duration())));
+		for (Row row : rows(mc, preview)) text = Math.max(text, Math.max(Fonts.width(mc, s.font, row.name()), Fonts.width(mc, s.font, row.duration())));
 		return PAD * 2 + ICON + 5 + text;
 	}
 
@@ -88,12 +88,12 @@ public final class EffectsModule extends HudModule {
 
 	@Override
 	public void draw(GuiGraphicsExtractor g, Minecraft mc, ModuleSettings s, boolean preview) {
-		if (s.background) Draw.glass(g, 0, 0, width(mc, s, preview), height(mc, s, preview), s.opacity);
+		Draw.panel(g, 0, 0, width(mc, s, preview), height(mc, s, preview), s);
 		int y = PAD;
 		for (Row row : rows(mc, preview)) {
 			g.blitSprite(RenderPipelines.GUI_TEXTURED, Hud.getMobEffectSprite(row.effect()), PAD, y, ICON, ICON);
-			Fonts.draw(g, mc, row.name(), PAD + ICON + 5, y, s.color, s.shadow);
-			Fonts.draw(g, mc, row.duration(), PAD + ICON + 5, y + 9, Theme.WHITE, s.shadow);
+			Fonts.draw(g, mc, s.font, row.name(), PAD + ICON + 5, y, s.color, s.shadow);
+			Fonts.draw(g, mc, s.font, row.duration(), PAD + ICON + 5, y + 9, Theme.WHITE, s.shadow);
 			y += ROW;
 		}
 	}

@@ -43,11 +43,10 @@ public final class KeystrokesModule extends HudModule {
 
 	private static void key(GuiGraphicsExtractor g, Minecraft mc, ModuleSettings s, int x, int y, int w, int h, String label, boolean down) {
 		if (down) Draw.round(g, x, y, w, h, Theme.withAlpha(s.color, 0xC8));
-		else if (s.background) Draw.glass(g, x, y, w, h, s.opacity);
-		else Draw.roundOutline(g, x, y, w, h, Theme.withAlpha(s.color, 0x80));
+		else Draw.panel(g, x, y, w, h, s);
 		int color = down ? Theme.SEA_DEEP : Theme.WHITE;
 		int textY = y + (h - 8) / 2;
-		Fonts.centered(g, mc, label, x + w / 2, textY, color);
+		Fonts.centered(g, mc, s.font, label, x + w / 2, textY, color);
 	}
 
 	private static String name(KeyMapping key) {
@@ -70,8 +69,7 @@ public final class KeystrokesModule extends HudModule {
 		key(g, mc, s, WIDTH - MOUSE_W, row3, MOUSE_W, KEY, Stats.rightCps() + " CPS", o.keyUse.isDown());
 
 		if (o.keyJump.isDown()) Draw.round(g, 0, row4, WIDTH, SPACE_H, Theme.withAlpha(s.color, 0xC8));
-		else if (s.background) Draw.glass(g, 0, row4, WIDTH, SPACE_H, s.opacity);
-		else Draw.roundOutline(g, 0, row4, WIDTH, SPACE_H, Theme.withAlpha(s.color, 0x80));
+		else Draw.panel(g, 0, row4, WIDTH, SPACE_H, s);
 		int barColor = o.keyJump.isDown() ? Theme.SEA_DEEP : Theme.WHITE;
 		g.horizontalLine(WIDTH / 2 - 12, WIDTH / 2 + 12, row4 + SPACE_H / 2, barColor);
 	}

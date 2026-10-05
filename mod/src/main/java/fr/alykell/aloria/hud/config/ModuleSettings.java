@@ -12,6 +12,13 @@ public class ModuleSettings {
 	public boolean shadow = true;
 	/** Opacité du fond, en pourcentage */
 	public int opacity = 35;
+	/** Couleur du fond (RVB, l'opacité est à part) */
+	public int bgColor = 0x2C7391;
+	/** Bordure : couleur ARGB et épaisseur de 0 à 3 pixels */
+	public int borderColor = 0x59FFFFFF;
+	public int borderWidth = 1;
+	/** Police du module (voir Fonts.CHOICES) */
+	public String font = "nunito";
 
 	public ModuleSettings() {
 	}
