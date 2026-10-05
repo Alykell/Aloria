@@ -46,6 +46,8 @@ export interface ProfileInput {
   loaderVersion: string | null
   /** RAM propre au profil, null = valeur des paramètres */
   ramMb: number | null
+  /** Mod Aloria HUD dans les profils Fabric (absent = activé) */
+  aloriaHud?: boolean
 }
 
 export interface Profile extends ProfileInput {

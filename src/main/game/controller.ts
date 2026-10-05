@@ -2,6 +2,7 @@ import { app, type WebContents } from 'electron'
 import { getValidSession, listAccounts } from '../auth/accounts'
 import { gameDirOf, getProfile, markPlayed } from '../profiles'
 import { getSettings } from '../settings'
+import { syncAloriaHud } from './aloriaHud'
 import { installFabric } from './fabric'
 import { installVersion } from './install'
 import { launchGame } from './launch'
@@ -61,6 +62,12 @@ export async function play(sender: WebContents, profileId: string): Promise<void
     const version = await loadVersion(versionId)
     const gameDir = gameDirOf(profile.id)
     markPlayed(profile.id)
+
+    if (profile.loader === 'fabric') {
+      setStatus({ state: 'preparing', label: 'Préparation d’Aloria HUD…' })
+      const warning = await syncAloriaHud(profile, gameVersion, gameDir)
+      if (warning) console.warn('[aloria-hud]', warning)
+    }
 
     const installed = await installVersion(version, gameDir, (step) => {
       if (step.step === 'check') setStatus({ state: 'preparing', label: 'Vérification des fichiers…' })

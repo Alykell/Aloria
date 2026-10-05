@@ -7,6 +7,12 @@ directories:
 files:
   - out/**
   - package.json
+# Le mod Aloria HUD (construit par Gradle dans mod/) est livré à côté du launcher
+extraResources:
+  - from: mod/build/libs
+    to: mods
+    filter:
+      - aloria-hud-*.jar
 win:
   target: nsis
   icon: resources/icon.png

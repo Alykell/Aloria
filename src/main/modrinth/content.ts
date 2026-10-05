@@ -71,6 +71,8 @@ export async function listInstalled(profileId: string): Promise<InstalledContent
       // Les packs décompressés (dossiers) comptent aussi pour les resource packs et shaders
       const valid = EXTENSIONS[type].some((ext) => fileName.endsWith(ext)) || (entry.isDirectory() && type !== 'mod')
       if (!valid) continue
+      // Le mod intégré au launcher est géré par le profil, pas par la bibliothèque
+      if (type === 'mod' && fileName === 'aloria-hud.jar') continue
       const meta: IndexEntry | undefined = index[fileName]
       items.push({ ...meta, title: meta?.title ?? fileName, fileName, type, enabled })
     }

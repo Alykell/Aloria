@@ -30,6 +30,15 @@ jobs:
             exit 1
           fi
 
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - name: Construire le mod Aloria HUD
+        working-directory: mod
+        run: ./gradlew.bat build --no-daemon
+
       - run: npm ci
 
       - run: npm run typecheck

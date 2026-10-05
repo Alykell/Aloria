@@ -106,6 +106,19 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
         </div>
 
         {form.loader === 'fabric' && (
+          <label className="toggle-line hud-toggle">
+            <input
+              type="checkbox"
+              checked={form.aloriaHud !== false}
+              onChange={(ev) => set({ aloriaHud: ev.target.checked })}
+            />
+            <span>
+              ✦ Aloria HUD <small className="muted">· FPS, CPS, touches, armure… (Échap ou Maj droite en jeu)</small>
+            </span>
+          </label>
+        )}
+
+        {form.loader === 'fabric' && (
           <label className="field">
             <span>Version de Fabric</span>
             {loaders === null ? (

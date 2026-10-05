@@ -393,3 +393,5 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .update.ready { background: var(--sand); color: var(--sea-deep); }
 .update.ready:hover { background: white; }
 .update.ready strong { font-size: 14px; }
+
+.hud-toggle small { font-weight: 400; }
