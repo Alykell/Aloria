@@ -17,7 +17,7 @@ function describe(status: GameStatus): { label: string; detail?: string; percent
     case 'launching':
       return { label: 'Lancement du jeu…' }
     case 'running':
-      return { label: `Minecraft ${status.version} est lancé` }
+      return { label: `${status.profile} est lancé` }
     default:
       return { label: '' }
   }

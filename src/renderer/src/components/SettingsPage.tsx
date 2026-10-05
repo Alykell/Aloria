@@ -12,9 +12,9 @@ export default function SettingsPage({ state: { settings, systemRamMb, update } 
       <div className="card">
         <div className="card__row">
           <div>
-            <strong>Mémoire allouée</strong>
+            <strong>Mémoire par défaut</strong>
             <p>
-              {(settings.ramMb / 1024).toFixed(1)} Go sur {(systemRamMb / 1024).toFixed(0)} Go disponibles. 4 Go suffisent
+              {(settings.ramMb / 1024).toFixed(1)} Go sur {(systemRamMb / 1024).toFixed(0)} Go disponibles, utilisée par les profils sans réglage propre. 4 Go suffisent
               en vanilla, prévois-en 6 à 8 avec beaucoup de mods ou des shaders.
             </p>
           </div>
@@ -42,18 +42,6 @@ export default function SettingsPage({ state: { settings, systemRamMb, update } 
             onChange={(e) => update({ showSnapshots: e.target.checked })}
           />
         </label>
-      </div>
-
-      <div className="card">
-        <div className="card__row">
-          <div>
-            <strong>Dossier du jeu</strong>
-            <p>Sauvegardes, captures d'écran, options et logs.</p>
-          </div>
-          <button className="secondary" onClick={() => window.aloria.game.openFolder()}>
-            Ouvrir
-          </button>
-        </div>
       </div>
     </section>
   )

@@ -18,10 +18,10 @@ export function useGame() {
     }
   }, [])
 
-  const play = async () => {
+  const play = async (profileId: string) => {
     setError(null)
     setCrash(null)
-    const res = await window.aloria.game.play()
+    const res = await window.aloria.game.play(profileId)
     if (!res.ok) setError(res.error)
   }
 

@@ -88,6 +88,8 @@ export async function downloadAll(
     const bytes = await downloadOne(t)
     progress.doneFiles++
     progress.doneBytes += t.size ?? bytes
+    // Taille inconnue à l'avance : on l'ajoute au total pour ne jamais dépasser 100 %
+    if (t.size === undefined) progress.totalBytes += bytes
     onProgress(progress)
   })
 }

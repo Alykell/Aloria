@@ -3,9 +3,10 @@ import { join } from 'node:path'
 import { addAccount, listAccounts, removeAccount, selectAccount } from './auth/accounts'
 import { toAuthError } from './auth/errors'
 import { getStatus, listVersions, play } from './game/controller'
-import { paths } from './game/paths'
+import { fabricLoaders } from './game/fabric'
+import { createProfile, deleteProfile, listProfiles, openProfileFolder, selectProfile, updateProfile } from './profiles'
 import { getSettings, systemRamMb, updateSettings } from './settings'
-import type { PublicAccount, Result, Settings, VersionEntry } from '../shared/types'
+import type { LoaderVersion, Profile, ProfileInput, PublicAccount, Result, Settings, VersionEntry } from '../shared/types'
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -72,23 +73,38 @@ ipcMain.handle('game:versions', async (_e, snapshots: boolean): Promise<Result<V
   }
 })
 ipcMain.handle('game:status', () => getStatus())
-ipcMain.handle('game:play', async (e): Promise<Result<null>> => {
+ipcMain.handle('game:play', async (e, profileId: string): Promise<Result<null>> => {
   try {
-    await play(e.sender)
+    await play(e.sender, profileId)
     return { ok: true, value: null }
   } catch (err) {
     const { code, message } = toAuthError(err)
     return { ok: false, code, error: message }
   }
 })
-ipcMain.handle('game:openFolder', () => shell.openPath(join(paths.instances, 'default')))
+
+const wrap = async <T>(fn: () => T | Promise<T>): Promise<Result<T>> => {
+  try {
+    return { ok: true, value: await fn() }
+  } catch (err) {
+    return { ok: false, code: 'error', error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+ipcMain.handle('profiles:list', () => listProfiles())
+ipcMain.handle('profiles:create', (_e, input: ProfileInput): Profile => createProfile(input))
+ipcMain.handle('profiles:update', (_e, id: string, patch: Partial<ProfileInput>): Profile => updateProfile(id, patch))
+ipcMain.handle('profiles:select', (_e, id: string) => selectProfile(id))
+ipcMain.handle('profiles:delete', (_e, id: string, deleteFiles: boolean) => wrap(() => deleteProfile(id, deleteFiles)))
+ipcMain.handle('profiles:openFolder', (_e, id: string) => openProfileFolder(id))
+ipcMain.handle('fabric:loaders', (_e, gameVersion: string): Promise<Result<LoaderVersion[]>> => wrap(() => fabricLoaders(gameVersion)))
 
 app.whenReady().then(() => {
   const win = createWindow()
   // Test de bout en bout en développement : lance le jeu dès l'ouverture
   if (!app.isPackaged && process.env.ALORIA_AUTOPLAY) {
     win.webContents.once('did-finish-load', () => {
-      play(win.webContents).catch((err) => console.log('[game] erreur', err))
+      play(win.webContents, listProfiles().selectedId).catch((err) => console.log('[game] erreur', err))
     })
   }
   app.on('activate', () => {

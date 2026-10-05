@@ -1,10 +1,10 @@
 import { app, type WebContents } from 'electron'
-import { join } from 'node:path'
 import { getValidSession, listAccounts } from '../auth/accounts'
+import { gameDirOf, getProfile, markPlayed } from '../profiles'
 import { getSettings } from '../settings'
+import { installFabric } from './fabric'
 import { installVersion } from './install'
 import { launchGame } from './launch'
-import { paths } from './paths'
 import { getManifest, loadVersion, resolveVersionId } from './versions'
 import type { GameExit, GameStatus, VersionEntry } from '../../shared/types'
 
@@ -34,15 +34,16 @@ export async function listVersions(includeSnapshots: boolean): Promise<VersionEn
 }
 
 /**
- * Installe puis lance la version choisie dans les paramètres.
+ * Installe puis lance un profil.
  * Sans compte, uniquement en développement : lancement en mode démo officiel pour tester.
  */
-export async function play(sender: WebContents): Promise<void> {
+export async function play(sender: WebContents, profileId: string): Promise<void> {
   if (status.state !== 'idle') throw new Error('Le jeu est déjà en cours de lancement.')
   target = sender
 
   try {
     const settings = getSettings()
+    const profile = getProfile(profileId)
     const { active } = listAccounts()
     if (!active && app.isPackaged) throw new Error('Connecte-toi avec ton compte Microsoft pour jouer.')
 
@@ -51,9 +52,15 @@ export async function play(sender: WebContents): Promise<void> {
       ? await getValidSession(active)
       : { name: 'Player', uuid: '00000000000000000000000000000000', accessToken: '0', xuid: '0' }
 
-    const versionId = await resolveVersionId(settings.versionId)
+    const gameVersion = await resolveVersionId(profile.versionId)
+    let versionId = gameVersion
+    if (profile.loader === 'fabric') {
+      setStatus({ state: 'preparing', label: 'Installation de Fabric…' })
+      versionId = await installFabric(gameVersion, profile.loaderVersion)
+    }
     const version = await loadVersion(versionId)
-    const gameDir = join(paths.instances, 'default')
+    const gameDir = gameDirOf(profile.id)
+    markPlayed(profile.id)
 
     const installed = await installVersion(version, gameDir, (step) => {
       if (step.step === 'check') setStatus({ state: 'preparing', label: 'Vérification des fichiers…' })
@@ -65,7 +72,7 @@ export async function play(sender: WebContents): Promise<void> {
     const child = await launchGame({
       installed,
       gameDir,
-      ramMb: settings.ramMb,
+      ramMb: profile.ramMb ?? settings.ramMb,
       player,
       demo: !active,
       launcherVersion: app.getVersion()
@@ -80,7 +87,7 @@ export async function play(sender: WebContents): Promise<void> {
     child.stdout?.on('data', collect)
     child.stderr?.on('data', collect)
 
-    child.once('spawn', () => setStatus({ state: 'running', version: versionId }))
+    child.once('spawn', () => setStatus({ state: 'running', profile: profile.name }))
     child.once('error', (err) => {
       setStatus({ state: 'idle' })
       sendExit({ code: null, crashLog: `Impossible de démarrer Java : ${err.message}` })

@@ -1,29 +1,19 @@
-import { useEffect, useState } from 'react'
 import PlayButton from './PlayButton'
+import { describeProfile } from '../hooks/useVersions'
 import type { AccountsState } from '../hooks/useAccounts'
-import type { SettingsState } from '../hooks/useSettings'
+import type { ProfilesState } from '../hooks/useProfiles'
 import type { useGame } from '../hooks/useGame'
-import type { VersionEntry } from '../../../shared/types'
 
 interface Props {
   accounts: AccountsState
-  settings: SettingsState
+  profiles: ProfilesState
   game: ReturnType<typeof useGame>
 }
 
-export default function HomePage({ accounts, settings: { settings, update }, game }: Props) {
-  const [versions, setVersions] = useState<VersionEntry[]>([])
-  const showSnapshots = settings?.showSnapshots ?? false
-
-  useEffect(() => {
-    window.aloria.game.versions(showSnapshots).then((res) => {
-      if (res.ok) setVersions(res.value)
-    })
-  }, [showSnapshots])
-
+export default function HomePage({ accounts, profiles, game }: Props) {
   // En développement, on peut tester le lancement en mode démo sans compte
   const canPlay = !!accounts.active || import.meta.env.DEV
-  const latest = versions.find((v) => v.type === 'release')
+  const selected = profiles.selected
 
   return (
     <section className="hero">
@@ -32,19 +22,16 @@ export default function HomePage({ accounts, settings: { settings, update }, gam
 
       {canPlay ? (
         <>
-          <PlayButton status={game.status} disabled={!settings} onPlay={game.play} />
-          {game.status.state === 'idle' && settings && (
+          <PlayButton status={game.status} disabled={!selected} onPlay={() => selected && game.play(selected.id)} />
+          {game.status.state === 'idle' && selected && (
             <select
               className="version-select"
-              value={settings.versionId}
-              onChange={(e) => update({ versionId: e.target.value })}
+              value={selected.id}
+              onChange={(e) => profiles.select(e.target.value)}
             >
-              <option value="latest-release">Dernière version{latest ? ` (${latest.id})` : ''}</option>
-              {showSnapshots && <option value="latest-snapshot">Dernier snapshot</option>}
-              {versions.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.id}
-                  {v.type === 'snapshot' ? ' (snapshot)' : ''}
+              {profiles.profiles.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.icon} {p.name} · {describeProfile(p)}
                 </option>
               ))}
             </select>
