@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from 'node:child_process'
+import { closeSync, openSync } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
-import { delimiter } from 'node:path'
+import { delimiter, join } from 'node:path'
 import { paths } from './paths'
 import { rulesAllow, type Features } from './rules'
 import type { InstalledVersion } from './install'
@@ -83,8 +84,24 @@ export function buildArguments(opts: LaunchOptions): string[] {
   ]
 }
 
-export async function launchGame(opts: LaunchOptions): Promise<ChildProcess> {
-  await mkdir(opts.gameDir, { recursive: true })
-  const args = buildArguments(opts)
-  return spawn(opts.installed.javaPath, args, { cwd: opts.gameDir, windowsHide: false })
+/**
+ * Lance le jeu comme processus indépendant : il continue même si le launcher est fermé.
+ * Sa sortie va dans logs/aloria-launch.log (un tuyau vers le launcher casserait à sa fermeture).
+ */
+export async function launchGame(opts: LaunchOptions): Promise<{ child: ChildProcess; logFile: string }> {
+  const logDir = join(opts.gameDir, 'logs')
+  await mkdir(logDir, { recursive: true })
+  const logFile = join(logDir, 'aloria-launch.log')
+  const fd = openSync(logFile, 'w')
+  try {
+    const child = spawn(opts.installed.javaPath, buildArguments(opts), {
+      cwd: opts.gameDir,
+      windowsHide: false,
+      detached: true,
+      stdio: ['ignore', fd, fd]
+    })
+    return { child, logFile }
+  } finally {
+    closeSync(fd)
+  }
 }

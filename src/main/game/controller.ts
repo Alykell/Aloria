@@ -1,4 +1,7 @@
-import { app, type WebContents } from 'electron'
+import { app, BrowserWindow, type WebContents } from 'electron'
+import { readFile } from 'node:fs/promises'
+import { setDiscordIdle, setDiscordPlaying } from '../discord'
+import { addPending, removePending } from '../shared/pending'
 import { getValidSession, listAccounts } from '../auth/accounts'
 import { gameDirOf, getProfile, markPlayed } from '../profiles'
 import { getSettings } from '../settings'
@@ -85,7 +88,7 @@ export async function play(sender: WebContents, profileId: string): Promise<void
     const sync = await applyShared(profile, gameVersion, gameDir, installed.classpath[installed.classpath.length - 1])
 
     setStatus({ state: 'launching' })
-    const child = await launchGame({
+    const { child, logFile } = await launchGame({
       installed,
       gameDir,
       ramMb: profile.ramMb ?? settings.ramMb,
@@ -97,28 +100,43 @@ export async function play(sender: WebContents, profileId: string): Promise<void
       extraGameArgs: app.isPackaged ? [] : splitArgs(process.env.ALORIA_EXTRA_GAME_ARGS)
     })
 
-    // On garde la fin de la sortie du jeu pour l'afficher en cas de crash
-    const tail: string[] = []
-    const collect = (chunk: Buffer) => {
-      tail.push(...chunk.toString().split(/\r?\n/).filter(Boolean))
-      if (tail.length > 60) tail.splice(0, tail.length - 60)
-    }
-    child.stdout?.on('data', collect)
-    child.stderr?.on('data', collect)
+    const versionLabel = profile.loader === 'fabric' ? `Fabric ${gameVersion}` : `Minecraft ${gameVersion}`
+    child.once('spawn', () => {
+      setStatus({ state: 'running', profile: profile.name })
+      // Réglages à récupérer à la fermeture du jeu, même si le launcher est fermé entre-temps
+      if (child.pid) addPending({ pid: child.pid, gameVersion, gameDir, session: sync })
+      setDiscordPlaying(profile.name, versionLabel)
 
-    child.once('spawn', () => setStatus({ state: 'running', profile: profile.name }))
+      const win = BrowserWindow.fromWebContents(sender)
+      if (settings.afterLaunch === 'minimize') win?.minimize()
+      // Laisse le temps au jeu de s'ouvrir avant de fermer le launcher
+      if (settings.afterLaunch === 'close') setTimeout(() => app.quit(), 3000)
+    })
     child.once('error', (err) => {
       setStatus({ state: 'idle' })
       sendExit({ code: null, crashLog: `Impossible de démarrer Java : ${err.message}` })
     })
-    child.once('exit', (code) => {
+    child.once('exit', async (code) => {
       setStatus({ state: 'idle' })
-      collectShared(sync, gameVersion, gameDir).catch((err) => console.warn('[réglages partagés]', err))
-      sendExit({ code, crashLog: code === 0 ? null : tail.join('\n') })
+      setDiscordIdle()
+      await collectShared(sync, gameVersion, gameDir).catch((err) => console.warn('[réglages partagés]', err))
+      if (child.pid) removePending(child.pid)
+      const win = BrowserWindow.fromWebContents(sender)
+      if (win?.isMinimized()) win.restore()
+      sendExit({ code, crashLog: code === 0 ? null : await logTail(logFile) })
     })
   } catch (err) {
     setStatus({ state: 'idle' })
     throw err
+  }
+}
+
+/** Dernières lignes du journal du jeu, affichées en cas de crash */
+async function logTail(logFile: string): Promise<string> {
+  try {
+    return (await readFile(logFile, 'utf8')).split(/\r?\n/).filter(Boolean).slice(-60).join('\n')
+  } catch {
+    return ''
   }
 }
 

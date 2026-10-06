@@ -11,7 +11,13 @@ export interface Settings {
   showSnapshots: boolean
   /** Plage de jour, de nuit, ou automatique selon l'heure */
   theme: ThemeChoice
+  /** Après le lancement du jeu : garder le launcher ouvert, le réduire ou le fermer */
+  afterLaunch: AfterLaunch
+  /** Statut « Joue à Aloria » sur Discord */
+  discordPresence: boolean
 }
+
+export type AfterLaunch = 'keep' | 'minimize' | 'close'
 
 export type ThemeChoice = 'auto' | 'day' | 'night'
 

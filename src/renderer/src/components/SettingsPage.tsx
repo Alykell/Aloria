@@ -1,10 +1,16 @@
 import type { SettingsState } from '../hooks/useSettings'
-import type { ThemeChoice } from '../../../shared/types'
+import type { AfterLaunch, ThemeChoice } from '../../../shared/types'
 
 const THEMES: { id: ThemeChoice; label: string }[] = [
   { id: 'day', label: '☀️ Jour' },
   { id: 'night', label: '🌙 Nuit' },
   { id: 'auto', label: 'Auto' }
+]
+
+const AFTER_LAUNCH: { id: AfterLaunch; label: string }[] = [
+  { id: 'keep', label: 'Rester ouvert' },
+  { id: 'minimize', label: 'Se réduire' },
+  { id: 'close', label: 'Se fermer' }
 ]
 
 export default function SettingsPage({ state: { settings, systemRamMb, update } }: { state: SettingsState }) {
@@ -30,6 +36,32 @@ export default function SettingsPage({ state: { settings, systemRamMb, update } 
             ))}
           </div>
         </div>
+      </div>
+
+      <div className="card">
+        <div className="card__row">
+          <div>
+            <strong>Au lancement du jeu, le launcher doit…</strong>
+            <p>Fermé ou non, tes réglages et ta liste de serveurs sont bien récupérés à la fin de la partie.</p>
+          </div>
+          <div className="segmented">
+            {AFTER_LAUNCH.map((a) => (
+              <button key={a.id} className={settings.afterLaunch === a.id ? 'active' : ''} onClick={() => update({ afterLaunch: a.id })}>
+                {a.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <label className="card__row toggle">
+          <div>
+            <strong>Statut Discord</strong>
+            <p>Affiche « Joue à Aloria » sur ton profil Discord, avec le profil lancé et le temps de jeu.</p>
+          </div>
+          <input type="checkbox" checked={settings.discordPresence} onChange={(e) => update({ discordPresence: e.target.checked })} />
+        </label>
       </div>
 
       <div className="card">

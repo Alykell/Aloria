@@ -21,7 +21,8 @@ nsis:
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
-  createDesktopShortcut: always
+  # Le raccourci du bureau est proposé par l'installeur (resources/installer.nsh)
+  createDesktopShortcut: false
   createStartMenuShortcut: true
   shortcutName: Aloria
   installerLanguages:

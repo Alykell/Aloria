@@ -4,3 +4,6 @@ export const MS_CLIENT_ID = '1e3c9842-b26a-480b-bd98-19add03557a6'
 export const MS_REDIRECT_URI = 'https://login.microsoftonline.com/common/oauth2/nativeclient'
 export const MS_SCOPES = 'XboxLive.signin offline_access'
 export const MS_AUTHORITY = 'https://login.microsoftonline.com/consumers/oauth2/v2.0'
+
+// Application Discord « Aloria » (statut « Joue à Aloria ») ; vide = statut Discord désactivé
+export const DISCORD_CLIENT_ID = ''

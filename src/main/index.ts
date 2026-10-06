@@ -9,6 +9,8 @@ import { createPreset, deletePreset, listPresets, renamePreset, updatePresetOpti
 import { createProfile, deleteProfile, listProfiles, openProfileFolder, selectProfile, updateProfile } from './profiles'
 import { getSettings, systemRamMb, updateSettings } from './settings'
 import { getUpdateStatus, initUpdater, installUpdate } from './updater'
+import { initDiscord, refreshDiscord } from './discord'
+import { processPending } from './shared/pending'
 import type {
   ContentType,
   LoaderVersion,
@@ -81,7 +83,11 @@ ipcMain.handle('accounts:select', (_e, uuid: string) => selectAccount(uuid))
 ipcMain.handle('accounts:remove', (_e, uuid: string) => removeAccount(uuid))
 
 ipcMain.handle('settings:get', () => ({ settings: getSettings(), systemRamMb: systemRamMb() }))
-ipcMain.handle('settings:update', (_e, patch: Partial<Settings>) => updateSettings(patch))
+ipcMain.handle('settings:update', (_e, patch: Partial<Settings>) => {
+  const next = updateSettings(patch)
+  if ('discordPresence' in patch) refreshDiscord()
+  return next
+})
 ipcMain.handle('game:versions', async (_e, snapshots: boolean): Promise<Result<VersionEntry[]>> => {
   try {
     return { ok: true, value: await listVersions(snapshots) }
@@ -157,6 +163,9 @@ app.on('second-instance', () => {
 app.whenReady().then(() => {
   const win = createWindow()
   initUpdater(win)
+  initDiscord()
+  // Réglages des parties terminées pendant que le launcher était fermé
+  processPending()
   // Développement : ALORIA_CAPTURE=<dossier> prend des captures des pages, en jour et en nuit, puis quitte
   if (!app.isPackaged && process.env.ALORIA_CAPTURE) captureScreens(win, process.env.ALORIA_CAPTURE)
   // Test de bout en bout en développement : lance le jeu dès l'ouverture
