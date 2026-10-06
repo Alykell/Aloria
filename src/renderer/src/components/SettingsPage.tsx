@@ -1,4 +1,11 @@
 import type { SettingsState } from '../hooks/useSettings'
+import type { ThemeChoice } from '../../../shared/types'
+
+const THEMES: { id: ThemeChoice; label: string }[] = [
+  { id: 'day', label: '☀️ Jour' },
+  { id: 'night', label: '🌙 Nuit' },
+  { id: 'auto', label: 'Auto' }
+]
 
 export default function SettingsPage({ state: { settings, systemRamMb, update } }: { state: SettingsState }) {
   if (!settings) return null
@@ -8,6 +15,22 @@ export default function SettingsPage({ state: { settings, systemRamMb, update } 
   return (
     <section className="page">
       <h2>Paramètres</h2>
+
+      <div className="card">
+        <div className="card__row">
+          <div>
+            <strong>Apparence</strong>
+            <p>Plage de jour, plage de nuit, ou automatique selon l'heure (nuit de 20 h à 7 h).</p>
+          </div>
+          <div className="segmented">
+            {THEMES.map((t) => (
+              <button key={t.id} className={settings.theme === t.id ? 'active' : ''} onClick={() => update({ theme: t.id })}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
 
       <div className="card">
         <div className="card__row">

@@ -9,7 +9,11 @@ export interface Settings {
   /** RAM par défaut, utilisée par les profils qui n'en définissent pas */
   ramMb: number
   showSnapshots: boolean
+  /** Plage de jour, de nuit, ou automatique selon l'heure */
+  theme: ThemeChoice
 }
+
+export type ThemeChoice = 'auto' | 'day' | 'night'
 
 export interface VersionEntry {
   id: string

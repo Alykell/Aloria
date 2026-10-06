@@ -10,6 +10,7 @@ import { useAccounts } from './hooks/useAccounts'
 import { useSettings } from './hooks/useSettings'
 import { useGame } from './hooks/useGame'
 import { useProfiles } from './hooks/useProfiles'
+import { useTheme } from './hooks/useTheme'
 
 export default function App() {
   const [page, setPage] = useState<Page>('home')
@@ -19,6 +20,7 @@ export default function App() {
   const settings = useSettings()
   const profiles = useProfiles()
   const game = useGame()
+  const { backdrop } = useTheme(settings.settings?.theme)
 
   useEffect(() => {
     window.aloria.getVersion().then(setVersion)
@@ -43,6 +45,7 @@ export default function App() {
 
   return (
     <div className="app">
+      <div className="backdrop" style={{ backgroundImage: `url(${backdrop})` }} />
       <TitleBar />
       <div className="app__body">
         <Sidebar page={page} onChange={setPage} accounts={accounts} />

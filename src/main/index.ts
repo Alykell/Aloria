@@ -150,6 +150,8 @@ app.on('second-instance', () => {
 app.whenReady().then(() => {
   const win = createWindow()
   initUpdater(win)
+  // Développement : ALORIA_CAPTURE=<dossier> prend des captures des pages, en jour et en nuit, puis quitte
+  if (!app.isPackaged && process.env.ALORIA_CAPTURE) captureScreens(win, process.env.ALORIA_CAPTURE)
   // Test de bout en bout en développement : lance le jeu dès l'ouverture
   if (!app.isPackaged && process.env.ALORIA_AUTOPLAY) {
     win.webContents.once('did-finish-load', async () => {
@@ -177,3 +179,33 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
+
+async function captureScreens(win: BrowserWindow, dir: string): Promise<void> {
+  const { mkdir, writeFile } = await import('node:fs/promises')
+  await mkdir(dir, { recursive: true })
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
+  const click = (label: string) =>
+    win.webContents.executeJavaScript(
+      `[...document.querySelectorAll('button')].find((b) => b.textContent.includes(${JSON.stringify(label)}))?.click()`
+    )
+  await new Promise<void>((resolve) => win.webContents.once('did-finish-load', () => resolve()))
+  await wait(2500)
+  for (const [theme, label] of [['jour', '☀️ Jour'], ['nuit', '🌙 Nuit']]) {
+    await click('Paramètres')
+    await wait(400)
+    await click(label)
+    await wait(1200)
+    for (const page of ['Paramètres', 'Accueil', 'Profils', 'Bibliothèque']) {
+      await click(page)
+      await wait(page === 'Bibliothèque' ? 2500 : 800)
+      const image = await win.webContents.capturePage()
+      await writeFile(join(dir, `${theme}-${page}.png`), image.toPNG())
+    }
+  }
+  // On remet le réglage par défaut
+  await click('Paramètres')
+  await wait(300)
+  await click('Auto')
+  await wait(500)
+  app.quit()
+}
