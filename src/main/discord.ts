@@ -26,7 +26,7 @@ async function push(): Promise<void> {
       state: current.state,
       startTimestamp: current.startTimestamp ?? launcherSince,
       largeImageKey: 'aloria',
-      largeImageText: 'Aloria — launcher Minecraft',
+      largeImageText: 'Aloria Client',
       instance: false
     })
   } catch {
