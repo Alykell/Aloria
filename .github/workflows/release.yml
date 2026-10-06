@@ -51,7 +51,20 @@ jobs:
 
       - run: npm run typecheck
 
-      - name: Construire et publier
+      # Une seule release (brouillon) créée avant l'envoi des fichiers, publiée une fois complète
+      - name: Créer le brouillon de release
+        shell: bash
+        run: gh release create "$GITHUB_REF_NAME" --draft --title "Aloria ${GITHUB_REF_NAME#v}" --notes "Mise à jour d'Aloria ${GITHUB_REF_NAME#v}."
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Construire et envoyer les fichiers
         run: npm run release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publier la release
+        shell: bash
+        run: gh release edit "$GITHUB_REF_NAME" --draft=false --latest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

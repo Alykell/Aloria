@@ -29,9 +29,10 @@ nsis:
   language: '1036'
   # Garde les jeux, profils et comptes si on désinstalle
   deleteAppDataOnUninstall: false
-# Les mises à jour sont publiées dans les Releases GitHub du dépôt
+# Les mises à jour sont publiées dans les Releases GitHub du dépôt. Les fichiers sont déposés dans un
+# brouillon créé à l'avance par la CI (sinon les envois parallèles créent plusieurs releases), puis publiés.
 publish:
   provider: github
   owner: Alykell
   repo: Aloria
-  releaseType: release
+  releaseType: draft
