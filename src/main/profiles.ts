@@ -46,14 +46,14 @@ function save(store: Store): void {
 
 export const gameDirOf = (id: string) => join(paths.instances, id)
 
-/** Profil réservé aux tests automatiques en développement, masqué dans la version installée */
+/** Profils réservés aux tests automatiques en développement (selftest, selftest262…), masqués dans la version installée */
 const TEST_PROFILE = 'selftest'
 
 export function listProfiles(): Store {
   const store = load()
   if (!app.isPackaged) return store
-  const profiles = store.profiles.filter((p) => p.id !== TEST_PROFILE)
-  const selectedId = store.selectedId === TEST_PROFILE ? profiles[0]?.id ?? store.selectedId : store.selectedId
+  const profiles = store.profiles.filter((p) => !p.id.startsWith(TEST_PROFILE))
+  const selectedId = store.selectedId.startsWith(TEST_PROFILE) ? profiles[0]?.id ?? store.selectedId : store.selectedId
   return { selectedId, profiles }
 }
 

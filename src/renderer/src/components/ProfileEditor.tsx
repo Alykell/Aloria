@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useVersions } from '../hooks/useVersions'
+import { ALORIA_HUD_MC_VERSIONS } from '../../../shared/aloriaHud'
 import type { LoaderVersion, Profile, ProfileInput } from '../../../shared/types'
 
 const ICONS = ['🏝️', '🌊', '🐚', '⚓', '🐬', '🐠', '🦀', '🌴', '⛵', '🏰', '⚔️', '🧪', '🌙', '🔥', '💎', '🌸']
@@ -116,6 +117,12 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
               ✦ Aloria HUD <small className="muted">· FPS, CPS, touches, armure… (Échap ou Maj droite en jeu)</small>
             </span>
           </label>
+        )}
+
+        {form.loader === 'fabric' && form.aloriaHud !== false && gameVersion && !ALORIA_HUD_MC_VERSIONS.includes(gameVersion) && (
+          <small className="warning">
+            Aloria HUD n'existe que pour Minecraft {ALORIA_HUD_MC_VERSIONS.join(' et ')} : il ne sera pas chargé en {gameVersion}.
+          </small>
         )}
 
         {form.loader === 'fabric' && (

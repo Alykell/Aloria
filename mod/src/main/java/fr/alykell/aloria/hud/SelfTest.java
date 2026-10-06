@@ -9,6 +9,7 @@ import fr.alykell.aloria.hud.screen.AloriaScreen;
 import fr.alykell.aloria.hud.screen.HudLayoutScreen;
 import fr.alykell.aloria.hud.screen.HudMenuScreen;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.MouseHandler;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.PauseScreen;
@@ -22,6 +23,7 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
@@ -69,11 +71,33 @@ public final class SelfTest {
 		Window w = mc.getWindow();
 		double sx = guiX * w.getScreenWidth() / w.getGuiScaledWidth();
 		double sy = guiY * w.getScreenHeight() / w.getGuiScaledHeight();
-		mc.mouseHandler.onMove(w.handle(), sx, sy, 0, 0);
+		// Signature différente selon la version (26.2 : 3 paramètres, 26.3 : 5) : appel par réflexion
+		Method move = mouseMethod("onMove");
+		if (move.getParameterCount() == 3) call(move, mc, w.handle(), sx, sy);
+		else call(move, mc, w.handle(), sx, sy, 0.0, 0.0);
 	}
 
 	private static void button(Minecraft mc, boolean press) {
-		mc.mouseHandler.onButton(mc.getWindow().handle(), new MouseButtonInfo(InputConstants.MOUSE_BUTTON_LEFT, 0), press ? 1 : 0);
+		// Privée en 26.2 : appel par réflexion
+		call(mouseMethod("onButton"), mc, mc.getWindow().handle(), new MouseButtonInfo(InputConstants.MOUSE_BUTTON_LEFT, 0), press ? 1 : 0);
+	}
+
+	private static Method mouseMethod(String name) {
+		for (Method m : MouseHandler.class.getDeclaredMethods()) {
+			if (m.getName().equals(name) && m.getParameterTypes().length > 0 && m.getParameterTypes()[0] == long.class) {
+				m.setAccessible(true);
+				return m;
+			}
+		}
+		throw new IllegalStateException("MouseHandler." + name + " introuvable");
+	}
+
+	private static void call(Method method, Minecraft mc, Object... args) {
+		try {
+			method.invoke(mc.mouseHandler, args);
+		} catch (ReflectiveOperationException e) {
+			throw new RuntimeException(e);
+		}
 	}
 
 	private static boolean clickAt(Minecraft mc, double x, double y) {
@@ -130,6 +154,10 @@ public final class SelfTest {
 		}
 
 		Minecraft mc = Minecraft.getInstance();
+		if (menuOnly()) {
+			addMenuSteps(mc);
+			return;
+		}
 		add("premier lancement : seul FPS actif", 0, () -> {
 			mc.gui.setScreen(null);
 			boolean onlyFps = AloriaHud.modules().stream().allMatch(m -> AloriaHud.config().get(m).enabled == m.id().equals("fps"));
@@ -287,9 +315,44 @@ public final class SelfTest {
 		STEPS.add(new Step(name, delay, action));
 	}
 
+	/** Mode « menu seul » : teste le menu depuis l'écran titre, sans partie (ex. autre version du jeu) */
+	private static boolean menuOnly() {
+		return System.getProperty("aloriahud.selftest.menu") != null;
+	}
+
+	private static void addMenuSteps(Minecraft mc) {
+		add("menu depuis l'écran titre", 0, () -> {
+			mc.gui.setScreen(new HudMenuScreen(mc.gui.screen()));
+			return true;
+		});
+		add("capture du menu", 10, () -> {
+			check("le menu des modules s'ouvre", mc.gui.screen() instanceof HudMenuScreen);
+			return screenshot(mc, "m1-menu");
+		});
+		add("onglet PvP", 2, () -> click(mc, "tab:pvp"));
+		add("activer Effets", 2, () -> click(mc, "toggle:effects"));
+		add("Effets activé", 2, () -> check("le bouton Activé de la carte Effets fonctionne", settings("effects").enabled));
+		add("réglages d'Armure", 2, () -> click(mc, "gear:armor"));
+		add("capture réglages", 5, () -> screenshot(mc, "m2-reglages"));
+		add("sélecteur de couleur", 2, () -> click(mc, "pick:text"));
+		add("couleur jaune", 3, () -> click(mc, "preset:3"));
+		add("couleur appliquée", 2, () -> check("le sélecteur change la couleur", settings("armor").color == Theme.PALETTE[3]));
+		add("capture sélecteur", 3, () -> screenshot(mc, "m3-selecteur"));
+		add("valider", 2, () -> click(mc, "btn:OK"));
+		add("fermer", 2, () -> click(mc, "btn:✕"));
+		add("fin", 10, () -> {
+			check("✕ ferme le menu", !(mc.gui.screen() instanceof AloriaScreen));
+			log(failures == 0 ? "TERMINÉ : tout est OK" : "TERMINÉ : " + failures + " échec(s)");
+			mc.stop();
+			return true;
+		});
+	}
+
 	public static void tick(Minecraft mc) {
 		if (STEPS.isEmpty()) return;
-		if (mc.player == null || mc.level == null) return;
+		if (!menuOnly() && (mc.player == null || mc.level == null)) return;
+		// Écran de chargement (ressources) : les clics y sont ignorés
+		if (mc.gui.overlay() != null) return;
 		mc.options.pauseOnLostFocus = false;
 		// Laisse le monde se charger (et ferme l'écran d'intro de la démo)
 		if (inWorldTicks++ < 100) {

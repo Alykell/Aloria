@@ -2,6 +2,9 @@ plugins {
 	id 'net.fabricmc.fabric-loom' version "${loom_version}"
 }
 
+// Un jar par version de Minecraft : ./gradlew build -Pminecraft_version=26.2 -Pfabric_api_version=0.161.0+26.2
+version = "${project.mod_version}+${project.minecraft_version}"
+
 base {
 	archivesName = 'aloria-hud'
 }
@@ -14,10 +17,12 @@ dependencies {
 
 processResources {
 	def version = project.version
+	def minecraft = project.minecraft_version
 	inputs.property "version", version
+	inputs.property "minecraft", minecraft
 
 	filesMatching("fabric.mod.json") {
-		expand "version": version
+		expand "version": version, "minecraft": minecraft
 	}
 }
 

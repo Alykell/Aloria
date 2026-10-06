@@ -133,6 +133,9 @@ ipcMain.handle('library:openFolder', async (_e, profileId: string, type: Content
   await shell.openPath(await openContentFolder(profileId, type))
 })
 
+// Tests en développement : dossier de données séparé, pour ne pas croiser le launcher installé
+if (!app.isPackaged && process.env.ALORIA_USER_DATA) app.setPath('userData', process.env.ALORIA_USER_DATA)
+
 // Une seule fenêtre Aloria : relancer le raccourci ramène celle déjà ouverte au premier plan
 if (!app.requestSingleInstanceLock()) app.quit()
 

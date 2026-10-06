@@ -10,7 +10,6 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -51,12 +50,8 @@ public final class ArmorModule extends HudModule {
 	private static List<Slot> slots(Minecraft mc) {
 		List<Slot> list = new ArrayList<>();
 		if (mc.player == null) {
-			// Pas de joueur (aperçu hors partie) : exemple en diamant
-			list.add(new Slot(new ItemStack(Items.DIAMOND_HELMET), EMPTY[0]));
-			list.add(new Slot(new ItemStack(Items.DIAMOND_CHESTPLATE), EMPTY[1]));
-			list.add(new Slot(new ItemStack(Items.DIAMOND_LEGGINGS), EMPTY[2]));
-			list.add(new Slot(new ItemStack(Items.DIAMOND_BOOTS), EMPTY[3]));
-			list.add(new Slot(new ItemStack(Items.DIAMOND_SWORD), null));
+			// Pas de partie chargée : on ne peut pas créer d'objets (composants non liés), silhouettes vides
+			for (Identifier sprite : EMPTY) list.add(new Slot(ItemStack.EMPTY, sprite));
 			return list;
 		}
 		for (int i = 0; i < ARMOR.length; i++) list.add(new Slot(mc.player.getItemBySlot(ARMOR[i]), EMPTY[i]));
