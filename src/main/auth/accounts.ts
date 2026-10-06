@@ -2,7 +2,7 @@ import { app, BrowserWindow, safeStorage } from 'electron'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { loginMicrosoft, refreshMicrosoft } from './microsoft'
-import { authenticateMinecraft } from './minecraft'
+import { authenticateMinecraft, tokenHasProfile } from './minecraft'
 import type { PublicAccount } from '../../shared/types'
 
 interface StoredAccount extends PublicAccount {
@@ -84,7 +84,8 @@ export async function getValidSession(uuid: string): Promise<{ uuid: string; nam
   const account = store.accounts.find((a) => a.uuid === uuid)
   if (!account) throw new Error('Compte introuvable.')
 
-  if (account.mcExpiresAt - Date.now() < 5 * 60_000) {
+  // Jeton bientôt expiré, ou jeton sans profil (émis trop tôt pour un compte neuf) : on le renouvelle
+  if (account.mcExpiresAt - Date.now() < 5 * 60_000 || !tokenHasProfile(account.mcAccessToken)) {
     const ms = await refreshMicrosoft(account.msRefreshToken)
     const mc = await authenticateMinecraft(ms.accessToken)
     Object.assign(account, {

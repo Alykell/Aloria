@@ -94,11 +94,35 @@ export async function authenticateMinecraft(msAccessToken: string): Promise<Mine
   }
   if (!profile.res.ok) throw new AuthError('minecraft', `Impossible de récupérer le profil (${profile.res.status}).`)
 
+  // Compte tout neuf : le premier jeton peut être émis avant que Mojang y rattache le profil,
+  // et les serveurs refusent alors la session (« Session non valide »). On en redemande un.
+  let session = mc
+  for (let attempt = 0; attempt < 3 && !tokenHasProfile(session.token); attempt++) {
+    await new Promise((r) => setTimeout(r, 1500))
+    session = await minecraftLogin(xbl.uhs, xstsRes.token)
+  }
+  if (!tokenHasProfile(session.token)) {
+    throw new AuthError(
+      'minecraft',
+      "Ton profil Minecraft n'est pas encore activé chez Mojang (compte tout neuf ?). Réessaie de te connecter dans quelques minutes."
+    )
+  }
+
   return {
     uuid: profile.json.id,
     name: profile.json.name,
-    accessToken: mc.token,
-    expiresAt: Date.now() + mc.expiresIn * 1000,
+    accessToken: session.token,
+    expiresAt: Date.now() + session.expiresIn * 1000,
     xuid: xstsRes.xuid
+  }
+}
+
+/** Vrai si le jeton Minecraft contient le profil du joueur (nécessaire pour le multijoueur) */
+export function tokenHasProfile(token: string): boolean {
+  try {
+    const claims = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString()) as { profiles?: { mc?: string } }
+    return !!claims.profiles?.mc
+  } catch {
+    return false
   }
 }
