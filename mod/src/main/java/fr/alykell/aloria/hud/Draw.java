@@ -1,5 +1,6 @@
 package fr.alykell.aloria.hud;
 
+import fr.alykell.aloria.hud.config.GlobalSettings;
 import fr.alykell.aloria.hud.config.ModuleSettings;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
@@ -42,5 +43,11 @@ public final class Draw {
 		for (int i = 0; i < s.borderWidth && w - 2 * i >= 4 && h - 2 * i >= 4; i++) {
 			roundOutline(g, x + i, y + i, w - 2 * i, h - 2 * i, s.borderColor);
 		}
+	}
+
+	/** Couleur du texte d'un module : la couleur commune si elle est activée, sauf pour un module au style indépendant */
+	public static int textColor(ModuleSettings s) {
+		GlobalSettings global = AloriaHud.config().global();
+		return global.sameTextColor && !s.ownStyle ? global.textColor : s.color;
 	}
 }

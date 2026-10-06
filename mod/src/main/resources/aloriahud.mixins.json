@@ -3,6 +3,8 @@
 	"package": "fr.alykell.aloria.hud.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
+		"CreeperAccessor",
+		"GameModeAccessor",
 		"MouseHandlerMixin"
 	],
 	"injectors": {

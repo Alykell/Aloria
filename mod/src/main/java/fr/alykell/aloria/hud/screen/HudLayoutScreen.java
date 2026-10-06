@@ -37,6 +37,11 @@ public class HudLayoutScreen extends AloriaScreen {
 		return AloriaHud.config().get(m);
 	}
 
+	/** Modules visibles dans la disposition : actifs et ayant une place à l'écran */
+	private boolean placed(HudModule m) {
+		return m.placeable() && settings(m).enabled;
+	}
+
 	private Bounds bounds(HudModule m) {
 		return HudRenderer.bounds(minecraft, m, settings(m), width, height, true);
 	}
@@ -45,7 +50,7 @@ public class HudLayoutScreen extends AloriaScreen {
 		List<HudModule> modules = AloriaHud.modules();
 		for (int i = modules.size() - 1; i >= 0; i--) {
 			HudModule m = modules.get(i);
-			if (settings(m).enabled && bounds(m).contains(x, y)) return m;
+			if (placed(m) && bounds(m).contains(x, y)) return m;
 		}
 		return null;
 	}
@@ -64,7 +69,7 @@ public class HudLayoutScreen extends AloriaScreen {
 
 		for (HudModule module : AloriaHud.modules()) {
 			ModuleSettings s = settings(module);
-			if (!s.enabled) continue;
+			if (!placed(module)) continue;
 			Bounds b = bounds(module);
 			if (module == hovered || module == selected) round(g, b.x() - 2, b.y() - 2, b.width() + 4, b.height() + 4, 0x205CC8E0);
 			HudRenderer.drawModule(g, minecraft, module, s, b, true);
@@ -128,7 +133,8 @@ public class HudLayoutScreen extends AloriaScreen {
 
 	private void move(HudModule module, int x, int y, Bounds b) {
 		ModuleSettings s = settings(module);
-		s.x = (float) Math.clamp(x, 0, Math.max(0, width - b.width())) / width;
+		int left = Math.clamp(x, 0, Math.max(0, width - b.width()));
+		s.x = (float) (module.centered() ? left + b.width() / 2.0 : left) / width;
 		s.y = (float) Math.clamp(y, 0, Math.max(0, height - b.height())) / height;
 	}
 
@@ -138,7 +144,7 @@ public class HudLayoutScreen extends AloriaScreen {
 		targets.add(new int[] {width - w - HudRenderer.MARGIN, width - HudRenderer.MARGIN});
 		targets.add(new int[] {(width - w) / 2, width / 2});
 		for (HudModule other : AloriaHud.modules()) {
-			if (other == dragging || !settings(other).enabled) continue;
+			if (other == dragging || !placed(other)) continue;
 			Bounds o = bounds(other);
 			targets.add(new int[] {o.x(), o.x()});
 			targets.add(new int[] {o.x() + o.width() - w, o.x() + o.width()});
@@ -158,7 +164,7 @@ public class HudLayoutScreen extends AloriaScreen {
 		targets.add(new int[] {height - h - HudRenderer.MARGIN, height - HudRenderer.MARGIN});
 		targets.add(new int[] {(height - h) / 2, height / 2});
 		for (HudModule other : AloriaHud.modules()) {
-			if (other == dragging || !settings(other).enabled) continue;
+			if (other == dragging || !placed(other)) continue;
 			Bounds o = bounds(other);
 			targets.add(new int[] {o.y() + o.height() + 2, o.y() + o.height() + 1});
 			targets.add(new int[] {o.y() - h - 2, o.y() - 1});

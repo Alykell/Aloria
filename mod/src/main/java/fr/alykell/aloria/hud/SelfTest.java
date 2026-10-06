@@ -245,6 +245,10 @@ public final class SelfTest {
 		add("appliquer à tous", 2, () -> click(mc, "apply-all"));
 		add("style appliqué à tous", 2, () -> check("« Appliquer à tous » copie fond et bordure sur tous les modules",
 			AloriaHud.modules().stream().allMatch(m -> AloriaHud.config().get(m).borderWidth == 2 && AloriaHud.config().get(m).bgColor == 0xFF6B00)));
+		add("cacher avec le chat", 2, () -> click(mc, "hideInChat"));
+		add("option chat appliquée", 2, () -> check("l'interrupteur « Cacher quand le chat est ouvert » fonctionne", settings("fps").hideInChat));
+		add("style indépendant", 2, () -> click(mc, "ownStyle"));
+		add("option style appliquée", 2, () -> check("l'interrupteur « Ignorer tous les modules » fonctionne", settings("fps").ownStyle));
 		add("capture bordure", 3, () -> screenshot(mc, "05d-bordure"));
 		add("remonter les réglages", 2, () -> {
 			if (mc.gui.screen() instanceof HudMenuScreen menu) menu.mouseScrolled(0, 0, 0, 10);
@@ -282,6 +286,15 @@ public final class SelfTest {
 			check("la police des menus change (" + AloriaHud.config().global().menuFont + ")", AloriaHud.config().global().menuFont.equals("inter"));
 			return screenshot(mc, "05c-general");
 		});
+		add("couleur commune", 2, () -> click(mc, "sameTextColor"));
+		add("couleur commune activée", 2, () -> check("l'interrupteur « Même couleur de texte » fonctionne", AloriaHud.config().global().sameTextColor));
+		add("police à tous", 2, () -> {
+			// FPS a un style indépendant : sa police ne doit pas changer
+			settings("fps").font = "poppins";
+			return click(mc, "btn:Appliquer cette police à tous les modules");
+		});
+		add("police à tous appliquée", 2, () -> check("« Appliquer la police à tous » ignore les modules au style indépendant",
+			settings("cps").font.equals("inter") && settings("fps").font.equals("poppins")));
 		add("police des menus (retour)", 2, () -> click(mc, "menufont:prev"));
 		add("onglet Tous (fin)", 2, () -> click(mc, "tab:all"));
 		add("ouvrir la disposition", 3, () -> click(mc, "btn:✥ Disposition"));
@@ -344,11 +357,74 @@ public final class SelfTest {
 			return true;
 		});
 		add("capture HUD complet", 15, () -> screenshot(mc, "09-hud-complet"));
-		add("fin", 20, () -> {
+		add("TNT, creeper et bloc visé", 2, () -> {
+			// Couleur commune rose, sauf FPS (style indépendant) qui garde la sienne
+			AloriaHud.config().global().sameTextColor = true;
+			AloriaHud.config().global().textColor = 0xFFFF9EC7;
+			settings("fps").ownStyle = true;
+			settings("fps").color = 0xFFFFD166;
+			settings("fps").hideInChat = true;
+			mc.player.setXRot(35f);
+			var server = mc.getSingleplayerServer();
+			if (server == null) return check("monde solo disponible", false);
+			// Restes d'un test interrompu (TNT enregistrée avec le monde) : ils exploseraient sur le joueur
+			removeExplosives(mc, true);
+			var uuid = mc.player.getUUID();
+			server.execute(() -> {
+				var player = server.getPlayerList().getPlayer(uuid);
+				if (player == null) return;
+				var level = player.level();
+				var look = net.minecraft.world.phys.Vec3.directionFromRotation(0, player.getYRot());
+				var tntPos = player.position().add(look.scale(6));
+				var tnt = new net.minecraft.world.entity.item.PrimedTnt(level, tntPos.x, tntPos.y + 1, tntPos.z, null);
+				tnt.setFuse(400);
+				tnt.setNoGravity(true);
+				level.addFreshEntity(tnt);
+				var creeper = net.minecraft.world.entity.EntityTypes.CREEPER.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+				if (creeper != null) {
+					var side = look.yRot((float) Math.toRadians(30)).scale(7);
+					creeper.setPos(player.position().add(side).add(0, 1, 0));
+					creeper.setNoAi(true);
+					creeper.setSwellDir(1);
+					level.addFreshEntity(creeper);
+				}
+			});
+			return true;
+		});
+		add("chronos visibles", 12, () -> {
+			int fuses = 0;
+			for (var e : mc.level.entitiesForRendering()) {
+				if (e instanceof net.minecraft.world.entity.item.PrimedTnt t && t.getFuse() > 0) fuses++;
+				if (e instanceof net.minecraft.world.entity.monster.Creeper c && c.getSwellDir() > 0) fuses++;
+			}
+			check("TNT et creeper amorcés côté client (" + fuses + ")", fuses == 2);
+			HudModule look = AloriaHud.modules().stream().filter(m -> m.id().equals("look")).findFirst().orElseThrow();
+			check("le module Bloc visé a quelque chose à montrer", look.hasContent(mc));
+			return screenshot(mc, "10-explosions-bloc-vise");
+		});
+		add("désamorcer le creeper", 1, () -> removeExplosives(mc, false));
+		add("ouvrir le chat", 2, () -> {
+			mc.gui.setScreen(new net.minecraft.client.gui.screens.ChatScreen("", false));
+			return true;
+		});
+		add("capture chat ouvert", 10, () -> screenshot(mc, "11-chat-ouvert"));
+		add("retirer la TNT", 20, () -> removeExplosives(mc, true));
+		add("fin", 5, () -> {
 			log(failures == 0 ? "TERMINÉ : tout est OK" : "TERMINÉ : " + failures + " échec(s)");
 			mc.stop();
 			return true;
 		});
+	}
+
+	/** Retire du monde de test les creepers et, si demandé, la TNT amorcée, pour ne rien laisser exploser */
+	private static boolean removeExplosives(Minecraft mc, boolean tnt) {
+		var server = mc.getSingleplayerServer();
+		if (server == null) return true;
+		server.execute(() -> server.getAllLevels().forEach(level -> {
+			level.getEntities(net.minecraft.world.entity.EntityTypes.CREEPER, c -> true).forEach(net.minecraft.world.entity.Entity::discard);
+			if (tnt) level.getEntities(net.minecraft.world.entity.EntityTypes.TNT, t -> true).forEach(net.minecraft.world.entity.Entity::discard);
+		}));
+		return true;
 	}
 
 	private static void add(String name, int delay, BooleanSupplier action) {
@@ -396,6 +472,8 @@ public final class SelfTest {
 		mc.options.pauseOnLostFocus = false;
 		// Laisse le monde se charger (et ferme l'écran d'intro de la démo)
 		if (inWorldTicks++ < 100) {
+			// Joueur mort lors d'un test précédent : on le fait réapparaître
+			if (inWorldTicks == 40 && mc.player != null && mc.player.isDeadOrDying()) mc.player.respawn();
 			if (inWorldTicks == 60 && mc.gui.screen() != null) mc.gui.setScreen(null);
 			return;
 		}

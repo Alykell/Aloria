@@ -25,7 +25,9 @@ public final class Modules {
 			new Clock(),
 			new KeystrokesModule(),
 			new ArmorModule(),
-			new EffectsModule()
+			new EffectsModule(),
+			new LookModule(),
+			new ExplosionModule()
 		);
 	}
 

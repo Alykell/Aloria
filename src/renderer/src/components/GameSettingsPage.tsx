@@ -89,6 +89,8 @@ export default function GameSettingsPage({ onError }: { onError: (message: strin
 
   const num = (key: string, fallback: number) => (o[key] !== undefined ? Number(o[key]) : fallback)
   const bool = (key: string, fallback = false) => (o[key] !== undefined ? o[key] === 'true' : fallback)
+  const percent = (key: string, fallback: number) => Math.round(num(key, fallback) * 100)
+  const offOrPercent = (v: number) => (v === 0 ? 'Désactivé' : `${v} %`)
   const fov = Math.round(70 + num('fov', 0) * 40)
   const maxFps = num('maxFps', 120)
 
@@ -211,7 +213,6 @@ export default function GameSettingsPage({ onError }: { onError: (message: strin
             onChange={(v) => set({ maxFps: String(v) })} />
           <Toggle label="Synchronisation verticale" value={bool('enableVsync', true)} onChange={(v) => set({ enableVsync: String(v) })} />
           <Toggle label="Plein écran" value={bool('fullscreen')} onChange={(v) => set({ fullscreen: String(v) })} />
-          <Toggle label="Balancement de la vue" value={bool('viewBobbing', true)} onChange={(v) => set({ viewBobbing: String(v) })} />
         </div>
 
         <div className="card">
@@ -230,6 +231,51 @@ export default function GameSettingsPage({ onError }: { onError: (message: strin
             <Slider key={id} label={label} value={Math.round(num(`soundCategory_${id}`, 1) * 100)} min={0} max={100}
               display={(v) => (v === 0 ? 'Coupé' : `${v} %`)} onChange={(v) => set({ [`soundCategory_${id}`]: String(v / 100) })} />
           ))}
+        </div>
+
+        <div className="card">
+          <h3>Accessibilité</h3>
+          <p className="muted small">Mouvements de caméra et effets visuels. Certains n'existent pas dans les anciennes versions.</p>
+          <Toggle label="Balancement de la vue" value={bool('viewBobbing', true)} onChange={(v) => set({ viewBobbing: String(v) })} />
+          <Slider label="Inclinaison aux dégâts" value={percent('damageTiltStrength', 1)} min={0} max={100} display={offOrPercent}
+            onChange={(v) => set({ damageTiltStrength: String(v / 100) })} />
+          <Slider label="FOV dynamique" value={percent('fovEffectScale', 1)} min={0} max={100} display={offOrPercent}
+            onChange={(v) => set({ fovEffectScale: String(v / 100) })} />
+          <Slider label="Distorsion (nausée, portail)" value={percent('screenEffectScale', 1)} min={0} max={100} display={offOrPercent}
+            onChange={(v) => set({ screenEffectScale: String(v / 100) })} />
+          <Slider label="Pulsation de l'obscurité" value={percent('darknessEffectScale', 1)} min={0} max={100} display={offOrPercent}
+            onChange={(v) => set({ darknessEffectScale: String(v / 100) })} />
+          <Toggle label="Masquer les flashs d'éclair" value={bool('hideLightningFlashes')} onChange={(v) => set({ hideLightningFlashes: String(v) })} />
+          <Toggle label="Tourner avec le wagonnet" value={bool('rotateWithMinecart')} onChange={(v) => set({ rotateWithMinecart: String(v) })} />
+          <Slider label="Scintillement : vitesse" value={percent('glintSpeed', 0.5)} min={0} max={100} display={offOrPercent}
+            onChange={(v) => set({ glintSpeed: String(v / 100) })} />
+          <Slider label="Scintillement : intensité" value={percent('glintStrength', 0.75)} min={0} max={100} display={offOrPercent}
+            onChange={(v) => set({ glintStrength: String(v / 100) })} />
+          <Slider label="Flou des menus" value={num('menuBackgroundBlurriness', 5)} min={0} max={10} display={(v) => (v === 0 ? 'Désactivé' : String(v))}
+            onChange={(v) => set({ menuBackgroundBlurriness: String(v) })} />
+          <Slider label="Vitesse du panorama" value={percent('panoramaScrollSpeed', 1)} min={0} max={100} display={offOrPercent}
+            onChange={(v) => set({ panoramaScrollSpeed: String(v / 100) })} />
+          <Toggle label="Logo de chargement noir" value={bool('darkMojangStudiosBackground')} onChange={(v) => set({ darkMojangStudiosBackground: String(v) })} />
+          <Toggle label="Masquer les textes du menu" value={bool('hideSplashTexts')} onChange={(v) => set({ hideSplashTexts: String(v) })} />
+
+          <h3 className="spaced">Texte et chat</h3>
+          <Toggle label="Sous-titres" value={bool('showSubtitles')} onChange={(v) => set({ showSubtitles: String(v) })} />
+          <Row label="Narrateur">
+            <select value={o.narrator ?? '0'} onChange={(e) => set({ narrator: e.target.value })}>
+              <option value="0">Désactivé</option>
+              <option value="1">Tout</option>
+              <option value="2">Chat</option>
+              <option value="3">Système</option>
+            </select>
+          </Row>
+          <Slider label="Fond du texte" value={percent('textBackgroundOpacity', 0.5)} min={0} max={100} display={(v) => `${v} %`}
+            onChange={(v) => set({ textBackgroundOpacity: String(v / 100) })} />
+          <Toggle label="Fond pour le chat seulement" value={bool('backgroundForChatOnly', true)} onChange={(v) => set({ backgroundForChatOnly: String(v) })} />
+          <Slider label="Interligne du chat" value={percent('chatLineSpacing', 0)} min={0} max={100} display={(v) => `${v} %`}
+            onChange={(v) => set({ chatLineSpacing: String(v / 100) })} />
+          <Slider label="Durée des notifications" value={Math.round(num('notificationDisplayTime', 1) * 10)} min={5} max={100}
+            display={(v) => `×${(v / 10).toFixed(1)}`} onChange={(v) => set({ notificationDisplayTime: String(v / 10) })} />
+          <Toggle label="Contour de bloc contrasté" value={bool('highContrastBlockOutline')} onChange={(v) => set({ highContrastBlockOutline: String(v) })} />
         </div>
 
         <div className="card keys">

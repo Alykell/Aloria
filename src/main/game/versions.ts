@@ -100,6 +100,22 @@ async function loadRaw(id: string): Promise<VersionJson> {
   return JSON.parse(text) as VersionJson
 }
 
+/** groupe:artefact[:classifier][@ext], sans la version : deux versions d'une même bibliothèque ont la même clé */
+function libraryKey(name: string): string {
+  const [coords, ext = 'jar'] = name.split('@')
+  const [group, artifact, , classifier = ''] = coords.split(':')
+  return `${group}:${artifact}:${classifier}@${ext}`
+}
+
+/**
+ * Fusionne les bibliothèques enfant + parent ; à bibliothèque égale, celle de l'enfant l'emporte
+ * (ex. Fabric fournit ASM 9.10 alors que Minecraft 1.21.8 en embarque 9.6 → Fabric plante si les deux sont présentes).
+ */
+function mergeLibraries(child: Library[], parent: Library[]): Library[] {
+  const seen = new Set(child.map((lib) => libraryKey(lib.name)))
+  return [...child, ...parent.filter((lib) => !seen.has(libraryKey(lib.name)))]
+}
+
 /** Charge le JSON d'une version en fusionnant son parent (inheritsFrom), utilisé par Fabric. */
 export async function loadVersion(id: string): Promise<VersionJson> {
   const child = await loadRaw(id)
@@ -108,7 +124,7 @@ export async function loadVersion(id: string): Promise<VersionJson> {
   return {
     ...parent,
     ...child,
-    libraries: [...child.libraries, ...parent.libraries],
+    libraries: mergeLibraries(child.libraries, parent.libraries),
     arguments: {
       game: [...(parent.arguments?.game ?? []), ...(child.arguments?.game ?? [])],
       jvm: [...(parent.arguments?.jvm ?? []), ...(child.arguments?.jvm ?? [])]

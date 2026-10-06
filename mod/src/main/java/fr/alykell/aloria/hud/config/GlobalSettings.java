@@ -7,6 +7,9 @@ import java.util.List;
 public class GlobalSettings {
 	/** Police des menus Aloria (voir Fonts.CHOICES) */
 	public String menuFont = "nunito";
+	/** Même couleur de texte pour tous les modules (sauf ceux au style indépendant) */
+	public boolean sameTextColor = false;
+	public int textColor = 0xFF5CC8E0;
 	/** Dernières couleurs choisies dans le sélecteur (ARGB), la plus récente en premier */
 	public List<Integer> recentColors = new ArrayList<>();
 

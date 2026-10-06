@@ -92,7 +92,7 @@ public final class EffectsModule extends HudModule {
 		int y = PAD;
 		for (Row row : rows(mc, preview)) {
 			g.blitSprite(RenderPipelines.GUI_TEXTURED, Hud.getMobEffectSprite(row.effect()), PAD, y, ICON, ICON);
-			Fonts.draw(g, mc, s.font, row.name(), PAD + ICON + 5, y, s.color, s.shadow);
+			Fonts.draw(g, mc, s.font, row.name(), PAD + ICON + 5, y, Draw.textColor(s), s.shadow);
 			Fonts.draw(g, mc, s.font, row.duration(), PAD + ICON + 5, y + 9, Theme.WHITE, s.shadow);
 			y += ROW;
 		}

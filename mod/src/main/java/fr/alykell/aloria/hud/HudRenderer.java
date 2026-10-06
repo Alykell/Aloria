@@ -6,6 +6,7 @@ import fr.alykell.aloria.hud.screen.HudLayoutScreen;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.ChatScreen;
 
 /** Dessine les modules actifs à leur place, en jeu comme dans l'éditeur. */
 public final class HudRenderer {
@@ -26,7 +27,8 @@ public final class HudRenderer {
 		int w = Math.round(module.width(mc, s, preview) * s.scale);
 		int h = Math.round(module.height(mc, s, preview) * s.scale);
 		// La position est gardée en fraction de l'écran, et le module reste toujours visible
-		int x = Math.clamp(Math.round(s.x * screenW), MARGIN, Math.max(MARGIN, screenW - w - MARGIN));
+		int left = Math.round(s.x * screenW) - (module.centered() ? w / 2 : 0);
+		int x = Math.clamp(left, MARGIN, Math.max(MARGIN, screenW - w - MARGIN));
 		int y = Math.clamp(Math.round(s.y * screenH), MARGIN, Math.max(MARGIN, screenH - h - MARGIN));
 		return new Bounds(x, y, w, h);
 	}
@@ -45,9 +47,15 @@ public final class HudRenderer {
 		// Interface masquée (F1), ou disposition en cours : l'écran dessine lui-même les modules
 		if (mc.gui.hud.isHidden() || mc.gui.screen() instanceof HudLayoutScreen) return;
 
+		boolean chatOpen = mc.gui.screen() instanceof ChatScreen;
 		for (HudModule module : AloriaHud.modules()) {
 			ModuleSettings s = AloriaHud.config().get(module);
-			if (!s.enabled || !module.hasContent(mc)) continue;
+			if (!s.enabled || (s.hideInChat && chatOpen)) continue;
+			if (!module.placeable()) {
+				module.drawOverlay(g, mc, s, delta.getGameTimeDeltaPartialTick(false));
+				continue;
+			}
+			if (!module.hasContent(mc)) continue;
 			drawModule(g, mc, module, s, bounds(mc, module, s, g.guiWidth(), g.guiHeight(), false), false);
 		}
 	}

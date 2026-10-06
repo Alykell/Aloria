@@ -19,6 +19,10 @@ public class ModuleSettings {
 	public int borderWidth = 1;
 	/** Police du module (voir Fonts.CHOICES) */
 	public String font = "nunito";
+	/** Pas touché par les réglages « tous les modules » (police, fond, couleur commune) */
+	public boolean ownStyle = false;
+	/** Caché pendant que le chat est ouvert, pour ne pas le recouvrir */
+	public boolean hideInChat = false;
 
 	public ModuleSettings() {
 	}

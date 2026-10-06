@@ -27,7 +27,7 @@ public class HudMenuScreen extends AloriaScreen {
 	private static final int PAD = 12;
 	private static final int CARD_H = 96;
 	private static final int ROW_H = 22;
-	private static final int OPTION_ROWS = 7;
+	private static final int OPTION_ROWS = 9;
 
 	private String tab = "all";
 	private @Nullable HudModule editing;
@@ -231,21 +231,31 @@ public class HudMenuScreen extends AloriaScreen {
 		drawTabs(g, mouseX, mouseY, x, y);
 		GlobalSettings global = AloriaHud.config().global();
 		int ox = x + PAD + 4;
-		int oy = y + PAD + 18 + 18;
+		int oy = y + PAD + 18 + 14;
 
-		text(g, bold("Police des menus"), ox, oy, Theme.WHITE, false);
-		oy += 16;
-		fontSelector(g, mouseX, mouseY, "menufont", ox, oy, 150, global.menuFont, f -> global.menuFont = f);
-		oy += 30;
+		// Compact : tout doit tenir dans la fenêtre même avec une grande taille d'interface
+		text(g, bold("Police des menus"), ox, oy + 4, Theme.WHITE, false);
+		fontSelector(g, mouseX, mouseY, "menufont", ox + font.width(bold("Police des menus")) + 12, oy, 150, global.menuFont, f -> global.menuFont = f);
+		oy += 24;
 
 		text(g, bold("Tous les modules"), ox, oy, Theme.WHITE, false);
-		oy += 16;
+		oy += 14;
 		String apply = "Appliquer cette police à tous les modules";
 		button(g, mouseX, mouseY, ox, oy, Math.min(w - PAD * 2 - 8, w(apply) + 20), 18, apply, false, () -> {
-			for (HudModule m : AloriaHud.modules()) settings(m).font = global.menuFont;
+			for (HudModule m : AloriaHud.modules()) {
+				if (!settings(m).ownStyle) settings(m).font = global.menuFont;
+			}
 		});
-		oy += 28;
-		text(g, "Chaque module peut aussi avoir sa propre police dans ses réglages (⚙).", ox, oy, Theme.TEXT_SOFT, false);
+		oy += 24;
+
+		String same = "Même couleur de texte pour tous";
+		toggle("sameTextColor", g, ox, oy + 2, global.sameTextColor, () -> global.sameTextColor = !global.sameTextColor);
+		text(g, same, ox + 32, oy + 4, Theme.FOAM, false);
+		swatch(g, mouseX, mouseY, "pick:global-text", ox + 40 + w(same), oy, global.textColor,
+			() -> openPicker(new Picker("Couleur commune du texte", () -> global.textColor, c -> global.textColor = c, false)));
+		oy += 22;
+
+		text(g, "Un module réglé sur « Ignorer « tous les modules » » (⚙) garde ses propres réglages.", ox, oy, Theme.TEXT_SOFT, false);
 	}
 
 	/** ‹ Nom de la police › : le nom est écrit dans la police elle-même */
@@ -300,8 +310,16 @@ public class HudMenuScreen extends AloriaScreen {
 		oy += ROW_H;
 
 		label(g, "Texte", ox, oy);
-		swatch(g, mouseX, mouseY, "pick:text", cx, oy - 2, s.color,
-			() -> openPicker(new Picker("Couleur du texte", () -> s.color, c -> s.color = c, false)));
+		GlobalSettings global = AloriaHud.config().global();
+		if (global.sameTextColor && !s.ownStyle) {
+			// Couleur commune à tous les modules : la changer ici la change partout
+			int swatchEnd = swatch(g, mouseX, mouseY, "pick:text", cx, oy - 2, global.textColor,
+				() -> openPicker(new Picker("Couleur commune du texte", () -> global.textColor, c -> global.textColor = c, false)));
+			text(g, "commune", swatchEnd + 5, oy + 2, Theme.TEXT_SOFT, false);
+		} else {
+			swatch(g, mouseX, mouseY, "pick:text", cx, oy - 2, s.color,
+				() -> openPicker(new Picker("Couleur du texte", () -> s.color, c -> s.color = c, false)));
+		}
 		toggle("shadow", g, ox + ow - 24, oy, s.shadow, () -> s.shadow = !s.shadow);
 		text(g, "Ombre", ox + ow - 30 - w("Ombre"), oy + 2, Theme.TEXT_SOFT, false);
 		oy += ROW_H;
@@ -325,11 +343,20 @@ public class HudMenuScreen extends AloriaScreen {
 		buttonWithId("border:+", g, mouseX, mouseY, ox + ow - 16, oy - 2, 16, 16, "+", false, () -> s.borderWidth = Math.min(3, s.borderWidth + 1));
 		oy += ROW_H;
 
+		label(g, "Cacher quand le chat est ouvert", ox, oy);
+		toggle("hideInChat", g, ox + ow - 24, oy, s.hideInChat, () -> s.hideInChat = !s.hideInChat);
+		oy += ROW_H;
+
+		label(g, "Ignorer « tous les modules »", ox, oy);
+		toggle("ownStyle", g, ox + ow - 24, oy, s.ownStyle, () -> s.ownStyle = !s.ownStyle);
+		oy += ROW_H;
+
 		boolean justApplied = System.currentTimeMillis() - appliedAt < 2000;
 		buttonWithId("apply-all", g, mouseX, mouseY, ox, oy - 2, ow, 16,
-			justApplied ? "✓ Appliqué à tous les modules" : "Appliquer fond, opacité et bordure à tous", false, () -> {
+			justApplied ? "✓ Appliqué aux autres modules" : "Appliquer fond, opacité et bordure à tous", false, () -> {
 				for (HudModule m : AloriaHud.modules()) {
 					ModuleSettings o = settings(m);
+					if (m != module && o.ownStyle) continue;
 					o.background = s.background;
 					o.bgColor = s.bgColor;
 					o.opacity = s.opacity;
@@ -359,7 +386,7 @@ public class HudMenuScreen extends AloriaScreen {
 	}
 
 	/** Pastille de couleur + code hexadécimal ; un clic ouvre le sélecteur */
-	private void swatch(GuiGraphicsExtractor g, int mouseX, int mouseY, String id, int x, int y, int argb, Runnable open) {
+	private int swatch(GuiGraphicsExtractor g, int mouseX, int mouseY, String id, int x, int y, int argb, Runnable open) {
 		int w = 18 + 6 + w("#FFFFFF") + 8;
 		boolean hover = hovered(mouseX, mouseY, x, y, w, 16);
 		round(g, x, y, w, 16, hover ? Theme.CARD_HOVER : Theme.CARD);
@@ -368,6 +395,7 @@ public class HudMenuScreen extends AloriaScreen {
 		g.fill(x + 3, y + 3, x + 21, y + 13, argb);
 		text(g, Colors.hex(argb), x + 26, y + 4, Theme.FOAM, false);
 		onClick(id, x, y, w, 16, open);
+		return x + w;
 	}
 
 	/** Damier gris, pour voir la transparence d'une couleur */

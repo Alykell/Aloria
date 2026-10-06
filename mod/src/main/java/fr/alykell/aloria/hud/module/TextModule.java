@@ -50,10 +50,10 @@ public abstract class TextModule extends HudModule {
 		int y = PADDING;
 		for (Line line : lines(mc, preview)) {
 			if (line.label().isEmpty()) {
-				Fonts.draw(g, mc, s.font, line.value(), PADDING, y, s.color, s.shadow);
+				Fonts.draw(g, mc, s.font, line.value(), PADDING, y, Draw.textColor(s), s.shadow);
 			} else {
 				String label = spaced(line);
-				Fonts.draw(g, mc, s.font, label, PADDING, y, s.color, s.shadow);
+				Fonts.draw(g, mc, s.font, label, PADDING, y, Draw.textColor(s), s.shadow);
 				Fonts.draw(g, mc, s.font, line.value(), PADDING + Fonts.width(mc, s.font, label), y, Theme.WHITE, s.shadow);
 			}
 			y += LINE_HEIGHT;

@@ -97,7 +97,7 @@ public final class ArmorModule extends HudModule {
 			} else {
 				g.item(slot.stack(), PAD, y);
 				String label = label(slot.stack());
-				if (!label.isEmpty()) Fonts.draw(g, mc, s.font, label, PAD + 21, y + 4, durabilityColor(slot.stack(), s.color), s.shadow);
+				if (!label.isEmpty()) Fonts.draw(g, mc, s.font, label, PAD + 21, y + 4, durabilityColor(slot.stack(), Draw.textColor(s)), s.shadow);
 			}
 			y += ROW;
 		}
