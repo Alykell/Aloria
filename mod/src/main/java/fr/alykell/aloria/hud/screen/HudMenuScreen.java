@@ -8,6 +8,7 @@ import fr.alykell.aloria.hud.config.GlobalSettings;
 import fr.alykell.aloria.hud.config.ModuleSettings;
 import fr.alykell.aloria.hud.module.HudModule;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import org.jspecify.annotations.Nullable;
@@ -26,19 +27,21 @@ public class HudMenuScreen extends AloriaScreen {
 	private static final int PAD = 12;
 	private static final int CARD_H = 96;
 	private static final int ROW_H = 22;
-	private static final int OPTION_ROWS = 6;
+	private static final int OPTION_ROWS = 7;
 
 	private String tab = "all";
 	private @Nullable HudModule editing;
 	private int scroll;
 	private int optionsScroll;
 	private @Nullable Picker picker;
+	private long appliedAt;
 
 	/** Sélecteur de couleur ouvert : on garde la teinte à part pour ne pas la perdre sur les gris */
 	private static final class Picker {
 		final String title;
 		final IntConsumer set;
 		final boolean alpha;
+		final int initial;
 		float h;
 		float s;
 		float v;
@@ -48,7 +51,8 @@ public class HudMenuScreen extends AloriaScreen {
 			this.title = title;
 			this.set = set;
 			this.alpha = alpha;
-			load(get.getAsInt());
+			this.initial = get.getAsInt();
+			load(initial);
 		}
 
 		void load(int argb) {
@@ -297,14 +301,14 @@ public class HudMenuScreen extends AloriaScreen {
 
 		label(g, "Texte", ox, oy);
 		swatch(g, mouseX, mouseY, "pick:text", cx, oy - 2, s.color,
-			() -> picker = new Picker("Couleur du texte", () -> s.color, c -> s.color = c, false));
+			() -> openPicker(new Picker("Couleur du texte", () -> s.color, c -> s.color = c, false)));
 		toggle("shadow", g, ox + ow - 24, oy, s.shadow, () -> s.shadow = !s.shadow);
 		text(g, "Ombre", ox + ow - 30 - w("Ombre"), oy + 2, Theme.TEXT_SOFT, false);
 		oy += ROW_H;
 
 		label(g, "Fond", ox, oy);
 		swatch(g, mouseX, mouseY, "pick:bg", cx, oy - 2, 0xFF000000 | s.bgColor,
-			() -> picker = new Picker("Couleur du fond", () -> 0xFF000000 | s.bgColor, c -> s.bgColor = c & 0xFFFFFF, false));
+			() -> openPicker(new Picker("Couleur du fond", () -> 0xFF000000 | s.bgColor, c -> s.bgColor = c & 0xFFFFFF, false)));
 		toggle("background", g, ox + ow - 24, oy, s.background, () -> s.background = !s.background);
 		oy += ROW_H;
 
@@ -315,10 +319,25 @@ public class HudMenuScreen extends AloriaScreen {
 
 		label(g, "Bordure", ox, oy);
 		swatch(g, mouseX, mouseY, "pick:border", cx, oy - 2, s.borderColor,
-			() -> picker = new Picker("Couleur de la bordure", () -> s.borderColor, c -> s.borderColor = c, true));
+			() -> openPicker(new Picker("Couleur de la bordure", () -> s.borderColor, c -> s.borderColor = c, true)));
 		buttonWithId("border:-", g, mouseX, mouseY, ox + ow - 62, oy - 2, 16, 16, "-", false, () -> s.borderWidth = Math.max(0, s.borderWidth - 1));
 		centered(g, s.borderWidth + " px", ox + ow - 31, oy + 2, Theme.LAGOON);
 		buttonWithId("border:+", g, mouseX, mouseY, ox + ow - 16, oy - 2, 16, 16, "+", false, () -> s.borderWidth = Math.min(3, s.borderWidth + 1));
+		oy += ROW_H;
+
+		boolean justApplied = System.currentTimeMillis() - appliedAt < 2000;
+		buttonWithId("apply-all", g, mouseX, mouseY, ox, oy - 2, ow, 16,
+			justApplied ? "✓ Appliqué à tous les modules" : "Appliquer fond, opacité et bordure à tous", false, () -> {
+				for (HudModule m : AloriaHud.modules()) {
+					ModuleSettings o = settings(m);
+					o.background = s.background;
+					o.bgColor = s.bgColor;
+					o.opacity = s.opacity;
+					o.borderColor = s.borderColor;
+					o.borderWidth = s.borderWidth;
+				}
+				appliedAt = System.currentTimeMillis();
+			});
 
 		unclip();
 		g.disableScissor();
@@ -375,13 +394,13 @@ public class HudMenuScreen extends AloriaScreen {
 
 	private void drawPicker(GuiGraphicsExtractor g, int mouseX, int mouseY, int wx, int wy, int ww, int wh, Picker p) {
 		// Un clic en dehors du sélecteur le ferme
-		onClick("picker:close", 0, 0, width, height, () -> picker = null);
+		onClick("picker:close", 0, 0, width, height, this::closePicker);
 		round(g, wx, wy, ww, wh, 0x90000000);
 
 		int sw = 120;
 		int sh = 70;
 		int pw = sw + 20 + 46;
-		int ph = 22 + sh + 6 + 8 + 8 + (p.alpha ? 12 : 0) + 22;
+		int ph = 22 + sh + 6 + 8 + 8 + (p.alpha ? 12 : 0) + 20 + 22;
 		int px = wx + (ww - pw) / 2;
 		int py = wy + (wh - ph) / 2;
 		round(g, px, py, pw, ph, 0xF20B1E2A);
@@ -404,6 +423,7 @@ public class HudMenuScreen extends AloriaScreen {
 			p.s = fx;
 			p.v = 1 - fy;
 			p.apply();
+			syncHex();
 		});
 
 		// Barre des teintes
@@ -414,6 +434,7 @@ public class HudMenuScreen extends AloriaScreen {
 		onDrag("picker:hue", sx, hy - 2, sw, 12, (fx, fy) -> {
 			p.h = fx;
 			p.apply();
+			syncHex();
 		});
 
 		int by = hy + 16;
@@ -442,14 +463,94 @@ public class HudMenuScreen extends AloriaScreen {
 			onClick("preset:" + i, x0, y0, 14, 14, () -> {
 				p.load((p.a << 24) | (c & 0xFFFFFF));
 				p.apply();
+				syncHex();
 			});
 		}
 
-		// Aperçu, code et validation
+		// Couleurs récentes
+		text(g, "Récentes", sx, by + 3, Theme.TEXT_SOFT, false);
+		int rcx = sx + w("Récentes") + 8;
+		var recent = AloriaHud.config().global().recentColors;
+		if (recent == null || recent.isEmpty()) text(g, "aucune pour l'instant", rcx, by + 3, 0x80FFFFFF, false);
+		else {
+			for (int i = 0; i < recent.size(); i++) {
+				int c = recent.get(i);
+				int x0 = rcx + i * 16;
+				checker(g, x0, by + 1, 12, 12);
+				round(g, x0, by + 1, 12, 12, c);
+				onClick("recent:" + i, x0, by + 1, 12, 12, () -> {
+					p.load(p.alpha ? c : 0xFF000000 | c);
+					p.apply();
+					syncHex();
+				});
+			}
+		}
+		by += 20;
+
+		// Aperçu, code couleur à taper, validation
 		checker(g, sx, by, 18, 12);
 		g.fill(sx, by, sx + 18, by + 12, p.argb());
-		text(g, Colors.hex(p.argb()) + (p.alpha ? "  " + Math.round(p.a / 2.55f) + "%" : ""), sx + 24, by + 2, Theme.FOAM, false);
-		button(g, mouseX, mouseY, px + pw - 46, by - 2, 36, 16, "OK", true, () -> picker = null);
+		text(g, "#", sx + 24, by + 2, Theme.FOAM, false);
+		if (hexBox != null) {
+			round(g, sx + 31, by - 2, 50, 16, 0xFF0B2130);
+			roundOutline(g, sx + 31, by - 2, 50, 16, hexBox.isFocused() ? Theme.LAGOON : Theme.BORDER);
+			hexBox.setX(sx + 35);
+			hexBox.setY(by + 2);
+		}
+		if (p.alpha) text(g, Math.round(p.a / 2.55f) + " %", sx + 86, by + 2, Theme.FOAM, false);
+		button(g, mouseX, mouseY, px + pw - 46, by - 2, 36, 16, "OK", true, this::closePicker);
+	}
+
+	// ---------------------------------------------------------------- champ du code couleur
+
+	private @Nullable EditBox hexBox;
+	private boolean syncing;
+
+	private void openPicker(Picker p) {
+		picker = p;
+		hexBox = new EditBox(font, 0, 0, 44, 10, Component.literal("Code couleur"));
+		hexBox.setBordered(false);
+		hexBox.setMaxLength(6);
+		hexBox.setTextColor(Theme.WHITE);
+		syncHex();
+		// Six chiffres hexadécimaux tapés : la couleur s'applique aussitôt
+		hexBox.setResponder(v -> {
+			if (syncing || picker == null) return;
+			// Seuls les chiffres hexadécimaux sont gardés (0-9, A-F)
+			String clean = v.replaceAll("[^0-9a-fA-F]", "");
+			if (!clean.equals(v)) {
+				syncing = true;
+				hexBox.setValue(clean);
+				syncing = false;
+			}
+			if (clean.length() != 6) return;
+			v = clean;
+			picker.load((picker.a << 24) | Integer.parseInt(v, 16));
+			picker.apply();
+		});
+		addRenderableWidget(hexBox);
+		setFocused(hexBox);
+	}
+
+	/** Pour l'auto-test : le champ du code couleur du sélecteur ouvert */
+	public @Nullable EditBox hexBoxForTest() {
+		return hexBox;
+	}
+
+	private void syncHex() {
+		if (hexBox == null || picker == null) return;
+		syncing = true;
+		hexBox.setValue(String.format("%06X", picker.argb() & 0xFFFFFF));
+		syncing = false;
+	}
+
+	private void closePicker() {
+		if (picker != null && picker.argb() != (picker.alpha ? picker.initial : picker.initial | 0xFF000000)) {
+			AloriaHud.config().global().addRecentColor(picker.argb());
+		}
+		picker = null;
+		if (hexBox != null) removeWidget(hexBox);
+		hexBox = null;
 	}
 
 	// ---------------------------------------------------------------- souris et clavier
@@ -465,7 +566,7 @@ public class HudMenuScreen extends AloriaScreen {
 	@Override
 	public void onClose() {
 		// Échap ferme d'abord le sélecteur, puis les réglages, puis le menu
-		if (picker != null) picker = null;
+		if (picker != null) closePicker();
 		else if (editing != null) editing = null;
 		else super.onClose();
 	}

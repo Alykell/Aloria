@@ -13,6 +13,12 @@ const AFTER_LAUNCH: { id: AfterLaunch; label: string }[] = [
   { id: 'close', label: 'Se fermer' }
 ]
 
+const DISCORD_DETAILS: { key: 'discordShowProfile' | 'discordShowVersion' | 'discordShowServer'; label: string }[] = [
+  { key: 'discordShowServer', label: 'Montrer le serveur (ex. « Sur donutsmp.net ») ou « En solo »' },
+  { key: 'discordShowProfile', label: 'Montrer le nom du profil' },
+  { key: 'discordShowVersion', label: 'Montrer la version (ex. « Fabric 26.2 »)' }
+]
+
 export default function SettingsPage({ state: { settings, systemRamMb, update } }: { state: SettingsState }) {
   if (!settings) return null
   // On laisse toujours au moins 2 Go au système
@@ -58,10 +64,20 @@ export default function SettingsPage({ state: { settings, systemRamMb, update } 
         <label className="card__row toggle">
           <div>
             <strong>Statut Discord</strong>
-            <p>Affiche « Joue à Aloria » sur ton profil Discord, avec le profil lancé et le temps de jeu.</p>
+            <p>Affiche « Joue à Aloria Client » sur ton profil Discord, avec le temps de jeu.</p>
           </div>
           <input type="checkbox" checked={settings.discordPresence} onChange={(e) => update({ discordPresence: e.target.checked })} />
         </label>
+        {settings.discordPresence && (
+          <div className="sub-options">
+            {DISCORD_DETAILS.map((d) => (
+              <label key={d.key} className="toggle-line">
+                <input type="checkbox" checked={settings[d.key]} onChange={(e) => update({ [d.key]: e.target.checked })} />
+                <span>{d.label}</span>
+              </label>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="card">

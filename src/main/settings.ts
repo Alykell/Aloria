@@ -9,7 +9,10 @@ const DEFAULTS: Settings = {
   showSnapshots: false,
   theme: 'auto',
   afterLaunch: 'keep',
-  discordPresence: true
+  discordPresence: true,
+  discordShowProfile: true,
+  discordShowVersion: true,
+  discordShowServer: true
 }
 
 export function getSettings(): Settings {

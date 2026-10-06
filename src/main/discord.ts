@@ -3,16 +3,27 @@ import { DISCORD_CLIENT_ID } from './config'
 import { getSettings } from './settings'
 
 /**
- * Statut Discord (« Rich Presence ») : « Joue à Aloria », avec le profil lancé et le temps de jeu.
- * Discord doit être ouvert ; sinon on réessaie régulièrement sans gêner le launcher.
+ * Statut Discord (« Rich Presence ») : « Joue à Aloria Client », avec le profil, la version
+ * et le serveur, selon les réglages. Discord doit être ouvert ; sinon on réessaie régulièrement.
  */
 let client: Client | null = null
 let ready = false
 let retry: NodeJS.Timeout | null = null
-let current: { details: string; state?: string; startTimestamp?: number } = { details: 'Dans le launcher' }
 const launcherSince = Date.now()
 
+/** Partie en cours (null = dans le launcher). server : adresse, « solo », ou null (menus du jeu) */
+let game: { profile: string; version: string; server: string | null; since: number } | null = null
+
 const enabled = () => !!DISCORD_CLIENT_ID && getSettings().discordPresence
+
+function activity(): { details: string; state?: string; startTimestamp: number } {
+  if (!game) return { details: 'Dans le launcher', startTimestamp: launcherSince }
+  const s = getSettings()
+  let details = 'En jeu'
+  if (s.discordShowServer && game.server) details = game.server === 'solo' ? 'En solo' : `Sur ${game.server}`
+  const parts = [s.discordShowProfile ? game.profile : null, s.discordShowVersion ? game.version : null].filter(Boolean)
+  return { details, state: parts.length ? parts.join(' · ') : undefined, startTimestamp: game.since }
+}
 
 async function push(): Promise<void> {
   if (!client || !ready) return
@@ -22,9 +33,7 @@ async function push(): Promise<void> {
       return
     }
     await client.user?.setActivity({
-      details: current.details,
-      state: current.state,
-      startTimestamp: current.startTimestamp ?? launcherSince,
+      ...activity(),
       largeImageKey: 'aloria',
       largeImageText: 'Aloria Client',
       instance: false
@@ -66,22 +75,25 @@ export function initDiscord(): void {
   connect()
 }
 
-/** À appeler quand le réglage change dans le launcher */
+/** À appeler quand un réglage Discord change dans le launcher */
 export function refreshDiscord(): void {
-  if (enabled()) {
-    if (ready) push()
-    else connect()
-  } else {
-    push()
-  }
+  if (enabled() && !ready) connect()
+  else push()
 }
 
-export function setDiscordPlaying(profileName: string, versionLabel: string): void {
-  current = { details: `En jeu · ${profileName}`, state: versionLabel, startTimestamp: Date.now() }
+export function setDiscordPlaying(profile: string, version: string): void {
+  game = { profile, version, server: null, since: Date.now() }
+  push()
+}
+
+/** Serveur rejoint (« solo » pour un monde solo, null pour les menus du jeu) */
+export function setDiscordServer(server: string | null): void {
+  if (!game || game.server === server) return
+  game.server = server
   push()
 }
 
 export function setDiscordIdle(): void {
-  current = { details: 'Dans le launcher' }
+  game = null
   push()
 }

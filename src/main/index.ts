@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import { join } from 'node:path'
 import { addAccount, listAccounts, removeAccount, selectAccount } from './auth/accounts'
 import { toAuthError } from './auth/errors'
-import { getStatus, listVersions, play } from './game/controller'
+import { getStatus, isGameRunning, listVersions, play } from './game/controller'
 import { fabricLoaders } from './game/fabric'
 import { installContent, listInstalled, openContentFolder, removeContent, searchContent, setContentEnabled } from './modrinth/content'
 import { createPreset, deletePreset, listPresets, renamePreset, updatePresetOptions } from './shared/presets'
@@ -43,6 +43,14 @@ function createWindow(): BrowserWindow {
   })
 
   win.once('ready-to-show', () => win.show())
+
+  // Fermer la fenêtre pendant une partie la cache seulement : le statut Discord et la récupération
+  // des réglages continuent, et le launcher quitte quand le jeu se ferme
+  win.on('close', (event) => {
+    if (!isGameRunning()) return
+    event.preventDefault()
+    win.hide()
+  })
 
   // Les liens externes s'ouvrent dans le navigateur, jamais dans le launcher
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -85,7 +93,7 @@ ipcMain.handle('accounts:remove', (_e, uuid: string) => removeAccount(uuid))
 ipcMain.handle('settings:get', () => ({ settings: getSettings(), systemRamMb: systemRamMb() }))
 ipcMain.handle('settings:update', (_e, patch: Partial<Settings>) => {
   const next = updateSettings(patch)
-  if ('discordPresence' in patch) refreshDiscord()
+  if (Object.keys(patch).some((k) => k.startsWith('discord'))) refreshDiscord()
   return next
 })
 ipcMain.handle('game:versions', async (_e, snapshots: boolean): Promise<Result<VersionEntry[]>> => {

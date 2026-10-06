@@ -15,6 +15,10 @@ export interface Settings {
   afterLaunch: AfterLaunch
   /** Statut « Joue à Aloria » sur Discord */
   discordPresence: boolean
+  /** Ce que le statut Discord montre pendant une partie */
+  discordShowProfile: boolean
+  discordShowVersion: boolean
+  discordShowServer: boolean
 }
 
 export type AfterLaunch = 'keep' | 'minimize' | 'close'

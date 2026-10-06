@@ -118,6 +118,9 @@ public abstract class AloriaScreen extends Screen {
 	/** Clic gauche sur une zone enregistrée ; sinon laisse l'écran gérer */
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+		for (var child : children()) {
+			if (child.isMouseOver(event.x(), event.y())) return super.mouseClicked(event, doubleClick);
+		}
 		if (event.button() == InputConstants.MOUSE_BUTTON_LEFT) {
 			for (int i = hits.size() - 1; i >= 0; i--) {
 				Hit hit = hits.get(i);

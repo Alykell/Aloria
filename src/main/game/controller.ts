@@ -1,6 +1,7 @@
 import { app, BrowserWindow, type WebContents } from 'electron'
 import { readFile } from 'node:fs/promises'
-import { setDiscordIdle, setDiscordPlaying } from '../discord'
+import { setDiscordIdle, setDiscordPlaying, setDiscordServer } from '../discord'
+import { watchGameLog } from './logWatcher'
 import { addPending, removePending } from '../shared/pending'
 import { getValidSession, listAccounts } from '../auth/accounts'
 import { gameDirOf, getProfile, markPlayed } from '../profiles'
@@ -30,6 +31,8 @@ function setStatus(next: GameStatus): void {
 }
 
 export const getStatus = () => status
+
+export const isGameRunning = () => status.state === 'running'
 
 const splitArgs = (value: string | undefined) => (value ?? '').split(' ').filter(Boolean)
 
@@ -100,17 +103,20 @@ export async function play(sender: WebContents, profileId: string): Promise<void
       extraGameArgs: app.isPackaged ? [] : splitArgs(process.env.ALORIA_EXTRA_GAME_ARGS)
     })
 
+    let stopWatching = () => {}
     const versionLabel = profile.loader === 'fabric' ? `Fabric ${gameVersion}` : `Minecraft ${gameVersion}`
     child.once('spawn', () => {
       setStatus({ state: 'running', profile: profile.name })
       // Réglages à récupérer à la fermeture du jeu, même si le launcher est fermé entre-temps
       if (child.pid) addPending({ pid: child.pid, gameVersion, gameDir, session: sync })
       setDiscordPlaying(profile.name, versionLabel)
+      stopWatching = watchGameLog(logFile, setDiscordServer)
 
       const win = BrowserWindow.fromWebContents(sender)
       if (settings.afterLaunch === 'minimize') win?.minimize()
-      // Laisse le temps au jeu de s'ouvrir avant de fermer le launcher
-      if (settings.afterLaunch === 'close') setTimeout(() => app.quit(), 3000)
+      // « Se fermer » : la fenêtre disparaît mais le launcher reste en arrière-plan pour le statut
+      // Discord et la récupération des réglages, puis quitte quand le jeu se ferme
+      if (settings.afterLaunch === 'close') setTimeout(() => win?.hide(), 2000)
     })
     child.once('error', (err) => {
       setStatus({ state: 'idle' })
@@ -119,9 +125,14 @@ export async function play(sender: WebContents, profileId: string): Promise<void
     child.once('exit', async (code) => {
       setStatus({ state: 'idle' })
       setDiscordIdle()
+      stopWatching()
       await collectShared(sync, gameVersion, gameDir).catch((err) => console.warn('[réglages partagés]', err))
       if (child.pid) removePending(child.pid)
       const win = BrowserWindow.fromWebContents(sender)
+      if (win && !win.isVisible()) {
+        app.quit()
+        return
+      }
       if (win?.isMinimized()) win.restore()
       sendExit({ code, crashLog: code === 0 ? null : await logTail(logFile) })
     })

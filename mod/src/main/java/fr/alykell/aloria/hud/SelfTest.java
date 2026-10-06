@@ -9,6 +9,7 @@ import fr.alykell.aloria.hud.screen.AloriaScreen;
 import fr.alykell.aloria.hud.screen.HudLayoutScreen;
 import fr.alykell.aloria.hud.screen.HudMenuScreen;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.KeyboardHandler;
 import net.minecraft.client.MouseHandler;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -125,6 +126,30 @@ public final class SelfTest {
 		return clickAt(mc, c[0], c[1]);
 	}
 
+	/** Tape du texte comme au clavier (signature différente selon la version : appel par réflexion) */
+	private static void type(Minecraft mc, String text) {
+		for (Method m : KeyboardHandler.class.getDeclaredMethods()) {
+			if (!m.getName().equals("charTyped") || m.getParameterTypes().length == 0 || m.getParameterTypes()[0] != long.class) continue;
+			m.setAccessible(true);
+			for (int cp : text.codePoints().toArray()) {
+				try {
+					Class<?> second = m.getParameterTypes()[1];
+					if (m.getParameterCount() == 2 && second != int.class) {
+						m.invoke(mc.keyboardHandler, mc.getWindow().handle(), second.getConstructor(int.class).newInstance(cp));
+					} else if (m.getParameterCount() == 3) {
+						m.invoke(mc.keyboardHandler, mc.getWindow().handle(), cp, 0);
+					} else {
+						m.invoke(mc.keyboardHandler, mc.getWindow().handle(), cp);
+					}
+				} catch (ReflectiveOperationException e) {
+					throw new RuntimeException(e);
+				}
+			}
+			return;
+		}
+		throw new IllegalStateException("KeyboardHandler.charTyped introuvable");
+	}
+
 	private static boolean check(String what, boolean ok) {
 		log((ok ? "OK : " : "ÉCHEC : ") + what);
 		if (!ok) failures++;
@@ -196,7 +221,19 @@ public final class SelfTest {
 		add("ouvrir le sélecteur (fond)", 3, () -> click(mc, "pick:bg"));
 		add("fond vert", 2, () -> click(mc, "preset:4"));
 		add("fond appliqué (couleur)", 2, () -> check("le sélecteur change la couleur du fond", settings("fps").bgColor == (Theme.PALETTE[4] & 0xFFFFFF)));
+		add("taper un code couleur", 2, () -> {
+			if (!(mc.gui.screen() instanceof HudMenuScreen menu) || menu.hexBoxForTest() == null) return check("champ du code couleur présent", false);
+			menu.hexBoxForTest().setValue("");
+			type(mc, "ff6b00");
+			return true;
+		});
+		add("code appliqué", 2, () -> check("le code tapé change la couleur (" + Integer.toHexString(settings("fps").bgColor) + ")", settings("fps").bgColor == 0xFF6B00));
+		add("capture du sélecteur (code)", 3, () -> screenshot(mc, "05e-code-couleur"));
 		add("clic hors du sélecteur", 2, () -> clickAt(mc, 2, 2));
+		add("rouvrir le sélecteur (texte)", 3, () -> click(mc, "pick:text"));
+		add("couleur récente", 3, () -> click(mc, "recent:0"));
+		add("récente appliquée", 2, () -> check("la couleur récente s'applique (" + Integer.toHexString(settings("fps").color) + ")", (settings("fps").color & 0xFFFFFF) == 0xFF6B00));
+		add("fermer (récentes)", 2, () -> click(mc, "btn:OK"));
 		add("sélecteur fermé", 2, () -> click(mc, "font:next"));
 		add("police suivante", 2, () -> check("le sélecteur de police change la police (" + settings("fps").font + ")", settings("fps").font.equals("inter")));
 		add("défiler les réglages", 2, () -> {
@@ -205,6 +242,9 @@ public final class SelfTest {
 		});
 		add("bordure plus épaisse", 2, () -> click(mc, "border:+"));
 		add("bordure appliquée", 2, () -> check("le bouton + épaissit la bordure", settings("fps").borderWidth == 2));
+		add("appliquer à tous", 2, () -> click(mc, "apply-all"));
+		add("style appliqué à tous", 2, () -> check("« Appliquer à tous » copie fond et bordure sur tous les modules",
+			AloriaHud.modules().stream().allMatch(m -> AloriaHud.config().get(m).borderWidth == 2 && AloriaHud.config().get(m).bgColor == 0xFF6B00)));
 		add("capture bordure", 3, () -> screenshot(mc, "05d-bordure"));
 		add("remonter les réglages", 2, () -> {
 			if (mc.gui.screen() instanceof HudMenuScreen menu) menu.mouseScrolled(0, 0, 0, 10);
