@@ -14,9 +14,9 @@ jobs:
   release:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
@@ -30,19 +30,22 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 25
 
-      # Un jar par version de Minecraft (les classes de rendu diffèrent entre 26.2 et 26.3)
+      # Un jar par version de Minecraft (les classes de rendu diffèrent entre 26.2 et 26.3).
+      # « shell: cmd » : PowerShell couperait les arguments comme -Pminecraft_version=26.2 au niveau du point
       - name: Construire le mod Aloria HUD (Minecraft 26.3)
         working-directory: mod
-        run: ./gradlew.bat build --no-daemon
+        shell: cmd
+        run: gradlew.bat build --no-daemon
 
       - name: Construire le mod Aloria HUD (Minecraft 26.2)
         working-directory: mod
-        run: ./gradlew.bat build --no-daemon -Pminecraft_version=26.2 -Pfabric_api_version=0.161.0+26.2
+        shell: cmd
+        run: gradlew.bat build --no-daemon -Pminecraft_version=26.2 -Pfabric_api_version=0.161.0+26.2
 
       - run: npm ci
 
