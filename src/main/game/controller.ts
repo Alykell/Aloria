@@ -7,6 +7,7 @@ import { installFabric } from './fabric'
 import { installVersion } from './install'
 import { launchGame } from './launch'
 import { getManifest, loadVersion, resolveVersionId } from './versions'
+import { applyShared, collectShared } from '../shared/sync'
 import type { GameExit, GameStatus, VersionEntry } from '../../shared/types'
 
 let status: GameStatus = { state: 'idle' }
@@ -79,6 +80,10 @@ export async function play(sender: WebContents, profileId: string): Promise<void
       else setStatus({ state: 'downloading', doneFiles: step.doneFiles, totalFiles: step.totalFiles, doneBytes: step.doneBytes, totalBytes: step.totalBytes })
     })
 
+    // Liste de serveurs commune et jeu de réglages du profil (convertis pour les anciennes versions)
+    setStatus({ state: 'preparing', label: 'Application de tes réglages…' })
+    const sync = await applyShared(profile, gameVersion, gameDir, installed.classpath[installed.classpath.length - 1])
+
     setStatus({ state: 'launching' })
     const child = await launchGame({
       installed,
@@ -108,6 +113,7 @@ export async function play(sender: WebContents, profileId: string): Promise<void
     })
     child.once('exit', (code) => {
       setStatus({ state: 'idle' })
+      collectShared(sync, gameVersion, gameDir).catch((err) => console.warn('[réglages partagés]', err))
       sendExit({ code, crashLog: code === 0 ? null : tail.join('\n') })
     })
   } catch (err) {

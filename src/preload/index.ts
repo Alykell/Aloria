@@ -5,6 +5,7 @@ import type {
   InstalledContent,
   SearchHit,
   SearchQuery,
+  SettingsPreset,
   UpdateStatus,
   GameStatus,
   LoaderVersion,
@@ -51,6 +52,13 @@ const api = {
     select: (id: string): Promise<void> => ipcRenderer.invoke('profiles:select', id),
     remove: (id: string, deleteFiles: boolean): Promise<Result<void>> => ipcRenderer.invoke('profiles:delete', id, deleteFiles),
     openFolder: (id: string): Promise<void> => ipcRenderer.invoke('profiles:openFolder', id)
+  },
+  presets: {
+    list: (): Promise<SettingsPreset[]> => ipcRenderer.invoke('presets:list'),
+    create: (name: string, copyFrom: string | null): Promise<SettingsPreset> => ipcRenderer.invoke('presets:create', name, copyFrom),
+    rename: (id: string, name: string): Promise<void> => ipcRenderer.invoke('presets:rename', id, name),
+    remove: (id: string): Promise<Result<void>> => ipcRenderer.invoke('presets:delete', id),
+    update: (id: string, patch: Record<string, string | null>): Promise<SettingsPreset> => ipcRenderer.invoke('presets:update', id, patch)
   },
   library: {
     search: (q: SearchQuery): Promise<Result<{ hits: SearchHit[]; total: number; gameVersion: string }>> =>

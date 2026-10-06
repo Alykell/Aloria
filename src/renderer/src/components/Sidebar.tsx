@@ -2,12 +2,13 @@ import AccountPanel from './AccountPanel'
 import UpdateBanner from './UpdateBanner'
 import type { AccountsState } from '../hooks/useAccounts'
 
-export type Page = 'home' | 'library' | 'profiles' | 'settings'
+export type Page = 'home' | 'library' | 'profiles' | 'gamesettings' | 'settings'
 
 const ITEMS: { id: Page; label: string; icon: string }[] = [
   { id: 'home', label: 'Accueil', icon: '🏝️' },
   { id: 'library', label: 'Bibliothèque', icon: '🐚' },
   { id: 'profiles', label: 'Profils', icon: '⚓' },
+  { id: 'gamesettings', label: 'Réglages du jeu', icon: '🎮' },
   { id: 'settings', label: 'Paramètres', icon: '⚙️' }
 ]
 

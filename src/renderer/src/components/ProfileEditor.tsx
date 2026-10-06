@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useVersions } from '../hooks/useVersions'
 import { ALORIA_HUD_MC_VERSIONS } from '../../../shared/aloriaHud'
-import type { LoaderVersion, Profile, ProfileInput } from '../../../shared/types'
+import type { LoaderVersion, Profile, ProfileInput, SettingsPreset } from '../../../shared/types'
 
 const ICONS = ['🏝️', '🌊', '🐚', '⚓', '🐬', '🐠', '🦀', '🌴', '⛵', '🏰', '⚔️', '🧪', '🌙', '🔥', '💎', '🌸']
 
@@ -29,6 +29,10 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
   const [form, setForm] = useState<ProfileInput>(profile ?? EMPTY)
   const [loaders, setLoaders] = useState<LoaderVersion[] | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [presets, setPresets] = useState<SettingsPreset[]>([])
+  useEffect(() => {
+    window.aloria.presets.list().then(setPresets)
+  }, [])
   const [saving, setSaving] = useState(false)
   const { versions, latestRelease, latestSnapshot } = useVersions(showSnapshots || form.versionId.includes('snapshot'))
 
@@ -170,6 +174,28 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
             </div>
           )}
         </div>
+
+        <label className="field">
+          <span>Réglages du jeu</span>
+          <select
+            value={form.settingsPreset === null ? '' : (form.settingsPreset ?? 'main')}
+            onChange={(e) => set({ settingsPreset: e.target.value === '' ? null : e.target.value })}
+          >
+            {presets.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+            <option value="">Propres à ce profil (non partagés)</option>
+          </select>
+        </label>
+
+        <label className="toggle-line">
+          <input type="checkbox" checked={form.shareServers !== false} onChange={(e) => set({ shareServers: e.target.checked })} />
+          <span>
+            Liste des serveurs commune <small className="muted">· la même dans tous les profils</small>
+          </span>
+        </label>
 
         <div className="dialog__actions">
           {profile && onDelete && (

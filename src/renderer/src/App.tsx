@@ -5,6 +5,7 @@ import HomePage from './components/HomePage'
 import ProfilesPage from './components/ProfilesPage'
 import LibraryPage from './components/LibraryPage'
 import SettingsPage from './components/SettingsPage'
+import GameSettingsPage from './components/GameSettingsPage'
 import CrashDialog from './components/CrashDialog'
 import { useAccounts } from './hooks/useAccounts'
 import { useSettings } from './hooks/useSettings'
@@ -62,6 +63,7 @@ export default function App() {
           {page === 'profiles' && (
             <ProfilesPage profiles={profiles} settings={settings} onPlay={playFromProfiles} onError={setPageError} />
           )}
+          {page === 'gamesettings' && <GameSettingsPage onError={setPageError} />}
           {page === 'settings' && <SettingsPage state={settings} />}
           {page === 'library' && (
             <LibraryPage profiles={profiles} onError={setPageError} onOpenProfiles={() => setPage('profiles')} />

@@ -5,6 +5,7 @@ import { toAuthError } from './auth/errors'
 import { getStatus, listVersions, play } from './game/controller'
 import { fabricLoaders } from './game/fabric'
 import { installContent, listInstalled, openContentFolder, removeContent, searchContent, setContentEnabled } from './modrinth/content'
+import { createPreset, deletePreset, listPresets, renamePreset, updatePresetOptions } from './shared/presets'
 import { createProfile, deleteProfile, listProfiles, openProfileFolder, selectProfile, updateProfile } from './profiles'
 import { getSettings, systemRamMb, updateSettings } from './settings'
 import { getUpdateStatus, initUpdater, installUpdate } from './updater'
@@ -118,6 +119,12 @@ ipcMain.handle('profiles:delete', (_e, id: string, deleteFiles: boolean) => wrap
 ipcMain.handle('profiles:openFolder', (_e, id: string) => openProfileFolder(id))
 ipcMain.handle('fabric:loaders', (_e, gameVersion: string): Promise<Result<LoaderVersion[]>> => wrap(() => fabricLoaders(gameVersion)))
 
+ipcMain.handle('presets:list', () => listPresets())
+ipcMain.handle('presets:create', (_e, name: string, copyFrom: string | null) => createPreset(name, copyFrom))
+ipcMain.handle('presets:rename', (_e, id: string, name: string) => renamePreset(id, name))
+ipcMain.handle('presets:delete', (_e, id: string) => wrap(() => deletePreset(id)))
+ipcMain.handle('presets:update', (_e, id: string, patch: Record<string, string | null>) => updatePresetOptions(id, patch))
+
 ipcMain.handle('library:search', (_e, q: SearchQuery) => wrap(() => searchContent(q)))
 ipcMain.handle('library:installed', (_e, profileId: string) => wrap(() => listInstalled(profileId)))
 ipcMain.handle('library:install', (_e, profileId: string, projectId: string, type: ContentType) =>
@@ -195,11 +202,17 @@ async function captureScreens(win: BrowserWindow, dir: string): Promise<void> {
     await wait(400)
     await click(label)
     await wait(1200)
-    for (const page of ['Paramètres', 'Accueil', 'Profils', 'Bibliothèque']) {
+    for (const page of ['Réglages du jeu', 'Paramètres', 'Accueil']) {
       await click(page)
       await wait(page === 'Bibliothèque' ? 2500 : 800)
       const image = await win.webContents.capturePage()
       await writeFile(join(dir, `${theme}-${page}.png`), image.toPNG())
+      if (page === 'Réglages du jeu') {
+        await win.webContents.executeJavaScript('document.querySelector(".content").scrollTop = 99999')
+        await wait(400)
+        await writeFile(join(dir, `${theme}-${page}-bas.png`), (await win.webContents.capturePage()).toPNG())
+        await win.webContents.executeJavaScript('document.querySelector(".content").scrollTop = 0')
+      }
     }
   }
   // On remet le réglage par défaut

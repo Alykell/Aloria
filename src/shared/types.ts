@@ -52,6 +52,17 @@ export interface ProfileInput {
   ramMb: number | null
   /** Mod Aloria HUD dans les profils Fabric (absent = activé) */
   aloriaHud?: boolean
+  /** Liste de serveurs commune à tous les profils (absent = oui) */
+  shareServers?: boolean
+  /** Jeu de réglages appliqué au lancement (absent = « Mes réglages », null = réglages propres au profil) */
+  settingsPreset?: string | null
+}
+
+/** Jeu de réglages du jeu partagé entre profils (format options.txt moderne) */
+export interface SettingsPreset {
+  id: string
+  name: string
+  options: Record<string, string>
 }
 
 export interface Profile extends ProfileInput {

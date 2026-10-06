@@ -460,3 +460,29 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .segmented button { white-space: nowrap; }
 :root[data-theme='night'] .account__login { background: rgba(143, 220, 240, 0.14); color: var(--text); }
 :root[data-theme='night'] .account__login:hover { background: rgba(143, 220, 240, 0.22); }
+
+/* Réglages du jeu */
+.game-settings h3 { font-family: 'Quicksand', sans-serif; color: var(--sea-deep); font-size: 16px; }
+.game-settings h3.spaced { margin-top: 10px; }
+.small { font-size: 12px; }
+.preset-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 6px; }
+.preset-chip { padding: 8px 16px; border-radius: 999px; font-weight: 700; background: var(--card); color: var(--text-soft); border: 1px solid var(--line); }
+.preset-chip:hover { color: var(--text); }
+.preset-chip.active { background: var(--sea); color: white; border-color: var(--sea); }
+.preset-chip.add { border-style: dashed; }
+.preset-input { padding: 8px 14px; border-radius: 999px; border: 1px solid var(--lagoon); background: var(--surface); color: var(--text); font: inherit; outline: none; user-select: text; }
+.danger-btn.small { padding: 7px 12px; font-size: 13px; }
+.settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; align-items: start; }
+.setting-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 34px; font-weight: 600; font-size: 14px; }
+.setting-row > span { flex-shrink: 0; }
+.setting-row select { padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: inherit; }
+.setting-row .slider-line { flex: 1; max-width: 230px; }
+.setting-row .slider-line strong { min-width: 74px; font-size: 13px; text-align: right; }
+.card.keys { grid-row: span 2; }
+.key-group { display: flex; flex-direction: column; gap: 2px; }
+.key-group__title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-soft); margin-top: 6px; }
+.key-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; padding: 2px 0; }
+.key-btn { min-width: 128px; padding: 6px 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); font-weight: 700; color: var(--text); }
+.key-btn:hover { border-color: var(--lagoon); }
+.key-btn.capturing { background: var(--sea); color: white; border-color: var(--sea); animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.7; } }
