@@ -54,7 +54,10 @@ jobs:
       # Une seule release (brouillon) créée avant l'envoi des fichiers, publiée une fois complète
       - name: Créer le brouillon de release
         shell: bash
-        run: gh release create "$GITHUB_REF_NAME" --draft --title "Aloria ${GITHUB_REF_NAME#v}" --notes "Mise à jour d'Aloria ${GITHUB_REF_NAME#v}."
+        # Une release déjà présente pour ce tag (publication ratée ou incomplète) est remplacée
+        run: |
+          gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1 && gh release delete "$GITHUB_REF_NAME" --yes
+          gh release create "$GITHUB_REF_NAME" --draft --title "Aloria ${GITHUB_REF_NAME#v}" --notes "Mise à jour d'Aloria ${GITHUB_REF_NAME#v}."
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
