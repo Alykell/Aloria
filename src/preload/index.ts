@@ -30,6 +30,8 @@ const api = {
     close: () => ipcRenderer.send('window:close')
   },
   getVersion: (): Promise<string> => ipcRenderer.invoke('app:version'),
+  /** Disposition du clavier (code physique → caractère), pour convertir les touches des anciennes versions */
+  keyboardLayout: (layout: Record<string, string>) => ipcRenderer.send('keyboard:layout', layout),
   updater: {
     status: (): Promise<UpdateStatus> => ipcRenderer.invoke('updater:status'),
     install: () => ipcRenderer.send('updater:install'),

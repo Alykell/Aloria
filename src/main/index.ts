@@ -11,6 +11,7 @@ import { getSettings, systemRamMb, updateSettings } from './settings'
 import { getUpdateStatus, initUpdater, installUpdate } from './updater'
 import { initDiscord, refreshDiscord } from './discord'
 import { processPending } from './shared/pending'
+import { saveKeyboardLayout } from './shared/options'
 import type {
   ContentType,
   LoaderVersion,
@@ -78,6 +79,7 @@ ipcMain.on('window:close', (e) => BrowserWindow.fromWebContents(e.sender)?.close
 ipcMain.handle('app:version', () => app.getVersion())
 ipcMain.handle('updater:status', () => getUpdateStatus())
 ipcMain.on('updater:install', () => installUpdate())
+ipcMain.on('keyboard:layout', (_e, layout: Record<string, string>) => saveKeyboardLayout(layout))
 
 ipcMain.handle('accounts:list', () => listAccounts())
 ipcMain.handle('accounts:add', async (e): Promise<Result<PublicAccount>> => {

@@ -1,3 +1,8 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { paths } from '../game/paths'
+import { codeToName, nameToCode, type KeyboardLayout } from '../../shared/keyCodes'
+
 /**
  * Lecture / écriture d'options.txt et conversion entre le format moderne (1.13+) et l'ancien (1.12 et avant).
  * Les réglages partagés sont toujours stockés au format moderne.
@@ -62,6 +67,65 @@ const LEGACY_KEYS = new Set([
 
 export const isSyncedKey = (key: string) => SYNCED_OPTIONS.includes(key) || key.startsWith('key_key.')
 
+/** Réglages qui portent un autre nom avant la 1.13 */
+const LEGACY_NAMES: Record<string, string> = { viewBobbing: 'bobView' }
+const MODERN_NAMES = Object.fromEntries(Object.entries(LEGACY_NAMES).map(([modern, legacy]) => [legacy, modern]))
+
+/** Nom d'un réglage moderne dans options.txt d'une ancienne version (« viewBobbing » → « bobView ») */
+export const legacyName = (key: string) => LEGACY_NAMES[key] ?? key
+/** Nom moderne d'un réglage lu dans une ancienne version (« bobView » → « viewBobbing ») */
+export const modernName = (key: string) => MODERN_NAMES[key] ?? key
+
+// ---------------------------------------------------------------- disposition du clavier
+
+/**
+ * Les versions modernes désignent les touches par leur position physique (« key.keyboard.w » = la touche Z d'un
+ * AZERTY), mais la 1.8.9 (LWJGL 2) par la lettre qu'elles tapent. Pour les lettres, on passe donc par la disposition
+ * du clavier de l'utilisateur, envoyée par l'interface du launcher.
+ */
+const layoutFile = join(paths.root, 'shared', 'keyboard-layout.json')
+let layoutMemo: KeyboardLayout | null | undefined
+
+export function saveKeyboardLayout(layout: KeyboardLayout): void {
+  layoutMemo = layout
+  try {
+    const text = JSON.stringify(layout)
+    if (existsSync(layoutFile) && readFileSync(layoutFile, 'utf8') === text) return
+    mkdirSync(dirname(layoutFile), { recursive: true })
+    writeFileSync(layoutFile, text)
+  } catch {
+    // Disposition inconnue : les touches restent converties par position
+  }
+}
+
+function keyboardLayout(): KeyboardLayout | null {
+  if (layoutMemo === undefined) {
+    try {
+      layoutMemo = existsSync(layoutFile) ? (JSON.parse(readFileSync(layoutFile, 'utf8')) as KeyboardLayout) : null
+    } catch {
+      layoutMemo = null
+    }
+  }
+  return layoutMemo
+}
+
+/** Position moderne → lettre tapée sur ce clavier, si c'est une lettre (« w » → « z » en AZERTY) */
+function letterAt(name: string): string | null {
+  const code = nameToCode(name)
+  const char = code ? keyboardLayout()?.[code]?.toLowerCase() : undefined
+  return char && /^[a-z]$/.test(char) ? char : null
+}
+
+/** Lettre tapée → position moderne de la touche qui la tape (« z » → « w » en AZERTY) */
+function positionOf(letter: string): string | null {
+  const layout = keyboardLayout()
+  if (!layout) return null
+  for (const [code, char] of Object.entries(layout)) {
+    if (char.toLowerCase() === letter) return codeToName(code)
+  }
+  return null
+}
+
 /** Versions d'avant la 1.13 : touches en codes numériques LWJGL 2, langue en « fr_FR » */
 export function isLegacyVersion(gameVersion: string): boolean {
   const m = /^1\.(\d+)/.exec(gameVersion)
@@ -94,7 +158,9 @@ function keyToLegacy(value: string): string | null {
     return code !== undefined ? String(code) : null
   }
   if (value.startsWith('key.keyboard.')) {
-    const code = LWJGL2[value.slice('key.keyboard.'.length)]
+    const name = value.slice('key.keyboard.'.length)
+    // Lettre : la 1.8.9 attend le code de la lettre tapée par cette touche sur le clavier de l'utilisateur
+    const code = LWJGL2[letterAt(name) ?? name]
     return code !== undefined ? String(code) : null
   }
   return null
@@ -105,7 +171,11 @@ function keyFromLegacy(value: string): string | null {
   if (!Number.isFinite(code)) return null
   if (code === 0) return 'key.keyboard.unknown'
   if (code < 0) return MOUSE_REVERSE[code] ? `key.mouse.${MOUSE_REVERSE[code]}` : null
-  return LWJGL2_REVERSE[code] ? `key.keyboard.${LWJGL2_REVERSE[code]}` : null
+  const name = LWJGL2_REVERSE[code]
+  if (!name) return null
+  // Lettre : on retrouve la position physique de la touche qui la tape sur ce clavier
+  const position = /^[a-z]$/.test(name) ? positionOf(name) : null
+  return `key.keyboard.${position ?? name}`
 }
 
 /** « fr_fr » → « fr_FR » */

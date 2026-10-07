@@ -3,7 +3,7 @@ import { existsSync, readdirSync, statSync } from 'node:fs'
 import { copyFile, mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { paths } from '../game/paths'
-import { fromLegacy, isLegacyVersion, isSyncedKey, parseOptions, serializeOptions, toLegacy } from './options'
+import { fromLegacy, isLegacyVersion, isSyncedKey, legacyName, modernName, parseOptions, serializeOptions, toLegacy } from './options'
 import { getPreset, MAIN_PRESET, sharedDir, updatePresetOptions } from './presets'
 import type { Profile } from '../../shared/types'
 
@@ -76,9 +76,10 @@ export async function applyShared(profile: Profile, gameVersion: string, gameDir
       if (version !== null) entries.push(['version', String(version)])
     }
     const index = new Map(entries.map(([k], i) => [k, i]))
-    for (const [key, value] of Object.entries(preset.options)) {
-      const converted = legacy ? toLegacy(key, value) : value
+    for (const [modern, value] of Object.entries(preset.options)) {
+      const converted = legacy ? toLegacy(modern, value) : value
       if (converted === null) continue
+      const key = legacy ? legacyName(modern) : modern
       const i = index.get(key)
       if (i !== undefined) entries[i] = [key, converted]
       else entries.push([key, converted])
@@ -101,7 +102,8 @@ export async function collectShared(session: SyncSession, gameVersion: string, g
   if (session.presetId && existsSync(optionsFile)) {
     const legacy = isLegacyVersion(gameVersion)
     const patch: Record<string, string> = {}
-    for (const [key, value] of parseOptions(await readFile(optionsFile, 'utf8'))) {
+    for (const [raw, value] of parseOptions(await readFile(optionsFile, 'utf8'))) {
+      const key = legacy ? modernName(raw) : raw
       if (!isSyncedKey(key)) continue
       const converted = legacy ? fromLegacy(key, value) : value
       if (converted !== null) patch[key] = converted

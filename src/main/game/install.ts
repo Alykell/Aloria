@@ -1,7 +1,7 @@
 import AdmZip from 'adm-zip'
-import { existsSync } from 'node:fs'
+import { existsSync, statSync } from 'node:fs'
 import { copyFile, mkdir, readFile } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { downloadAll, filterMissing, pool, type DownloadProgress, type DownloadTask } from './download'
 import { prepareJava } from './java'
 import { paths } from './paths'
@@ -116,6 +116,10 @@ function extractNatives(jars: { path: string; exclude: string[] }[], dir: string
     const zip = new AdmZip(jar.path)
     for (const entry of zip.getEntries()) {
       if (entry.isDirectory || jar.exclude.some((ex) => entry.entryName.startsWith(ex))) continue
+      // Déjà en place (même taille) : on ne la réécrit pas. Une partie de la même version peut être en cours,
+      // et Windows interdit d'écraser une DLL chargée (EBUSY)
+      const target = join(dir, basename(entry.entryName))
+      if (existsSync(target) && statSync(target).size === entry.header.size) continue
       zip.extractEntryTo(entry, dir, false, true)
     }
   }
