@@ -113,7 +113,8 @@ function libraryKey(name: string): string {
  */
 function mergeLibraries(child: Library[], parent: Library[]): Library[] {
   const seen = new Set(child.map((lib) => libraryKey(lib.name)))
-  return [...child, ...parent.filter((lib) => !seen.has(libraryKey(lib.name)))]
+  // Les natives (anciennes versions) sont gardées : Legacy Fabric remplace les jars de LWJGL, pas ses natives
+  return [...child, ...parent.filter((lib) => lib.natives || !seen.has(libraryKey(lib.name)))]
 }
 
 /** Charge le JSON d'une version en fusionnant son parent (inheritsFrom), utilisé par Fabric. */
@@ -121,14 +122,19 @@ export async function loadVersion(id: string): Promise<VersionJson> {
   const child = await loadRaw(id)
   if (!child.inheritsFrom) return child
   const parent = await loadVersion(child.inheritsFrom)
+  // Anciennes versions (avant 1.13) : pas de bloc « arguments » mais minecraftArguments ; on n'en crée pas un vide,
+  // sinon le lancement croirait qu'il n'y a aucun argument (ni classpath, ni pseudo)
+  const hasArguments = parent.arguments || child.arguments
   return {
     ...parent,
     ...child,
     libraries: mergeLibraries(child.libraries, parent.libraries),
-    arguments: {
-      game: [...(parent.arguments?.game ?? []), ...(child.arguments?.game ?? [])],
-      jvm: [...(parent.arguments?.jvm ?? []), ...(child.arguments?.jvm ?? [])]
-    },
+    arguments: hasArguments
+      ? {
+          game: [...(parent.arguments?.game ?? []), ...(child.arguments?.game ?? [])],
+          jvm: [...(parent.arguments?.jvm ?? []), ...(child.arguments?.jvm ?? [])]
+        }
+      : undefined,
     // Le jar client reste celui du parent
     downloads: parent.downloads,
     inheritsFrom: parent.id
