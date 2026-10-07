@@ -17,7 +17,7 @@ mkdirSync(out, { recursive: true })
 /** asset : nom du fichier dans la release (sans « + », que GitHub n'accepte pas tel quel) ; path : place dans resources */
 const files = [{ asset: 'aloria-app.asar', path: 'app.asar' }]
 for (const jar of readdirSync(join(resources, 'mods')).filter((f) => f.endsWith('.jar'))) {
-  files.push({ asset: `aloria-${jar.replace(/\+/g, '_')}`, path: `mods/${jar}` })
+  files.push({ asset: jar.replace(/\+/g, '_'), path: `mods/${jar}` })
 }
 
 const manifest = {
