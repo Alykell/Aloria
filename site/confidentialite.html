@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Confidentialité — Aloria</title>
+  <meta name="description" content="Ce qu'Aloria fait de tes données : rien n'est collecté, tout reste sur ton PC.">
+  <meta name="theme-color" content="#1a9bc7">
+  <link rel="icon" href="img/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Quicksand:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="nav">
+    <a class="nav__logo" href="./">
+      <img src="img/icon.svg" alt="" width="32" height="32">
+      <span>Aloria</span>
+    </a>
+    <nav class="nav__links">
+      <a href="./">Accueil</a>
+      <a href="./#signature">Signature du code</a>
+    </nav>
+  </header>
+
+  <main class="section legal">
+    <h1>Confidentialité</h1>
+    <p class="section__lead">En bref : Aloria ne collecte aucune donnée. Pas de compte Aloria, pas de statistiques, pas de publicité.</p>
+
+    <h2>Ce qui reste sur ton PC</h2>
+    <p>Tes comptes Microsoft (jetons de connexion), profils, réglages, mondes et mods sont enregistrés uniquement sur ton
+      ordinateur, dans <code>%APPDATA%\.aloria</code> et <code>%APPDATA%\Aloria</code>. Les jetons de connexion sont chiffrés
+      avec la protection de Windows (DPAPI). Aloria ne les envoie qu'aux services officiels listés ci-dessous.</p>
+
+    <h2>Les services qu'Aloria contacte</h2>
+    <p>Aloria communique uniquement avec ces services, et seulement pour ce dont tu as besoin :</p>
+    <ul class="legal__list">
+      <li><strong>Microsoft, Xbox Live et Mojang</strong> : connexion à ton compte quand tu te connectes, vérification
+        que tu possèdes Minecraft, et téléchargement officiel du jeu et de Java quand tu lances un profil.
+        <a href="https://privacy.microsoft.com/fr-fr/privacystatement">Politique de confidentialité de Microsoft</a>.</li>
+      <li><strong>Fabric</strong> (meta.fabricmc.net) : téléchargement de Fabric pour les profils qui l'utilisent.</li>
+      <li><strong>Modrinth</strong> : recherche et téléchargement des mods, packs de ressources et shaders que tu choisis.
+        <a href="https://modrinth.com/legal/privacy">Politique de confidentialité de Modrinth</a>.</li>
+      <li><strong>GitHub</strong> : au démarrage, Aloria vérifie s'il existe une nouvelle version et la télécharge.
+        Aucune donnée personnelle n'est envoyée, seulement la demande de téléchargement.
+        <a href="https://docs.github.com/fr/site-policy/privacy-policies/github-general-privacy-statement">Politique de confidentialité de GitHub</a>.</li>
+      <li><strong>Discord</strong> : si Discord est ouvert sur ton PC, Aloria affiche ton statut de jeu (profil, version,
+        serveur selon tes choix). Cela passe par Discord sur ton ordinateur ; tu peux le désactiver dans les Paramètres
+        d'Aloria. <a href="https://discord.com/privacy">Politique de confidentialité de Discord</a>.</li>
+    </ul>
+
+    <h2>In English</h2>
+    <p>This program will not transfer any information to other networked systems unless specifically requested by the user
+      or the person installing or operating it, except for the automatic update check described above (a download request
+      to GitHub, without personal data). Sign-in tokens are stored only on the user's computer, encrypted with the Windows
+      data protection API, and are only sent to Microsoft, Xbox Live and Mojang.</p>
+
+    <h2>Désinstallation</h2>
+    <p>Aloria se désinstalle depuis Windows (Paramètres → Applications). Tes mondes et réglages sont conservés dans
+      <code>%APPDATA%\.aloria</code> : supprime ce dossier pour tout effacer.</p>
+  </main>
+
+  <footer class="footer">
+    <p><a href="https://github.com/Alykell/Aloria">GitHub</a> · <a href="./">Accueil</a> · Fait par <a href="https://github.com/Alykell">Alykell</a></p>
+    <p class="footer__legal">Projet non officiel, non affilié à Mojang ni à Microsoft. Minecraft est une marque de Mojang AB.</p>
+  </footer>
+</body>
+</html>

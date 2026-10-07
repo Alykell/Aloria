@@ -37,6 +37,25 @@ Tokens are stored only on the user's computer, encrypted with the operating syst
 keychain (Windows DPAPI via Electron `safeStorage`), and are only ever sent to Microsoft,
 Xbox Live and Mojang endpoints. Game files are downloaded from Mojang's official servers.
 
+## Confidentialité / Privacy
+
+Aloria ne collecte aucune donnée : voir la [politique de confidentialité](https://alykell.github.io/Aloria/confidentialite.html).
+*This program will not transfer any information to other networked systems unless specifically requested by the user
+or the person installing or operating it, except for the automatic update check (a download request to GitHub).*
+
+## Signature du code / Code signing policy
+
+Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org) *(application in progress)*.
+Windows builds are produced by GitHub Actions from this public repository, then signed after manual approval.
+
+- Committers and reviewers: [Alykell](https://github.com/Alykell)
+- Approvers: [Alykell](https://github.com/Alykell)
+
+## Licence / License
+
+[MIT](LICENSE). Polices du mod sous licence SIL Open Font License (`mod/src/main/resources/licenses`).
+Minecraft n'est pas inclus : il est téléchargé depuis les serveurs officiels de Mojang.
+
 ## Développement / Development
 
 Stack : Electron, electron-vite, React, TypeScript.

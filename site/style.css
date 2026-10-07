@@ -190,6 +190,18 @@ h1, h2, h3 { font-family: 'Quicksand', sans-serif; color: var(--sea-deep); line-
 .faq details[open] summary::after { transform: rotate(45deg); }
 .faq details p { padding: 0 20px 18px; color: var(--text-soft); }
 
+/* ------------------------------------------------------------ pages légales (confidentialité, signature) */
+
+.legal { max-width: 820px; }
+main.legal { padding-top: 110px; }
+.legal h1 { font-size: clamp(32px, 6vw, 44px); }
+.legal h2 { text-align: left; font-size: 24px; margin: 28px 0 8px; }
+.legal .section__lead { text-align: left; margin: 6px 0 18px; }
+.legal p { margin-bottom: 12px; }
+.legal__list { margin: 8px 0 14px 20px; display: grid; gap: 8px; }
+#signature h2 { text-align: center; }
+#signature .section__lead { text-align: center; margin-bottom: 20px; }
+
 /* ------------------------------------------------------------ pied de page */
 
 .footer { margin-top: 100px; padding: 30px 16px 40px; text-align: center; border-top: 1px solid var(--line); color: var(--text-soft); font-size: 14px; }

@@ -43,5 +43,6 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/Alykell/Aloria.git"
-  }
+  },
+  "license": "MIT"
 }

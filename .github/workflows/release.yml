@@ -55,7 +55,11 @@ jobs:
         # Une release déjà présente pour ce tag (publication ratée ou incomplète) est remplacée
         run: |
           gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1 && gh release delete "$GITHUB_REF_NAME" --yes
-          gh release create "$GITHUB_REF_NAME" --draft --title "Aloria ${GITHUB_REF_NAME#v}" --notes "Mise à jour d'Aloria ${GITHUB_REF_NAME#v}."
+          gh release create "$GITHUB_REF_NAME" --draft --title "Aloria ${GITHUB_REF_NAME#v}" --notes "Mise à jour d'Aloria ${GITHUB_REF_NAME#v}.
+
+          Téléchargement : https://alykell.github.io/Aloria/
+
+          **Code signing policy** : free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org) (demande en cours). Committers, reviewers et approvers : [Alykell](https://github.com/Alykell). Détails : https://alykell.github.io/Aloria/#signature — Confidentialité : https://alykell.github.io/Aloria/confidentialite.html"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
