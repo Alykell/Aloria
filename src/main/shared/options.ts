@@ -20,6 +20,7 @@ export const SYNCED_OPTIONS = [
   'fullscreen',
   'viewBobbing',
   'mouseSensitivity',
+  'rawMouseInput',
   'invertYMouse',
   'autoJump',
   'toggleCrouch',

@@ -5,12 +5,14 @@
 	"client": [
 		"CameraAccessor",
 		"CreeperAccessor",
+		"FovMixin",
 		"GameMenuScreenMixin",
 		"GameOptionsMixin",
 		"InGameHudMixin",
 		"InteractionManagerAccessor",
 		"KeyBindingMixin",
-		"MinecraftClientMixin"
+		"MinecraftClientMixin",
+		"MouseInputMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

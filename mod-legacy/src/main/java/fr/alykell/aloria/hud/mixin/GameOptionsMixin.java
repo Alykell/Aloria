@@ -1,6 +1,7 @@
 package fr.alykell.aloria.hud.mixin;
 
 import fr.alykell.aloria.hud.AloriaHud;
+import fr.alykell.aloria.hud.LegacyOptions;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.GameOptions;
 import net.minecraft.client.option.KeyBinding;
@@ -18,6 +19,21 @@ import java.io.File;
 public class GameOptionsMixin {
 	@Shadow
 	public KeyBinding[] allKeys;
+
+	@Shadow
+	private File optionsFile;
+
+	/** Réglages des versions récentes (FOV dynamique, bascules, entrée brute) : la 1.8.9 ne les lit pas */
+	@Inject(method = "load", at = @At("TAIL"))
+	private void aloriahud$loadExtra(CallbackInfo ci) {
+		LegacyOptions.load(optionsFile);
+	}
+
+	/** … ni ne les écrit : on les ajoute après son enregistrement, pour qu'ils restent dans options.txt */
+	@Inject(method = "save", at = @At("TAIL"))
+	private void aloriahud$saveExtra(CallbackInfo ci) {
+		LegacyOptions.append(optionsFile);
+	}
 
 	@Inject(method = "<init>(Lnet/minecraft/client/MinecraftClient;Ljava/io/File;)V",
 		at = @At(value = "INVOKE", target = "Lnet/minecraft/client/option/GameOptions;load()V"))

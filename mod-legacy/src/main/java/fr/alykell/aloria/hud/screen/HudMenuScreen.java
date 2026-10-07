@@ -4,6 +4,7 @@ import fr.alykell.aloria.hud.AloriaHud;
 import fr.alykell.aloria.hud.Colors;
 import fr.alykell.aloria.hud.Draw;
 import fr.alykell.aloria.hud.G;
+import fr.alykell.aloria.hud.LegacyOptions;
 import fr.alykell.aloria.hud.Theme;
 import fr.alykell.aloria.hud.config.GlobalSettings;
 import fr.alykell.aloria.hud.config.ModuleSettings;
@@ -245,10 +246,41 @@ public class HudMenuScreen extends AloriaScreen {
 		text(g, same, ox + 32, oy + 4, Theme.FOAM, false);
 		swatch(g, mouseX, mouseY, "pick:global-text", ox + 40 + w(same), oy, global.textColor,
 			() -> openPicker(new Picker("Couleur commune du texte", () -> global.textColor, c -> global.textColor = c, false)));
-		oy += 26;
-		text(g, "Un module réglé sur « Ignorer « tous les modules » » (⚙) garde ses propres réglages.", ox, oy, Theme.TEXT_SOFT, false);
-		oy += 12;
-		text(g, "Réglages communs avec tes autres profils et versions (polices et Visuel : 1.20+).", ox, oy, Theme.TEXT_SOFT, false);
+		oy += 20;
+		text(g, "Les modules réglés sur « Ignorer » (⚙) gardent leurs réglages.", ox, oy, Theme.TEXT_SOFT, false);
+		oy += 16;
+
+		// Réglages des versions récentes, ajoutés à la 1.8.9 (synchronisés avec le launcher via options.txt)
+		text(g, bold("Jeu"), ox, oy, Theme.WHITE, false);
+		oy += 14;
+		// Interrupteurs alignés en colonnes (marge large : la police mesure un peu court certains signes)
+		int labels = Math.max(w("Entrée brute (souris)"), w("Accroupi en bascule")) + 20;
+		int col2 = ox + labels + 40;
+		int labels2 = w("Course en bascule") + 20;
+		gameToggle(g, "rawMouseInput", "Entrée brute (souris)", ox, labels, oy, LegacyOptions.rawMouseInput, () -> LegacyOptions.rawMouseInput = !LegacyOptions.rawMouseInput);
+		gameToggle(g, "toggleSprint", "Course en bascule", col2, labels2, oy, LegacyOptions.toggleSprint, () -> LegacyOptions.toggleSprint = !LegacyOptions.toggleSprint);
+		oy += 16;
+		gameToggle(g, "toggleCrouch", "Accroupi en bascule", ox, labels, oy, LegacyOptions.toggleCrouch, () -> LegacyOptions.toggleCrouch = !LegacyOptions.toggleCrouch);
+		oy += 16;
+		text(g, "FOV dynamique", ox, oy + 2, Theme.FOAM, false);
+		int sx = ox + labels;
+		slider(g, mouseX, mouseY, "fovEffectScale", sx, oy, 120, LegacyOptions.fovEffectScale, t -> {
+			LegacyOptions.fovEffectScale = Math.round(t * 20) / 20f;
+			optionsChanged = true;
+		});
+		int percent = Math.round(LegacyOptions.fovEffectScale * 100);
+		text(g, percent == 0 ? "Désactivé" : percent + " %", sx + 128, oy + 2, Theme.LAGOON, false);
+	}
+
+	/** Les réglages du jeu sont écrits dans options.txt à la fermeture du menu */
+	private boolean optionsChanged;
+
+	private void gameToggle(G g, String id, String label, int x, int labelWidth, int y, boolean on, final Runnable flip) {
+		text(g, label, x, y + 2, Theme.FOAM, false);
+		toggle(id, g, x + labelWidth, y, on, () -> {
+			flip.run();
+			optionsChanged = true;
+		});
 	}
 
 	// ---------------------------------------------------------------- réglages d'un module
@@ -575,5 +607,6 @@ public class HudMenuScreen extends AloriaScreen {
 	@Override
 	public void removed() {
 		AloriaHud.config().save();
+		if (optionsChanged) client.options.save();
 	}
 }

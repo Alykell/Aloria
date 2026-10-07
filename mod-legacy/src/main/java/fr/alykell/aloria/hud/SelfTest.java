@@ -190,9 +190,11 @@ public final class SelfTest {
 			});
 			return true;
 		});
-		add("chronos visibles", 12, () -> {
+		add("chronos visibles", 6, () -> {
 			int fuses = 0;
 			for (Entity e : mc.world.loadedEntities) if (ExplosionModule.secondsLeft(e, 0) >= 0) fuses++;
+			// Les entités arrivent du serveur intégré à des ticks différents : on attend qu'elles soient toutes là
+			if (fuses < 2 && retries < 20) return false;
 			check("TNT et creeper amorcés côté client (" + fuses + ")", fuses >= 2);
 			return screenshot(mc, "07-explosions");
 		});
@@ -208,6 +210,45 @@ public final class SelfTest {
 			for (HudModule m : AloriaHud.modules()) if (m.id().equals("look")) look = m;
 			check("le module Bloc visé a quelque chose à montrer", look != null && look.hasContent(mc));
 			return screenshot(mc, "08-bloc-vise");
+		});
+		add("réglages du jeu (1.8.9)", 2, () -> {
+			// Écrits dans options.txt par le launcher depuis le jeu de réglages commun
+			log("FOV dynamique " + LegacyOptions.fovEffectScale + ", course en bascule " + LegacyOptions.toggleSprint
+				+ ", accroupi en bascule " + LegacyOptions.toggleCrouch + ", entrée brute " + LegacyOptions.rawMouseInput);
+			return check("l'entrée brute trouve la souris", RawInput.available());
+		});
+		add("FOV dynamique", 2, () -> {
+			float saved = LegacyOptions.fovEffectScale;
+			mc.player.setSprinting(true);
+			LegacyOptions.fovEffectScale = 1f;
+			float normal = mc.player.getSpeed();
+			LegacyOptions.fovEffectScale = 0f;
+			float off = mc.player.getSpeed();
+			LegacyOptions.fovEffectScale = saved;
+			mc.player.setSprinting(false);
+			return check("le FOV dynamique se désactive (course : " + normal + " → " + off + ")", normal > 1f && off == 1f);
+		});
+		add("course en bascule", 2, () -> {
+			LegacyOptions.toggleSprint = true;
+			net.minecraft.client.option.KeyBinding.onKeyPressed(mc.options.sprintKey.getCode());
+			return true;
+		});
+		add("course activée", 2, () -> {
+			check("un appui active la course en bascule", mc.options.sprintKey.isPressed());
+			net.minecraft.client.option.KeyBinding.onKeyPressed(mc.options.sprintKey.getCode());
+			return true;
+		});
+		add("course désactivée", 2, () -> {
+			check("un second appui la désactive", !mc.options.sprintKey.isPressed());
+			LegacyOptions.toggleSprint = false;
+			mc.setScreen(new HudMenuScreen(null));
+			return true;
+		});
+		add("onglet Général", 3, () -> click(mc, "tab:general"));
+		add("capture onglet Général", 3, () -> {
+			screenshot(mc, "09-general");
+			mc.setScreen(null);
+			return true;
 		});
 		add("fin", 5, () -> {
 			log(failures == 0 ? "TERMINÉ : tout est OK" : "TERMINÉ : " + failures + " échec(s)");

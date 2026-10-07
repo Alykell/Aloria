@@ -219,6 +219,7 @@ export default function GameSettingsPage({ onError }: { onError: (message: strin
           <h3>Souris et contrôles</h3>
           <Slider label="Sensibilité" value={Math.round(num('mouseSensitivity', 0.5) * 200)} min={0} max={200} display={(v) => `${v} %`}
             onChange={(v) => set({ mouseSensitivity: String(v / 200) })} />
+          <Toggle label="Entrée brute (sans accélération Windows)" value={bool('rawMouseInput', true)} onChange={(v) => set({ rawMouseInput: String(v) })} />
           <Toggle label="Inverser la souris" value={bool('invertYMouse')} onChange={(v) => set({ invertYMouse: String(v) })} />
           <Toggle label="Saut automatique" value={bool('autoJump')} onChange={(v) => set({ autoJump: String(v) })} />
           <Toggle label="S'accroupir : basculer" value={bool('toggleCrouch')} onChange={(v) => set({ toggleCrouch: String(v) })} />
