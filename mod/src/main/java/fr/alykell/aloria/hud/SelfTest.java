@@ -48,6 +48,10 @@ public final class SelfTest {
 	private static String lastMissing = "";
 	/** Nombre de ticks d'attente maximum pour qu'une zone apparaisse (2 s) */
 	private static final int MAX_RETRIES = 40;
+	/** Suivi du creeper qui hésite : ticks écoulés, et ticks où l'étiquette serait cachée */
+	private static int hesitantTicks;
+	private static int hiddenOld;
+	private static int hiddenNew;
 
 	private SelfTest() {
 	}
@@ -101,7 +105,15 @@ public final class SelfTest {
 		}
 	}
 
+	/** Écran et image du dernier clic : les zones cliquables doivent être redessinées avant le suivant */
+	private static Object clickedScreen;
+	private static int clickedFrame;
+
 	private static boolean clickAt(Minecraft mc, double x, double y) {
+		if (mc.gui.screen() instanceof AloriaScreen screen) {
+			clickedScreen = screen;
+			clickedFrame = screen.frame();
+		}
 		moveTo(mc, x, y);
 		Window w = mc.getWindow();
 		var before = mc.gui.screen();
@@ -121,6 +133,8 @@ public final class SelfTest {
 	private static boolean click(Minecraft mc, String id) {
 		lastMissing = id;
 		if (!(mc.gui.screen() instanceof AloriaScreen screen)) return false;
+		// Jeu lent : les zones datent peut-être d'avant le clic précédent (ex. sélecteur encore ouvert)
+		if (screen == clickedScreen && screen.frame() <= clickedFrame + 1) return false;
 		int[] c = screen.hitCenter(id);
 		if (c == null) return false;
 		return clickAt(mc, c[0], c[1]);
@@ -403,6 +417,50 @@ public final class SelfTest {
 			return screenshot(mc, "10-explosions-bloc-vise");
 		});
 		add("désamorcer le creeper", 1, () -> removeExplosives(mc, false));
+		add("creeper qui hésite", 2, () -> {
+			// Le serveur bascule le sens du gonflement (2 ticks oui, 1 tick non), comme une cible
+			// à la limite de portée : l'étiquette doit rester affichée sans clignoter
+			var server = mc.getSingleplayerServer();
+			if (server == null) return check("monde solo disponible", false);
+			var uuid = mc.player.getUUID();
+			server.execute(() -> {
+				var player = server.getPlayerList().getPlayer(uuid);
+				if (player == null) return;
+				var level = player.level();
+				var creeper = net.minecraft.world.entity.EntityTypes.CREEPER.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+				if (creeper == null) return;
+				var look = net.minecraft.world.phys.Vec3.directionFromRotation(0, player.getYRot());
+				creeper.setPos(player.position().add(look.scale(5)).add(0, 1, 0));
+				creeper.setNoAi(true);
+				creeper.setNoGravity(true);
+				creeper.setSwellDir(1);
+				level.addFreshEntity(creeper);
+			});
+			hesitantTicks = 0;
+			hiddenOld = 0;
+			hiddenNew = 0;
+			return true;
+		});
+		add("creeper qui hésite (suivi)", 2, () -> {
+			var server = mc.getSingleplayerServer();
+			int tick = hesitantTicks++;
+			server.execute(() -> server.getAllLevels().forEach(level ->
+				level.getEntities(net.minecraft.world.entity.EntityTypes.CREEPER, c -> true).forEach(c -> c.setSwellDir(tick % 3 == 2 ? -1 : 1))));
+			for (var e : mc.level.entitiesForRendering()) {
+				if (!(e instanceof net.minecraft.world.entity.monster.Creeper c) || tick < 3) continue;
+				if (c.getSwellDir() <= 0) hiddenOld++;
+				if (fr.alykell.aloria.hud.module.ExplosionModule.secondsLeft(c, 0) < 0) hiddenNew++;
+			}
+			if (tick == 13) screenshot(mc, "12-creeper-hesite");
+			// Réessayé à chaque tick jusqu'à la fin du suivi
+			if (tick < 24) {
+				lastMissing = "suivi du creeper";
+				return false;
+			}
+			check("l'ancienne règle aurait fait clignoter l'étiquette (" + hiddenOld + " ticks cachée)", hiddenOld > 0);
+			return check("l'étiquette du creeper reste affichée quand il hésite (" + hiddenNew + " ticks cachée)", hiddenNew == 0);
+		});
+		add("retirer le creeper", 1, () -> removeExplosives(mc, false));
 		add("ouvrir le chat", 2, () -> {
 			mc.gui.setScreen(new net.minecraft.client.gui.screens.ChatScreen("", false));
 			return true;

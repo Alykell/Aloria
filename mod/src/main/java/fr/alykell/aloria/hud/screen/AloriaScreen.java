@@ -99,6 +99,12 @@ public abstract class AloriaScreen extends Screen {
 
 	private double lastClickX;
 	private double lastClickY;
+	private int frame;
+
+	/** Nombre d'images dessinées : l'auto-test attend une image neuve après chaque clic */
+	public int frame() {
+		return frame;
+	}
 
 	@Override
 	public final void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
@@ -110,6 +116,7 @@ public abstract class AloriaScreen extends Screen {
 		// Les zones de l'image précédente restent valides jusqu'à ce que celle-ci soit complète
 		hits.clear();
 		hits.addAll(pending);
+		frame++;
 		super.extractRenderState(g, mouseX, mouseY, a);
 	}
 
