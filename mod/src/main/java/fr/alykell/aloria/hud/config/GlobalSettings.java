@@ -16,7 +16,7 @@ public class GlobalSettings {
 	public void addRecentColor(int argb) {
 		if (recentColors == null) recentColors = new ArrayList<>();
 		recentColors.remove(Integer.valueOf(argb));
-		recentColors.addFirst(argb);
-		while (recentColors.size() > 8) recentColors.removeLast();
+		recentColors.add(0, argb);
+		while (recentColors.size() > 8) recentColors.remove(recentColors.size() - 1);
 	}
 }

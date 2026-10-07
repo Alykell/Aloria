@@ -12,6 +12,10 @@ import org.spongepowered.asm.mixin.Mixin;
 public interface GameRendererAccessor {
 	//#if MC < 260000
 	//$$ @Invoker("getFov")
+	//#if MC >= 12102
 	//$$ float invokeGetFov(Camera camera, float partialTick, boolean useFovSetting);
+	//#else
+	//$$ double invokeGetFov(Camera camera, float partialTick, boolean useFovSetting);
+	//#endif
 	//#endif
 }

@@ -6,7 +6,9 @@ import fr.alykell.aloria.hud.config.VisualSettings.HandTransform;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
+//#if MC >= 12106
 import net.minecraft.client.renderer.fog.FogData;
+//#endif
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.HumanoidArm;
@@ -15,6 +17,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.material.FogType;
+import net.minecraft.util.Mth;
+import org.jspecify.annotations.Nullable;
 
 /** Effets de l'écran Visuel, appliqués par les mixins (mains, totem, luminosité, brouillard). */
 public final class Visual {
@@ -93,33 +97,47 @@ public final class Visual {
 		};
 	}
 
-	/**
-	 * Éloigne le brouillard selon le réglage (0 % = plus du tout).
-	 * Cécité et Obscurité ne sont jamais touchées : ce sont des effets de jeu, pas du décor.
-	 */
-	public static void applyFog(FogData fog, Camera camera, ClientLevel level, float renderDistanceBlocks) {
-		int strength = Math.clamp(fogStrength(camera, level), 0, 100);
-		if (strength >= 100) return;
-		if (camera.entity() instanceof LivingEntity living
-			&& (living.hasEffect(MobEffects.BLINDNESS) || living.hasEffect(MobEffects.DARKNESS))) return;
+	/** Caméra dans un liquide ou de la neige poudreuse (sinon : brouillard de l'air) */
+	public static boolean inFluid(Camera camera) {
+		FogType type = camera.getFluidInCamera();
+		//#if MC >= 12106
+		return type != FogType.NONE && type != FogType.ATMOSPHERIC;
+		//#else
+		//$$ return type != FogType.NONE;
+		//#endif
+	}
 
-		boolean inFluid = camera.getFluidInCamera() != FogType.NONE && camera.getFluidInCamera() != FogType.ATMOSPHERIC;
+	/**
+	 * Distances de brouillard {début, fin} éloignées selon le réglage (0 % = plus du tout), ou null pour garder
+	 * celles du jeu. Cécité et Obscurité ne sont jamais touchées : ce sont des effets de jeu, pas du décor.
+	 */
+	public static float @Nullable [] adjustedFog(Camera camera, ClientLevel level, float start, float end, float renderDistanceBlocks) {
+		int strength = Mth.clamp(fogStrength(camera, level), 0, 100);
+		if (strength >= 100) return null;
+		if (camera.entity() instanceof LivingEntity living
+			&& (living.hasEffect(MobEffects.BLINDNESS) || living.hasEffect(MobEffects.DARKNESS))) return null;
+		if (strength == 0) return new float[] {Float.MAX_VALUE, Float.MAX_VALUE};
 		float t = 1 - strength / 100f;
-		if (strength == 0) {
-			fog.environmentalStart = Float.MAX_VALUE;
-			fog.environmentalEnd = Float.MAX_VALUE;
-		} else {
-			// Progression géométrique : la lave (1 bloc de visibilité) et le Nether (une centaine) réagissent pareil au curseur
-			float end = Math.max(0.5f, fog.environmentalEnd);
-			float target = Math.max(end, renderDistanceBlocks * 2);
-			float newEnd = (float) (end * Math.pow(target / end, t));
-			fog.environmentalStart = fog.environmentalStart + (newEnd * 0.6f - fog.environmentalStart) * t;
-			fog.environmentalEnd = newEnd;
-		}
+		// Progression géométrique : la lave (1 bloc de visibilité) et le Nether (une centaine) réagissent pareil au curseur
+		float from = Math.max(0.5f, end);
+		float target = Math.max(from, renderDistanceBlocks * 2);
+		float newEnd = (float) (from * Math.pow(target / from, t));
+		return new float[] {start + (newEnd * 0.6f - start) * t, newEnd};
+	}
+
+	//#if MC >= 12106
+	/** 1.21.6 et plus : brouillard du décor, et dans un liquide celui du ciel et des nuages */
+	public static void applyFog(FogData fog, Camera camera, ClientLevel level, float renderDistanceBlocks) {
+		float[] adjusted = adjustedFog(camera, level, fog.environmentalStart, fog.environmentalEnd, renderDistanceBlocks);
+		if (adjusted == null) return;
+		fog.environmentalStart = adjusted[0];
+		fog.environmentalEnd = adjusted[1];
 		// Dans un liquide, le ciel et les nuages sont aussi cachés par le brouillard : on les rend avec le reste
-		if (inFluid) {
+		if (inFluid(camera)) {
+			float t = 1 - Mth.clamp(fogStrength(camera, level), 0, 100) / 100f;
 			fog.skyEnd = fog.skyEnd + (Math.max(fog.skyEnd, renderDistanceBlocks) - fog.skyEnd) * t;
 			fog.cloudEnd = fog.cloudEnd + (Math.max(fog.cloudEnd, renderDistanceBlocks) - fog.cloudEnd) * t;
 		}
 	}
+	//#endif
 }

@@ -21,6 +21,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
+import net.minecraft.util.Mth;
 import org.jspecify.annotations.Nullable;
 
 import java.util.Locale;
@@ -122,7 +123,7 @@ public final class LookModule extends HudModule {
 			float health = living.getHealth();
 			float max = Math.max(1, living.getMaxHealth());
 			String info = String.format(Locale.ROOT, "❤ %s / %s", amount(health), amount(max));
-			return new Target(icon, name, source, info, RED, Math.clamp(health / max, 0, 1));
+			return new Target(icon, name, source, info, RED, Mth.clamp(health / max, 0, 1));
 		}
 		return new Target(icon, name, source, null, 0, -1);
 	}

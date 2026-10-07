@@ -2,10 +2,10 @@ package fr.alykell.aloria.hud.module;
 
 import fr.alykell.aloria.hud.Draw;
 import fr.alykell.aloria.hud.Fonts;
+import fr.alykell.aloria.hud.Gfx;
 import fr.alykell.aloria.hud.config.ModuleSettings;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.inventory.InventoryMenu;
@@ -93,7 +93,16 @@ public final class ArmorModule extends HudModule {
 		int y = PAD;
 		for (Slot slot : slots(mc)) {
 			if (slot.stack().isEmpty()) {
-				if (slot.emptySprite() != null) g.blitSprite(RenderPipelines.GUI_TEXTURED, slot.emptySprite(), PAD, y, 16, 16, 0.45f);
+				//#if MC >= 12102
+				if (slot.emptySprite() != null) Gfx.sprite(g, slot.emptySprite(), PAD, y, 16, 16, 0.45f);
+				//#else
+				//$$ // Avant 1.21.2, les silhouettes d'armure sont dans l'atlas des blocs
+				//$$ if (slot.emptySprite() != null) {
+				//$$ 	com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1, 1, 1, 0.45f);
+				//$$ 	Gfx.atlasSprite(g, mc.getTextureAtlas(InventoryMenu.BLOCK_ATLAS).apply(slot.emptySprite()), PAD, y, 16, 16);
+				//$$ 	com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1, 1, 1, 1);
+				//$$ }
+				//#endif
 			} else {
 				g.item(slot.stack(), PAD, y);
 				String label = label(slot.stack());

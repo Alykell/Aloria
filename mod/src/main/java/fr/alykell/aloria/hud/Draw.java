@@ -3,6 +3,7 @@ package fr.alykell.aloria.hud;
 import fr.alykell.aloria.hud.config.GlobalSettings;
 import fr.alykell.aloria.hud.config.ModuleSettings;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.util.Mth;
 
 /**
  * Formes arrondies. Les rectangles ne se chevauchent pas, pour qu'une couleur semi-transparente
@@ -39,7 +40,7 @@ public final class Draw {
 
 	/** Fond et bordure d'un module, selon ses réglages (couleur, opacité, épaisseur de bordure) */
 	public static void panel(GuiGraphicsExtractor g, int x, int y, int w, int h, ModuleSettings s) {
-		if (s.background) round(g, x, y, w, h, Theme.withAlpha(s.bgColor, Math.round(Math.clamp(s.opacity, 0, 100) * 2.55f)));
+		if (s.background) round(g, x, y, w, h, Theme.withAlpha(s.bgColor, Math.round(Mth.clamp(s.opacity, 0, 100) * 2.55f)));
 		for (int i = 0; i < s.borderWidth && w - 2 * i >= 4 && h - 2 * i >= 4; i++) {
 			roundOutline(g, x + i, y + i, w - 2 * i, h - 2 * i, s.borderColor);
 		}

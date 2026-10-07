@@ -133,7 +133,12 @@ public final class SelfTest {
 		Window w = mc.getWindow();
 		var before = mc.gui.screen();
 		log(String.format("clic visé (%.1f, %.1f) → souris du jeu (%.1f, %.1f), écran %s",
+			//#if MC >= 12106
 			x, y, mc.mouseHandler.getScaledXPos(w), mc.mouseHandler.getScaledYPos(w), before == null ? "aucun" : before.getClass().getSimpleName()));
+			//#else
+			//$$ x, y, mc.mouseHandler.xpos() * w.getGuiScaledWidth() / w.getScreenWidth(), mc.mouseHandler.ypos() * w.getGuiScaledHeight() / w.getScreenHeight(),
+			//$$ before == null ? "aucun" : before.getClass().getSimpleName()));
+			//#endif
 		button(mc, true);
 		button(mc, false);
 		var after = mc.gui.screen();
@@ -197,14 +202,24 @@ public final class SelfTest {
 	}
 
 	private static boolean screenshot(Minecraft mc, String name) {
+		//#if MC >= 12106
 		Screenshot.takeScreenshot(mc.gameRenderer.mainRenderTarget(), (NativeImage image) -> {
+		//#else
+		//$$ // Avant 1.21.6 : capture immédiate
+		//$$ java.util.function.Consumer<NativeImage> save = (NativeImage image) -> {
+		//#endif
 			try (image) {
 				image.writeToFile(output.resolve(name + ".png"));
 				log("capture " + name);
 			} catch (Exception e) {
 				AloriaHud.LOGGER.error("capture impossible", e);
 			}
+		//#if MC >= 12106
 		});
+		//#else
+		//$$ };
+		//$$ save.accept(Screenshot.takeScreenshot(mc.gameRenderer.mainRenderTarget()));
+		//#endif
 		return true;
 	}
 
@@ -343,7 +358,7 @@ public final class SelfTest {
 			return screenshot(mc, "06-disposition");
 		});
 		add("glisser FPS", 2, () -> {
-			HudModule fps = AloriaHud.modules().getFirst();
+			HudModule fps = AloriaHud.modules().get(0);
 			var b = HudRenderer.bounds(mc, fps, settings("fps"), mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight(), true);
 			moveTo(mc, b.x() + 3, b.y() + 3);
 			button(mc, true);
@@ -442,9 +457,16 @@ public final class SelfTest {
 				if (e instanceof net.minecraft.world.entity.monster.Creeper c && c.getSwellDir() > 0) fuses++;
 			}
 			check("TNT et creeper amorcés côté client (" + fuses + ")", fuses == 2);
+			screenshot(mc, "10-explosions-bloc-vise");
+			// Puis regard vers le sol tout proche : un bloc à portée pour le module Bloc visé, quel que soit le relief
+			mc.player.setXRot(80f);
+			return true;
+		});
+		add("bloc visé", 3, () -> {
 			HudModule look = AloriaHud.modules().stream().filter(m -> m.id().equals("look")).findFirst().orElseThrow();
 			check("le module Bloc visé a quelque chose à montrer", look.hasContent(mc));
-			return screenshot(mc, "10-explosions-bloc-vise");
+			mc.player.setXRot(35f);
+			return true;
 		});
 		add("désamorcer le creeper", 1, () -> removeExplosives(mc, false));
 		add("creeper qui hésite", 2, () -> {

@@ -2,6 +2,7 @@ package fr.alykell.aloria.hud.module;
 
 import fr.alykell.aloria.hud.Draw;
 import fr.alykell.aloria.hud.Fonts;
+import fr.alykell.aloria.hud.Gfx;
 import fr.alykell.aloria.hud.config.ModuleSettings;
 import fr.alykell.aloria.hud.mixin.CreeperAccessor;
 import net.minecraft.client.Camera;
@@ -160,9 +161,16 @@ public final class ExplosionModule extends HudModule {
 		Matrix4f projection = camera.getViewRotationProjectionMatrix(new Matrix4f());
 		//#else
 		//$$ // Projection du jeu (FOV dynamique compris) × rotation de la caméra, comme pour le rendu du monde
-		//$$ float fov = ((fr.alykell.aloria.hud.mixin.GameRendererAccessor) mc.gameRenderer).invokeGetFov(camera, partialTick, true);
+		//$$ var fov = ((fr.alykell.aloria.hud.mixin.GameRendererAccessor) mc.gameRenderer).invokeGetFov(camera, partialTick, true);
+		//#if MC >= 12100
 		//$$ Matrix4f projection = mc.gameRenderer.getProjectionMatrix(fov)
 		//$$ 	.mul(new Matrix4f().rotation(camera.rotation().conjugate(new org.joml.Quaternionf())));
+		//#else
+		//$$ // Avant 1.21, la vue est construite à partir des angles de la caméra (comme GameRenderer.renderLevel)
+		//$$ Matrix4f projection = mc.gameRenderer.getProjectionMatrix(fov)
+		//$$ 	.rotateX((float) Math.toRadians(camera.getXRot()))
+		//$$ 	.rotateY((float) Math.toRadians(camera.getYRot() + 180.0F));
+		//#endif
 		//#endif
 		for (Fuse fuse : fuses) {
 			Vec3 pos = fuse.entity().getPosition(partialTick).add(0, fuse.entity().getBbHeight() + 0.5, 0);
@@ -175,12 +183,12 @@ public final class ExplosionModule extends HudModule {
 
 			int w = labelWidth(mc, s, label(fuse.seconds()), true);
 			int h = ICON + PAD * 2;
-			g.pose().pushMatrix();
-			g.pose().translate(sx, sy);
-			g.pose().scale(s.scale, s.scale);
-			g.pose().translate(-w / 2f, -h);
+			Gfx.push(g);
+			Gfx.translate(g, sx, sy);
+			Gfx.scale(g, s.scale);
+			Gfx.translate(g, -w / 2f, -h);
 			drawLabel(g, mc, s, fuse.icon(), fuse.seconds(), fuse.armed());
-			g.pose().popMatrix();
+			Gfx.pop(g);
 		}
 	}
 }

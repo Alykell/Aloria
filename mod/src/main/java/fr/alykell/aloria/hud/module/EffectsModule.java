@@ -2,12 +2,12 @@ package fr.alykell.aloria.hud.module;
 
 import fr.alykell.aloria.hud.Draw;
 import fr.alykell.aloria.hud.Fonts;
+import fr.alykell.aloria.hud.Gfx;
 import fr.alykell.aloria.hud.Theme;
 import fr.alykell.aloria.hud.config.ModuleSettings;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.Hud;
-import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.core.Holder;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -91,7 +91,11 @@ public final class EffectsModule extends HudModule {
 		Draw.panel(g, 0, 0, width(mc, s, preview), height(mc, s, preview), s);
 		int y = PAD;
 		for (Row row : rows(mc, preview)) {
-			g.blitSprite(RenderPipelines.GUI_TEXTURED, Hud.getMobEffectSprite(row.effect()), PAD, y, ICON, ICON);
+			//#if MC >= 12106
+			Gfx.sprite(g, Hud.getMobEffectSprite(row.effect()), PAD, y, ICON, ICON, 1f);
+			//#else
+			//$$ Gfx.atlasSprite(g, mc.getMobEffectTextures().get(row.effect()), PAD, y, ICON, ICON);
+			//#endif
 			Fonts.draw(g, mc, s.font, row.name(), PAD + ICON + 5, y, Draw.textColor(s), s.shadow);
 			Fonts.draw(g, mc, s.font, row.duration(), PAD + ICON + 5, y + 9, Theme.WHITE, s.shadow);
 			y += ROW;

@@ -4,10 +4,13 @@ import fr.alykell.aloria.hud.config.ModuleSettings;
 import fr.alykell.aloria.hud.module.HudModule;
 import fr.alykell.aloria.hud.screen.HudLayoutScreen;
 import fr.alykell.aloria.hud.screen.VisualScreen;
+//#if MC >= 12100
 import net.minecraft.client.DeltaTracker;
+//#endif
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.util.Mth;
 
 /** Dessine les modules actifs à leur place, en jeu comme dans l'éditeur. */
 public final class HudRenderer {
@@ -29,21 +32,27 @@ public final class HudRenderer {
 		int h = Math.round(module.height(mc, s, preview) * s.scale);
 		// La position est gardée en fraction de l'écran, et le module reste toujours visible
 		int left = Math.round(s.x * screenW) - (module.centered() ? w / 2 : 0);
-		int x = Math.clamp(left, MARGIN, Math.max(MARGIN, screenW - w - MARGIN));
-		int y = Math.clamp(Math.round(s.y * screenH), MARGIN, Math.max(MARGIN, screenH - h - MARGIN));
+		int x = Mth.clamp(left, MARGIN, Math.max(MARGIN, screenW - w - MARGIN));
+		int y = Mth.clamp(Math.round(s.y * screenH), MARGIN, Math.max(MARGIN, screenH - h - MARGIN));
 		return new Bounds(x, y, w, h);
 	}
 
 	public static void drawModule(GuiGraphicsExtractor g, Minecraft mc, HudModule module, ModuleSettings s, Bounds b, boolean preview) {
-		g.pose().pushMatrix();
-		g.pose().translate(b.x(), b.y());
-		g.pose().scale(s.scale, s.scale);
+		Gfx.push(g);
+		Gfx.translate(g, b.x(), b.y());
+		Gfx.scale(g, s.scale);
 		module.draw(g, mc, s, preview);
-		g.pose().popMatrix();
+		Gfx.pop(g);
 	}
 
+	//#if MC >= 12100
 	/** Élément enregistré dans le HUD de Fabric */
 	public static void extract(GuiGraphicsExtractor g, DeltaTracker delta) {
+		render(g, delta.getGameTimeDeltaPartialTick(false));
+	}
+	//#endif
+
+	public static void render(GuiGraphicsExtractor g, float partialTick) {
 		Minecraft mc = Minecraft.getInstance();
 		// Interface masquée (F1), disposition en cours (l'écran dessine lui-même les modules)
 		// ou écran Visuel (on doit bien voir les mains et le décor)
@@ -54,7 +63,7 @@ public final class HudRenderer {
 			ModuleSettings s = AloriaHud.config().get(module);
 			if (!s.enabled || (s.hideInChat && chatOpen)) continue;
 			if (!module.placeable()) {
-				module.drawOverlay(g, mc, s, delta.getGameTimeDeltaPartialTick(false));
+				module.drawOverlay(g, mc, s, partialTick);
 				continue;
 			}
 			if (!module.hasContent(mc)) continue;

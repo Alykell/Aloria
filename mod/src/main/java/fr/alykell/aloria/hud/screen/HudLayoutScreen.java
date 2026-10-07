@@ -13,6 +13,7 @@ import net.minecraft.client.input.KeyEvent;
 //#endif
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
 import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -140,9 +141,9 @@ public class HudLayoutScreen extends AloriaScreen {
 
 	private void move(HudModule module, int x, int y, Bounds b) {
 		ModuleSettings s = settings(module);
-		int left = Math.clamp(x, 0, Math.max(0, width - b.width()));
+		int left = Mth.clamp(x, 0, Math.max(0, width - b.width()));
 		s.x = (float) (module.centered() ? left + b.width() / 2.0 : left) / width;
-		s.y = (float) Math.clamp(y, 0, Math.max(0, height - b.height())) / height;
+		s.y = (float) Mth.clamp(y, 0, Math.max(0, height - b.height())) / height;
 	}
 
 	private int snapX(int x, int w) {
@@ -202,7 +203,7 @@ public class HudLayoutScreen extends AloriaScreen {
 		HudModule module = moduleAt(x, y);
 		if (module == null) return false;
 		ModuleSettings s = settings(module);
-		s.scale = Math.clamp(Math.round((s.scale + (float) Math.signum(scrollY) * 0.1f) * 10) / 10f, 0.5f, 3f);
+		s.scale = Mth.clamp(Math.round((s.scale + (float) Math.signum(scrollY) * 0.1f) * 10) / 10f, 0.5f, 3f);
 		selected = module;
 		return true;
 	}

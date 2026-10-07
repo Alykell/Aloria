@@ -3,6 +3,7 @@ package fr.alykell.aloria.hud.screen;
 import fr.alykell.aloria.hud.AloriaHud;
 import fr.alykell.aloria.hud.Colors;
 import fr.alykell.aloria.hud.Fonts;
+import fr.alykell.aloria.hud.Gfx;
 import fr.alykell.aloria.hud.Theme;
 import fr.alykell.aloria.hud.config.GlobalSettings;
 import fr.alykell.aloria.hud.config.ModuleSettings;
@@ -11,6 +12,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
 import org.jspecify.annotations.Nullable;
 
 import java.util.List;
@@ -219,11 +221,11 @@ public class HudMenuScreen extends AloriaScreen {
 		int mw = module.width(minecraft, s, true);
 		int mh = module.height(minecraft, s, true);
 		float scale = Math.min(1.2f, Math.min((float) w / mw, (float) h / mh));
-		g.pose().pushMatrix();
-		g.pose().translate(x + (w - mw * scale) / 2f, y + (h - mh * scale) / 2f);
-		g.pose().scale(scale, scale);
+		Gfx.push(g);
+		Gfx.translate(g, x + (w - mw * scale) / 2f, y + (h - mh * scale) / 2f);
+		Gfx.scale(g, scale);
 		module.draw(g, minecraft, s, true);
-		g.pose().popMatrix();
+		Gfx.pop(g);
 	}
 
 	// ---------------------------------------------------------------- onglet Général
@@ -294,7 +296,7 @@ public class HudMenuScreen extends AloriaScreen {
 		int ow = x + w - PAD - ox;
 		int cx = ox + 58;
 		int cw = ow - 58;
-		optionsScroll = Math.clamp(optionsScroll, 0, Math.max(0, OPTION_ROWS * ROW_H - (bottom - top)));
+		optionsScroll = Mth.clamp(optionsScroll, 0, Math.max(0, OPTION_ROWS * ROW_H - (bottom - top)));
 		int oy = top + 4 - optionsScroll;
 
 		g.enableScissor(ox - 2, top, ox + ow + 2, bottom);
@@ -577,7 +579,7 @@ public class HudMenuScreen extends AloriaScreen {
 	public boolean mouseScrolled(double x, double y, double scrollX, double scrollY) {
 		if (picker != null) return true;
 		if (editing != null) optionsScroll = Math.max(0, optionsScroll - (int) Math.round(scrollY * 16));
-		else scroll = Math.clamp(scroll - (int) Math.round(scrollY * 20), 0, maxScroll());
+		else scroll = Mth.clamp(scroll - (int) Math.round(scrollY * 20), 0, maxScroll());
 		return true;
 	}
 
