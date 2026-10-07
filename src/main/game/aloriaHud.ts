@@ -1,8 +1,10 @@
 import { app } from 'electron'
 import { existsSync } from 'node:fs'
-import { copyFile, mkdir, readdir, rm } from 'node:fs/promises'
+import { copyFile, mkdir, readdir, rm, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { installContent, listInstalled } from '../modrinth/content'
+import { sharedDir } from '../shared/presets'
+import { paths } from './paths'
 import { ALORIA_HUD_MC_LABEL, ALORIA_HUD_MC_VERSIONS } from '../../shared/aloriaHud'
 import type { Profile } from '../../shared/types'
 
@@ -44,4 +46,37 @@ export async function syncAloriaHud(profile: Profile, gameVersion: string, gameD
   const installed = await listInstalled(profile.id)
   if (!installed.some((i) => i.projectId === FABRIC_API)) await installContent(profile.id, FABRIC_API, 'mod')
   return null
+}
+
+/** Réglages du HUD (modules, disposition, couleurs, écran Visuel) communs à tous les profils */
+export const sharedHudConfig = join(sharedDir, 'aloria-hud.json')
+
+/** Première fois : la config commune reprend celle du profil dont le HUD a été modifié le plus récemment */
+async function newestHudConfig(): Promise<string | null> {
+  if (!existsSync(paths.instances)) return null
+  let best: { path: string; mtime: number } | null = null
+  for (const id of await readdir(paths.instances)) {
+    if (id.startsWith('selftest')) continue
+    const path = join(paths.instances, id, 'config', 'aloria-hud.json')
+    if (!existsSync(path)) continue
+    const mtime = (await stat(path)).mtimeMs
+    if (!best || mtime > best.mtime) best = { path, mtime }
+  }
+  return best?.path ?? null
+}
+
+/**
+ * Arguments Java qui indiquent au mod où lire et enregistrer ses réglages : le fichier commun, pour que le HUD
+ * soit le même dans tous les profils et toutes les versions. Les profils de test gardent leur propre fichier.
+ */
+export async function hudJvmArgs(profile: Profile): Promise<string[]> {
+  if (!hudEnabled(profile) || profile.id.startsWith('selftest')) return []
+  if (!existsSync(sharedHudConfig)) {
+    const source = await newestHudConfig()
+    if (source) {
+      await mkdir(sharedDir, { recursive: true })
+      await copyFile(source, sharedHudConfig)
+    }
+  }
+  return [`-Daloriahud.config=${sharedHudConfig}`]
 }

@@ -80,6 +80,6 @@ public class AloriaHud implements ClientModInitializer {
 			);
 		});
 
-		LOGGER.info("Aloria HUD prêt ({} modules)", MODULES.size());
+		LOGGER.info("Aloria HUD prêt ({} modules, réglages : {})", MODULES.size(), HudConfig.file());
 	}
 }

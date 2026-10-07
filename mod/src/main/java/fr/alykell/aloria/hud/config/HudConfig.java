@@ -14,19 +14,31 @@ import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** config/aloria-hud.json : { "global": {...}, "modules": { "fps": {...}, ... } } */
+/**
+ * aloria-hud.json : { "global": {...}, "visual": {...}, "modules": { "fps": {...}, ... } }.
+ * Lancé par Aloria, le fichier est commun à tous les profils (-Daloriahud.config=…/.aloria/shared/aloria-hud.json) ;
+ * sinon c'est celui du dossier config du jeu.
+ */
 public final class HudConfig {
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-	private static final Path FILE = FabricLoader.getInstance().getConfigDir().resolve("aloria-hud.json");
+	private static final Path FILE = System.getProperty("aloriahud.config") != null
+		? Path.of(System.getProperty("aloriahud.config"))
+		: FabricLoader.getInstance().getConfigDir().resolve("aloria-hud.json");
 	private static final Type MODULES_TYPE = new TypeToken<Map<String, ModuleSettings>>() {}.getType();
 
 	private GlobalSettings global = new GlobalSettings();
 	private VisualSettings visual = new VisualSettings();
 	private final Map<String, ModuleSettings> modules = new LinkedHashMap<>();
+
+	/** Fichier lu et enregistré (commun à tous les profils quand le jeu est lancé par Aloria) */
+	public static Path file() {
+		return FILE;
+	}
 
 	public GlobalSettings global() {
 		return global;
@@ -76,7 +88,10 @@ public final class HudConfig {
 		json.add("modules", GSON.toJsonTree(modules, MODULES_TYPE));
 		try {
 			Files.createDirectories(FILE.getParent());
-			Files.writeString(FILE, GSON.toJson(json), StandardCharsets.UTF_8);
+			// Écrit à côté puis remplace d'un coup : deux jeux ouverts ne laissent jamais un fichier à moitié écrit
+			Path temp = FILE.resolveSibling(FILE.getFileName() + ".tmp");
+			Files.writeString(temp, GSON.toJson(json), StandardCharsets.UTF_8);
+			Files.move(temp, FILE, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
 		} catch (IOException e) {
 			AloriaHud.LOGGER.error("Impossible d'enregistrer la configuration du HUD", e);
 		}

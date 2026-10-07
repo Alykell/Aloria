@@ -6,7 +6,7 @@ import { addPending, removePending } from '../shared/pending'
 import { getValidSession, listAccounts } from '../auth/accounts'
 import { gameDirOf, getProfile, markPlayed } from '../profiles'
 import { getSettings } from '../settings'
-import { syncAloriaHud } from './aloriaHud'
+import { hudJvmArgs, syncAloriaHud } from './aloriaHud'
 import { installFabric } from './fabric'
 import { installVersion } from './install'
 import { launchGame } from './launch'
@@ -98,8 +98,9 @@ export async function play(sender: WebContents, profileId: string): Promise<void
       player,
       demo: !active,
       launcherVersion: app.getVersion(),
-      // Tests en développement, ex. ALORIA_EXTRA_GAME_ARGS="--quickPlaySingleplayer Demo_World"
-      extraJvmArgs: app.isPackaged ? [] : splitArgs(process.env.ALORIA_EXTRA_JVM_ARGS),
+      // Réglages du HUD communs à tous les profils, puis arguments de test en développement
+      // (ex. ALORIA_EXTRA_GAME_ARGS="--quickPlaySingleplayer Demo_World")
+      extraJvmArgs: [...(await hudJvmArgs(profile)), ...(app.isPackaged ? [] : splitArgs(process.env.ALORIA_EXTRA_JVM_ARGS))],
       extraGameArgs: app.isPackaged ? [] : splitArgs(process.env.ALORIA_EXTRA_GAME_ARGS)
     })
 
