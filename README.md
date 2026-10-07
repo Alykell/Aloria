@@ -3,6 +3,8 @@
 **Aloria** est un launcher Minecraft: Java Edition personnel, au style plage et océan.
 *Aloria is a personal Minecraft: Java Edition launcher with a light, ocean-themed look.*
 
+🌐 **Site / Website : [alykell.github.io/Aloria](https://alykell.github.io/Aloria/)**
+
 > Projet non officiel, non affilié à Mojang ou Microsoft.
 > *Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.*
 
@@ -20,7 +22,7 @@
 
 ## Installation
 
-Télécharge `Aloria-Setup-x.y.z.exe` dans les [Releases](https://github.com/Alykell/Aloria/releases/latest) et lance-le.
+Télécharge l'installeur depuis le [site d'Aloria](https://alykell.github.io/Aloria/) (ou `Aloria-Setup-x.y.z.exe` dans les [Releases](https://github.com/Alykell/Aloria/releases/latest)) et lance-le.
 L'installeur n'est pas signé : si Windows SmartScreen s'affiche, clique sur **Informations complémentaires** puis **Exécuter quand même**.
 Il faut un compte Microsoft qui possède **Minecraft: Java Edition**.
 
