@@ -205,6 +205,28 @@ public final class SelfTest {
 			mc.player.pitch = 80f;
 			return true;
 		});
+		add("effet de niveau > 128", 1, () -> {
+			// Comme les serveurs PvP (saut bloqué…) : le niveau 251 arrive en -5 côté client (octet signé)
+			server(mc, (world, player) -> player.addStatusEffect(new StatusEffectInstance(StatusEffect.JUMP_BOOST.id, 20 * 5, 250)));
+			return true;
+		});
+		add("module Effets avec ce niveau", 10, () -> {
+			boolean received = false;
+			for (StatusEffectInstance e : mc.player.getStatusEffectInstances()) if (e.getAmplifier() < 0) received = true;
+			if (!received && retries < 20) return false;
+			HudModule effects = null;
+			for (HudModule m : AloriaHud.modules()) if (m.id().equals("effects")) effects = m;
+			boolean ok;
+			try {
+				effects.width(mc, new G(), settings("effects"), false);
+				ok = true;
+			} catch (RuntimeException e) {
+				AloriaHud.LOGGER.error("[selftest] module Effets", e);
+				ok = false;
+			}
+			check("le module Effets accepte un niveau reçu négatif (reçu : " + received + ")", received && ok);
+			return true;
+		});
 		add("bloc visé", 3, () -> {
 			HudModule look = null;
 			for (HudModule m : AloriaHud.modules()) if (m.id().equals("look")) look = m;

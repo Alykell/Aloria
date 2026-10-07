@@ -57,7 +57,7 @@ public final class EffectsModule extends HudModule {
 	}
 
 	private static String name(Holder<MobEffect> effect, int amplifier) {
-		return effect.value().getDisplayName().getString() + (amplifier < ROMAN.length ? ROMAN[amplifier] : " " + (amplifier + 1));
+		return effect.value().getDisplayName().getString() + (amplifier >= 0 && amplifier < ROMAN.length ? ROMAN[amplifier] : " " + (amplifier + 1));
 	}
 
 	private static List<Row> rows(Minecraft mc, boolean preview) {

@@ -34,6 +34,9 @@ public final class HudRenderer {
 		}
 	}
 
+	/** Modules dont l'erreur a déjà été signalée (une fois suffit, le rendu a lieu à chaque image) */
+	private static final java.util.Set<String> FAILED = new java.util.HashSet<>();
+
 	public static Bounds bounds(MinecraftClient mc, G g, HudModule module, ModuleSettings s, int screenW, int screenH, boolean preview) {
 		int w = Math.round(module.width(mc, g, s, preview) * s.scale);
 		int h = Math.round(module.height(mc, g, s, preview) * s.scale);
@@ -48,8 +51,11 @@ public final class HudRenderer {
 		g.push();
 		g.translate(b.x, b.y);
 		g.scale(s.scale);
-		module.draw(g, mc, s, preview);
-		g.pop();
+		try {
+			module.draw(g, mc, s, preview);
+		} finally {
+			g.pop();
+		}
 	}
 
 	/** Appelé à la fin du HUD du jeu (InGameHudMixin) */
@@ -64,12 +70,17 @@ public final class HudRenderer {
 		for (HudModule module : AloriaHud.modules()) {
 			ModuleSettings s = AloriaHud.config().get(module);
 			if (!s.enabled || (s.hideInChat && chatOpen)) continue;
-			if (!module.placeable()) {
-				module.drawOverlay(g, mc, s, partialTick);
-				continue;
+			// Une erreur dans un module (donnée inattendue d'un serveur…) ne doit jamais faire planter le jeu
+			try {
+				if (!module.placeable()) {
+					module.drawOverlay(g, mc, s, partialTick);
+					continue;
+				}
+				if (!module.hasContent(mc)) continue;
+				drawModule(g, mc, module, s, bounds(mc, g, module, s, g.guiWidth(), g.guiHeight(), false), false);
+			} catch (RuntimeException e) {
+				if (FAILED.add(module.id())) AloriaHud.LOGGER.error("Module " + module.id() + " : erreur de rendu, ignorée", e);
 			}
-			if (!module.hasContent(mc)) continue;
-			drawModule(g, mc, module, s, bounds(mc, g, module, s, g.guiWidth(), g.guiHeight(), false), false);
 		}
 		GlStateManager.color(1, 1, 1, 1);
 	}

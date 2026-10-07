@@ -64,6 +64,8 @@ public final class EffectsModule extends HudModule {
 	}
 
 	private static String name(StatusEffect effect, int amplifier) {
+		// Le serveur l'envoie sur un octet signé : un niveau > 128 (souvent donné par les serveurs PvP) arrive négatif
+		amplifier &= 0xFF;
 		return I18n.translate(effect.getTranslationKey()) + (amplifier < ROMAN.length ? ROMAN[amplifier] : " " + (amplifier + 1));
 	}
 
