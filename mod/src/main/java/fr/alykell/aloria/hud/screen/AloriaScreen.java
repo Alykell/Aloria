@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.DoubleConsumer;
 
 /**
  * Base des écrans Aloria : dessin maison (cadres arrondis, boutons) et zones cliquables
@@ -230,5 +231,16 @@ public abstract class AloriaScreen extends Screen {
 		int knob = on ? x + 13 : x + 2;
 		round(g, knob, y + 2, 9, 8, on ? Theme.WHITE : 0xFF9DB4C0);
 		onClick(id, x - 2, y - 2, 28, 16, action);
+	}
+
+	/** Curseur horizontal ; t est la valeur entre 0 et 1 */
+	protected void slider(GuiGraphicsExtractor g, int mouseX, int mouseY, String id, int x, int y, int w, float t, DoubleConsumer set) {
+		int knob = x + Math.round(Math.clamp(t, 0, 1) * (w - 8));
+		round(g, x, y + 4, w, 4, 0xC01B3A4B);
+		round(g, x, y + 4, knob - x + 4, 4, Theme.SEA);
+		boolean hover = isDragging(id) || hovered(mouseX, mouseY, knob, y, 8, 12);
+		round(g, knob, y + 1, 8, 10, hover ? Theme.WHITE : Theme.FOAM);
+		// La valeur suit le centre du bouton : on retire sa demi-largeur aux deux bouts
+		onDrag(id, x, y - 2, w, 16, (fx, fy) -> set.accept(Math.clamp((fx * (w - 1) - 4) / (w - 8), 0, 1)));
 	}
 }

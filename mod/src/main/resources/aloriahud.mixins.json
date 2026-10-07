@@ -4,8 +4,12 @@
 	"compatibilityLevel": "JAVA_25",
 	"client": [
 		"CreeperAccessor",
+		"FogMixin",
 		"GameModeAccessor",
-		"MouseHandlerMixin"
+		"HandsMixin",
+		"LightmapMixin",
+		"MouseHandlerMixin",
+		"TotemMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

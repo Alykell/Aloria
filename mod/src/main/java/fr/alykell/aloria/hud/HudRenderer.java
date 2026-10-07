@@ -3,6 +3,7 @@ package fr.alykell.aloria.hud;
 import fr.alykell.aloria.hud.config.ModuleSettings;
 import fr.alykell.aloria.hud.module.HudModule;
 import fr.alykell.aloria.hud.screen.HudLayoutScreen;
+import fr.alykell.aloria.hud.screen.VisualScreen;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -44,8 +45,9 @@ public final class HudRenderer {
 	/** Élément enregistré dans le HUD de Fabric */
 	public static void extract(GuiGraphicsExtractor g, DeltaTracker delta) {
 		Minecraft mc = Minecraft.getInstance();
-		// Interface masquée (F1), ou disposition en cours : l'écran dessine lui-même les modules
-		if (mc.gui.hud.isHidden() || mc.gui.screen() instanceof HudLayoutScreen) return;
+		// Interface masquée (F1), disposition en cours (l'écran dessine lui-même les modules)
+		// ou écran Visuel (on doit bien voir les mains et le décor)
+		if (mc.gui.hud.isHidden() || mc.gui.screen() instanceof HudLayoutScreen || mc.gui.screen() instanceof VisualScreen) return;
 
 		boolean chatOpen = mc.gui.screen() instanceof ChatScreen;
 		for (HudModule module : AloriaHud.modules()) {

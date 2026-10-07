@@ -25,10 +25,19 @@ public final class HudConfig {
 	private static final Type MODULES_TYPE = new TypeToken<Map<String, ModuleSettings>>() {}.getType();
 
 	private GlobalSettings global = new GlobalSettings();
+	private VisualSettings visual = new VisualSettings();
 	private final Map<String, ModuleSettings> modules = new LinkedHashMap<>();
 
 	public GlobalSettings global() {
 		return global;
+	}
+
+	public VisualSettings visual() {
+		return visual;
+	}
+
+	public void resetVisual() {
+		visual = new VisualSettings();
 	}
 
 	public ModuleSettings get(HudModule module) {
@@ -46,6 +55,7 @@ public final class HudConfig {
 				JsonObject json = JsonParser.parseString(Files.readString(FILE, StandardCharsets.UTF_8)).getAsJsonObject();
 				if (json.has("modules")) {
 					if (json.has("global")) config.global = GSON.fromJson(json.get("global"), GlobalSettings.class);
+					if (json.has("visual")) config.visual = GSON.fromJson(json.get("visual"), VisualSettings.class);
 					config.modules.putAll(GSON.fromJson(json.get("modules"), MODULES_TYPE));
 				} else {
 					// Ancien format (versions précédentes) : directement la liste des modules
@@ -62,6 +72,7 @@ public final class HudConfig {
 	public void save() {
 		JsonObject json = new JsonObject();
 		json.add("global", GSON.toJsonTree(global));
+		json.add("visual", GSON.toJsonTree(visual));
 		json.add("modules", GSON.toJsonTree(modules, MODULES_TYPE));
 		try {
 			Files.createDirectories(FILE.getParent());

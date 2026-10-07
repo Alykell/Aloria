@@ -466,10 +466,117 @@ public final class SelfTest {
 			return true;
 		});
 		add("capture chat ouvert", 10, () -> screenshot(mc, "11-chat-ouvert"));
+		addVisualSteps(mc);
 		add("retirer la TNT", 20, () -> removeExplosives(mc, true));
 		add("fin", 5, () -> {
 			log(failures == 0 ? "TERMINÉ : tout est OK" : "TERMINÉ : " + failures + " échec(s)");
 			mc.stop();
+			return true;
+		});
+	}
+
+	/** Lance une commande avec les droits du serveur (même syntaxe en 26.2 et 26.3) */
+	private static void command(Minecraft mc, String command) {
+		var server = mc.getSingleplayerServer();
+		if (server != null) server.execute(() -> server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), command));
+	}
+
+	private static fr.alykell.aloria.hud.config.VisualSettings visual() {
+		return AloriaHud.config().visual();
+	}
+
+	/** Blocs remplacés par de l'eau pour le test du brouillard, remis en place ensuite */
+	private static final java.util.Map<net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState> REPLACED = new java.util.HashMap<>();
+
+	private static void addVisualSteps(Minecraft mc) {
+		add("ouvrir le menu (visuel)", 2, () -> {
+			mc.gui.setScreen(new HudMenuScreen(null));
+			return true;
+		});
+		add("bouton Visuel", 3, () -> click(mc, "btn:☀ Visuel"));
+		add("écran Visuel", 3, () -> {
+			check("le bouton Visuel ouvre l'écran Visuel", mc.gui.screen() instanceof fr.alykell.aloria.hud.screen.VisualScreen);
+			// Épée en main, bouclier dans l'autre : on voit les deux réglages
+			command(mc, "item replace entity @a weapon.mainhand with minecraft:diamond_sword");
+			command(mc, "item replace entity @a weapon.offhand with minecraft:shield");
+			mc.player.setXRot(0f);
+			return true;
+		});
+		add("capture mains normales", 10, () -> screenshot(mc, "13-mains-normales"));
+		add("taille de la main au curseur", 2, () -> {
+			if (!(mc.gui.screen() instanceof AloriaScreen screen) || screen.hitCenter("main:scale") == null) {
+				lastMissing = "main:scale";
+				return false;
+			}
+			int[] c = screen.hitCenter("main:scale");
+			return clickAt(mc, c[0] - 25, c[1]);
+		});
+		add("main réduite", 2, () -> check("le curseur Taille réduit la main principale (" + visual().mainHand.scale + ")", visual().mainHand.scale < 1f));
+		add("onglet Bouclier", 2, () -> click(mc, "vtab:shield"));
+		add("bouclier écarté", 2, () -> {
+			visual().shield.side = 0.1f;
+			visual().shield.height = -0.04f;
+			visual().shield.scale = 0.6f;
+			return check("le bouclier a ses propres réglages", Visual.transformFor(net.minecraft.world.InteractionHand.OFF_HAND,
+				new ItemStack(Items.SHIELD)) == visual().shield);
+		});
+		add("capture mains réglées", 10, () -> screenshot(mc, "14-mains-reglees"));
+		add("onglet Totem", 2, () -> click(mc, "vtab:totem"));
+		add("totem plus petit", 2, () -> {
+			visual().totemScale = 0.4f;
+			return click(mc, "btn:Voir l'animation");
+		});
+		add("capture totem", 12, () -> screenshot(mc, "15-totem-reduit"));
+		add("onglet Luminosité", 25, () -> {
+			command(mc, "time set midnight");
+			return click(mc, "vtab:light");
+		});
+		add("capture nuit", 10, () -> {
+			mc.player.setXRot(30f);
+			return screenshot(mc, "16-nuit-normale");
+		});
+		add("luminosité max", 2, () -> click(mc, "fullbright"));
+		add("capture luminosité max", 10, () -> {
+			check("l'interrupteur Luminosité max fonctionne", visual().fullbright);
+			return screenshot(mc, "17-nuit-luminosite-max");
+		});
+		add("de l'eau sur la tête", 2, () -> {
+			visual().fullbright = false;
+			command(mc, "time set noon");
+			var server = mc.getSingleplayerServer();
+			var uuid = mc.player.getUUID();
+			server.execute(() -> {
+				var player = server.getPlayerList().getPlayer(uuid);
+				if (player == null) return;
+				var level = player.level();
+				var feet = player.blockPosition();
+				for (var pos : net.minecraft.core.BlockPos.betweenClosed(feet.offset(-1, 0, -1), feet.offset(1, 2, 1))) {
+					var immutable = pos.immutable();
+					REPLACED.put(immutable, level.getBlockState(immutable));
+					level.setBlock(immutable, net.minecraft.world.level.block.Blocks.WATER.defaultBlockState(), 3);
+				}
+			});
+			return click(mc, "vtab:fog");
+		});
+		add("capture sous l'eau (normal)", 15, () -> {
+			check("la caméra est sous l'eau", mc.gameRenderer.mainCamera().getFluidInCamera() == net.minecraft.world.level.material.FogType.WATER);
+			return screenshot(mc, "18-eau-brouillard-normal");
+		});
+		add("brouillard de l'eau retiré", 2, () -> {
+			visual().fogWater = 0;
+			return true;
+		});
+		add("capture sous l'eau (sans brouillard)", 5, () -> screenshot(mc, "19-eau-sans-brouillard"));
+		add("retirer l'eau", 2, () -> {
+			var server = mc.getSingleplayerServer();
+			var uuid = mc.player.getUUID();
+			server.execute(() -> {
+				var player = server.getPlayerList().getPlayer(uuid);
+				if (player == null) return;
+				REPLACED.forEach((pos, state) -> player.level().setBlock(pos, state, 3));
+				REPLACED.clear();
+			});
+			mc.gui.setScreen(null);
 			return true;
 		});
 	}

@@ -15,7 +15,6 @@ import org.jspecify.annotations.Nullable;
 
 import java.util.List;
 import java.util.function.Consumer;
-import java.util.function.DoubleConsumer;
 import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
 
@@ -126,6 +125,8 @@ public class HudMenuScreen extends AloriaScreen {
 		button(g, mx, my, x + w - 22, y - 26, 22, 18, "✕", false, () -> minecraft.gui.setScreen(parent));
 		button(g, mx, my, x + w - 126, y - 26, 100, 18, "✥ Disposition", true,
 			() -> minecraft.gui.setScreen(new HudLayoutScreen(this)));
+		button(g, mx, my, x + w - 126 - 6 - 80, y - 26, 80, 18, "☀ Visuel", true,
+			() -> minecraft.gui.setScreen(new VisualScreen(this)));
 
 		round(g, x, y, w, h, Theme.WINDOW);
 		roundOutline(g, x, y, w, h, Theme.BORDER);
@@ -405,17 +406,6 @@ public class HudMenuScreen extends AloriaScreen {
 				g.fill(x + i, y + j, Math.min(x + w, x + i + 3), Math.min(y + h, y + j + 3), ((i + j) / 3) % 2 == 0 ? 0xFF9A9A9A : 0xFFD0D0D0);
 			}
 		}
-	}
-
-	/** Curseur horizontal ; t est la valeur entre 0 et 1 */
-	private void slider(GuiGraphicsExtractor g, int mouseX, int mouseY, String id, int x, int y, int w, float t, DoubleConsumer set) {
-		int knob = x + Math.round(Math.clamp(t, 0, 1) * (w - 8));
-		round(g, x, y + 4, w, 4, 0xC01B3A4B);
-		round(g, x, y + 4, knob - x + 4, 4, Theme.SEA);
-		boolean hover = isDragging(id) || hovered(mouseX, mouseY, knob, y, 8, 12);
-		round(g, knob, y + 1, 8, 10, hover ? Theme.WHITE : Theme.FOAM);
-		// La valeur suit le centre du bouton : on retire sa demi-largeur aux deux bouts
-		onDrag(id, x, y - 2, w, 16, (fx, fy) -> set.accept(Math.clamp((fx * (w - 1) - 4) / (w - 8), 0, 1)));
 	}
 
 	// ---------------------------------------------------------------- sélecteur de couleur
