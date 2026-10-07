@@ -65,11 +65,14 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Mise à jour légère : code du launcher + jars, remplacés par le launcher lui-même (pas d'installeur à lancer)
-      - name: Envoyer la mise à jour légère
+      - name: Envoyer la mise à jour légère et l'installeur à nom fixe
         shell: bash
         run: |
           node scripts/light-update.mjs
           gh release upload "$GITHUB_REF_NAME" dist/light/* --clobber
+          # Copie de l'installeur sous un nom fixe : le site la télécharge via …/releases/latest/download/Aloria-Setup.exe
+          cp "dist/Aloria-Setup-${GITHUB_REF_NAME#v}.exe" dist/Aloria-Setup.exe
+          gh release upload "$GITHUB_REF_NAME" dist/Aloria-Setup.exe --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

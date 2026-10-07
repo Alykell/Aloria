@@ -1,20 +1,15 @@
-// Le bouton de téléchargement pointe sur l'installeur de la dernière release GitHub.
-// Sans réponse de GitHub, il garde son lien vers la page des releases.
+// Le bouton télécharge directement le dernier installeur : chaque release en publie une copie sous un nom fixe
+// (…/releases/latest/download/Aloria-Setup.exe). L'API GitHub ne sert qu'à afficher la version et la taille :
+// si elle ne répond pas (limite de requêtes…), le téléchargement marche quand même.
 const RELEASES = 'https://api.github.com/repos/Alykell/Aloria/releases/latest'
 
-const buttons = [document.getElementById('download'), ...document.querySelectorAll('.js-download')]
 const meta = document.getElementById('download-meta')
-
-for (const link of document.querySelectorAll('.js-download')) {
-  link.href = document.getElementById('download').href
-}
 
 fetch(RELEASES)
   .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
   .then((release) => {
-    const installer = release.assets.find((a) => /^Aloria-Setup-.*\.exe$/.test(a.name))
+    const installer = release.assets.find((a) => /^Aloria-Setup.*\.exe$/.test(a.name))
     if (!installer) return
-    for (const button of buttons) button.href = installer.browser_download_url
     const version = release.tag_name.replace(/^v/, '')
     const size = Math.round(installer.size / 1024 / 1024)
     meta.textContent = `Version ${version} · ${size} Mo · Gratuit · Windows 10 et 11`
