@@ -65,6 +65,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Mise à jour légère : code du launcher + jars, remplacés par le launcher lui-même (pas d'installeur à lancer)
+      - name: Envoyer la mise à jour légère
+        shell: bash
+        run: |
+          node scripts/light-update.mjs
+          gh release upload "$GITHUB_REF_NAME" dist/light/* --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Publier la release
         shell: bash
         run: gh release edit "$GITHUB_REF_NAME" --draft=false --latest

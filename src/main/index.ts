@@ -47,7 +47,8 @@ function createWindow(): BrowserWindow {
   // Fermer la fenêtre pendant une partie la cache seulement : le statut Discord et la récupération
   // des réglages continuent, et le launcher quitte quand le jeu se ferme
   win.on('close', (event) => {
-    if (!isGameRunning()) return
+    // Sauf si le launcher quitte vraiment (ex. « Redémarrer pour installer » une mise à jour)
+    if (quitting || !isGameRunning()) return
     event.preventDefault()
     win.hide()
   })
@@ -156,6 +157,12 @@ ipcMain.handle('library:openFolder', async (_e, profileId: string, type: Content
 
 // Tests en développement : dossier de données séparé, pour ne pas croiser le launcher installé
 if (!app.isPackaged && process.env.ALORIA_USER_DATA) app.setPath('userData', process.env.ALORIA_USER_DATA)
+
+/** Vrai dès que le launcher quitte (app.quit) : la fenêtre doit alors se fermer, même pendant une partie */
+let quitting = false
+app.on('before-quit', () => {
+  quitting = true
+})
 
 // Une seule fenêtre Aloria : relancer le raccourci ramène celle déjà ouverte au premier plan
 if (!app.requestSingleInstanceLock()) app.quit()
