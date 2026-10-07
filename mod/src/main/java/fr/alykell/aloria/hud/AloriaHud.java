@@ -85,7 +85,12 @@ public class AloriaHud implements ClientModInitializer {
 
 		// Bouton « Aloria HUD » dans le menu Échap
 		ScreenEvents.AFTER_INIT.register((mc, screen, width, height) -> {
+			//#if MC >= 12002
 			if (!(screen instanceof PauseScreen pause) || !pause.showsPauseMenu()) return;
+			//#else
+			//$$ // Menu Échap sans boutons (F3 + Échap) : rien à ajouter
+			//$$ if (!(screen instanceof PauseScreen) || Screens.getWidgets(screen).isEmpty()) return;
+			//#endif
 			// Sous le dernier bouton du menu, à la même largeur
 			int bottom = Screens.getWidgets(screen).stream().mapToInt(w -> w.getY() + w.getHeight()).max().orElse(height / 2);
 			Screens.getWidgets(screen).add(

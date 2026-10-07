@@ -110,6 +110,10 @@ public abstract class AloriaScreen extends Screen {
 
 	@Override
 	public final void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
+		//#if MC < 12002
+		//$$ // Avant 1.20.2, le jeu ne dessine pas le fond des écrans lui-même
+		//$$ background(g, mouseX, mouseY);
+		//#endif
 		pending.clear();
 		drags.clear();
 		unclip();
@@ -185,10 +189,17 @@ public abstract class AloriaScreen extends Screen {
 		return true;
 	}
 
-	@Override
-	public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
+	/** Fond derrière l'écran (par défaut : voile sombre) ; redéfini par les écrans qui veulent voir le jeu */
+	protected void background(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		g.fill(0, 0, width, height, 0x66000000);
 	}
+
+	//#if MC >= 12002
+	@Override
+	public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
+		background(g, mouseX, mouseY);
+	}
+	//#endif
 
 	@Override
 	public boolean isPauseScreen() {

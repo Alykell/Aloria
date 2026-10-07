@@ -37,14 +37,13 @@ jobs:
 
       # Un jar par version de Minecraft (préprocesseur dans mod/build.gradle, Fabric API choisie selon la version).
       # « shell: cmd » : PowerShell couperait les arguments comme -Pminecraft_version=26.2 au niveau du point
-      - name: Construire le mod Aloria HUD (26.3, 26.2, 1.21.11, 1.21.8)
+      - name: Construire le mod Aloria HUD (toutes les versions de mod/build.gradle)
         working-directory: mod
         shell: cmd
         run: |
-          call gradlew.bat build --no-daemon || exit /b 1
-          call gradlew.bat build --no-daemon -Pminecraft_version=26.2 || exit /b 1
-          call gradlew.bat build --no-daemon -Pminecraft_version=1.21.11 || exit /b 1
-          call gradlew.bat build --no-daemon -Pminecraft_version=1.21.8 || exit /b 1
+          for %%v in (26.3 26.2 1.21.11 1.21.8 1.21.4 1.21.1 1.20.4 1.20.1) do (
+            call gradlew.bat build --no-daemon -Pminecraft_version=%%v || exit /b 1
+          )
 
       - run: npm ci
 

@@ -576,7 +576,11 @@ public class HudMenuScreen extends AloriaScreen {
 	// ---------------------------------------------------------------- souris et clavier
 
 	@Override
+	//#if MC >= 12002
 	public boolean mouseScrolled(double x, double y, double scrollX, double scrollY) {
+	//#else
+	//$$ public boolean mouseScrolled(double x, double y, double scrollY) {
+	//#endif
 		if (picker != null) return true;
 		if (editing != null) optionsScroll = Math.max(0, optionsScroll - (int) Math.round(scrollY * 16));
 		else scroll = Mth.clamp(scroll - (int) Math.round(scrollY * 20), 0, maxScroll());

@@ -58,6 +58,10 @@ def renameSteps = [
 	[below: 12111, renames: [
 		'Identifier => ResourceLocation',
 	]],
+	// Avant 1.20.2
+	[below: 12002, renames: [
+		'menu.mouseScrolled(0, 0, 0, => menu.mouseScrolled(0, 0,',
+	]],
 	// Avant 1.20.5 : les effets ne sont pas encore des Holder
 	[below: 12005, renames: [
 		'Holder<MobEffect> => MobEffect',

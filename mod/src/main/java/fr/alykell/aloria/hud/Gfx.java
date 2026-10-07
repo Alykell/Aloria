@@ -68,10 +68,11 @@ public final class Gfx {
 		g.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, x, y, w, h, alpha);
 		//#elseif MC >= 12102
 		//$$ g.blitSprite(RenderType::guiTextured, sprite, x, y, w, h, ARGB.white(alpha));
-		//#else
+		//#elseif MC >= 12002
 		//$$ RenderSystem.setShaderColor(1, 1, 1, alpha);
 		//$$ g.blitSprite(sprite, x, y, w, h);
 		//$$ RenderSystem.setShaderColor(1, 1, 1, 1);
 		//#endif
+		// Avant 1.20.2 : pas d'atlas d'interface, les appelants passent par atlasSprite
 	}
 }

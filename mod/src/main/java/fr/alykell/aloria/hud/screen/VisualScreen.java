@@ -54,7 +54,7 @@ public class VisualScreen extends AloriaScreen {
 	}
 
 	@Override
-	public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
+	protected void background(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		// Rien : le jeu doit rester visible tel quel pour juger des réglages
 	}
 
