@@ -1,5 +1,5 @@
 import type { SettingsState } from '../hooks/useSettings'
-import type { AfterLaunch, ThemeChoice } from '../../../shared/types'
+import type { AfterLaunch, DiscordGameName, ThemeChoice } from '../../../shared/types'
 
 const THEMES: { id: ThemeChoice; label: string }[] = [
   { id: 'day', label: '☀️ Jour' },
@@ -17,6 +17,11 @@ const DISCORD_DETAILS: { key: 'discordShowProfile' | 'discordShowVersion' | 'dis
   { key: 'discordShowServer', label: 'Montrer le serveur (ex. « Sur donutsmp.net ») ou « En solo »' },
   { key: 'discordShowProfile', label: 'Montrer le nom du profil' },
   { key: 'discordShowVersion', label: 'Montrer la version (ex. « Fabric 26.2 »)' }
+]
+
+const DISCORD_NAMES: { id: DiscordGameName; label: string }[] = [
+  { id: 'aloria', label: 'Aloria Client' },
+  { id: 'minecraft', label: 'Minecraft' }
 ]
 
 export default function SettingsPage({ state: { settings, systemRamMb, update } }: { state: SettingsState }) {
@@ -64,12 +69,22 @@ export default function SettingsPage({ state: { settings, systemRamMb, update } 
         <label className="card__row toggle">
           <div>
             <strong>Statut Discord</strong>
-            <p>Affiche « Joue à Aloria Client » sur ton profil Discord, avec le temps de jeu.</p>
+            <p>Affiche « Joue à Aloria Client » (ou « Joue à Minecraft » en partie) sur ton profil Discord, avec le temps de jeu.</p>
           </div>
           <input type="checkbox" checked={settings.discordPresence} onChange={(e) => update({ discordPresence: e.target.checked })} />
         </label>
         {settings.discordPresence && (
           <div className="sub-options">
+            <div className="discord-name">
+              <span>Pendant une partie, afficher « Joue à… »</span>
+              <div className="segmented">
+                {DISCORD_NAMES.map((n) => (
+                  <button key={n.id} className={settings.discordGameName === n.id ? 'active' : ''} onClick={() => update({ discordGameName: n.id })}>
+                    {n.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             {DISCORD_DETAILS.map((d) => (
               <label key={d.key} className="toggle-line">
                 <input type="checkbox" checked={settings[d.key]} onChange={(e) => update({ [d.key]: e.target.checked })} />

@@ -489,3 +489,5 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 
 .sub-options { display: flex; flex-direction: column; gap: 8px; padding: 4px 0 2px 4px; border-top: 1px solid var(--line); padding-top: 12px; }
 .sub-options .toggle-line { font-weight: 500; font-size: 14px; }
+.discord-name { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-weight: 500; font-size: 14px; }
+.discord-name .segmented button { padding: 6px 14px; }

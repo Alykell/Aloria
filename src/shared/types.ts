@@ -19,7 +19,11 @@ export interface Settings {
   discordShowProfile: boolean
   discordShowVersion: boolean
   discordShowServer: boolean
+  /** Nom affiché pendant une partie : « Joue à Aloria Client » ou « Joue à Minecraft » */
+  discordGameName: DiscordGameName
 }
+
+export type DiscordGameName = 'aloria' | 'minecraft'
 
 export type AfterLaunch = 'keep' | 'minimize' | 'close'
 

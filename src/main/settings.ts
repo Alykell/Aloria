@@ -12,7 +12,8 @@ const DEFAULTS: Settings = {
   discordPresence: true,
   discordShowProfile: true,
   discordShowVersion: true,
-  discordShowServer: true
+  discordShowServer: true,
+  discordGameName: 'aloria'
 }
 
 export function getSettings(): Settings {

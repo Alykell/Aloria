@@ -1,12 +1,17 @@
 import { Client } from '@xhayper/discord-rpc'
-import { DISCORD_CLIENT_ID } from './config'
+import { DISCORD_CLIENT_ID, DISCORD_MINECRAFT_ID } from './config'
 import { getSettings } from './settings'
 
 /**
  * Statut Discord (« Rich Presence ») : « Joue à Aloria Client », avec le profil, la version
  * et le serveur, selon les réglages. Discord doit être ouvert ; sinon on réessaie régulièrement.
+ * Pendant une partie, le statut peut montrer « Joue à Minecraft » : le nom vient de l'application Discord,
+ * on se reconnecte donc avec celle de Minecraft le temps de la partie.
  */
 let client: Client | null = null
+/** Application Discord de la connexion en cours */
+let clientId = ''
+
 let ready = false
 let retry: NodeJS.Timeout | null = null
 const launcherSince = Date.now()
@@ -15,6 +20,11 @@ const launcherSince = Date.now()
 let game: { profile: string; version: string; server: string | null; since: number } | null = null
 
 const enabled = () => !!DISCORD_CLIENT_ID && getSettings().discordPresence
+
+/** Application Discord voulue maintenant */
+function wantedId(): string {
+  return game && getSettings().discordGameName === 'minecraft' ? DISCORD_MINECRAFT_ID : DISCORD_CLIENT_ID
+}
 
 function activity(): { details: string; state?: string; startTimestamp: number } {
   if (!game) return { details: 'Dans le launcher', startTimestamp: launcherSince }
@@ -32,10 +42,11 @@ async function push(): Promise<void> {
       await client.user?.clearActivity()
       return
     }
+    // L'image « aloria » n'existe que dans notre application : avec celle de Minecraft, Discord montre son icône
+    const ours = clientId === DISCORD_CLIENT_ID
     await client.user?.setActivity({
       ...activity(),
-      largeImageKey: 'aloria',
-      largeImageText: 'Aloria Client',
+      ...(ours ? { largeImageKey: 'aloria', largeImageText: 'Aloria Client' } : {}),
       instance: false
     })
   } catch {
@@ -52,20 +63,32 @@ function scheduleRetry(): void {
 }
 
 async function connect(): Promise<void> {
-  if (!enabled() || ready) return
-  client?.destroy().catch(() => {})
-  client = new Client({ clientId: DISCORD_CLIENT_ID })
-  client.on('ready', () => {
+  if (!enabled() || (ready && clientId === wantedId())) return
+  ready = false
+  const old = client
+  if (old) {
+    old.removeAllListeners()
+    // Effacer d'abord le statut : sinon l'ancien peut rester affiché un moment
+    await old.user?.clearActivity().catch(() => {})
+    await old.destroy().catch(() => {})
+  }
+  clientId = wantedId()
+  const current = new Client({ clientId })
+  client = current
+  current.on('ready', () => {
+    if (client !== current) return
     ready = true
     push()
   })
-  client.on('disconnected', () => {
+  current.on('disconnected', () => {
+    if (client !== current) return
     ready = false
     scheduleRetry()
   })
   try {
-    await client.login()
+    await current.login()
   } catch {
+    if (client !== current) return
     ready = false
     scheduleRetry()
   }
@@ -77,13 +100,18 @@ export function initDiscord(): void {
 
 /** À appeler quand un réglage Discord change dans le launcher */
 export function refreshDiscord(): void {
-  if (enabled() && !ready) connect()
+  update()
+}
+
+/** Se (re)connecte si l'application voulue a changé, sinon met juste le statut à jour */
+function update(): void {
+  if (enabled() && (!ready || clientId !== wantedId())) connect()
   else push()
 }
 
 export function setDiscordPlaying(profile: string, version: string): void {
   game = { profile, version, server: null, since: Date.now() }
-  push()
+  update()
 }
 
 /** Serveur rejoint (« solo » pour un monde solo, null pour les menus du jeu) */
@@ -95,5 +123,5 @@ export function setDiscordServer(server: string | null): void {
 
 export function setDiscordIdle(): void {
   game = null
-  push()
+  update()
 }

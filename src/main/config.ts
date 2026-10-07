@@ -7,3 +7,5 @@ export const MS_AUTHORITY = 'https://login.microsoftonline.com/consumers/oauth2/
 
 // Application Discord « Aloria Client » (statut « Joue à Aloria Client ») ; vide = statut Discord désactivé
 export const DISCORD_CLIENT_ID = '1557023018587398194'
+// Application Discord officielle « Minecraft » (statut « Joue à Minecraft », avec son icône)
+export const DISCORD_MINECRAFT_ID = '356875570916753438'
