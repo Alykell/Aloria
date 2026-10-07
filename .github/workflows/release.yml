@@ -45,6 +45,12 @@ jobs:
             call gradlew.bat build --no-daemon -Pminecraft_version=%%v || exit /b 1
           )
 
+      # Mod 1.8.9 : projet séparé (Legacy Fabric, Java 8)
+      - name: Construire le mod Aloria HUD (1.8.9)
+        working-directory: mod-legacy
+        shell: cmd
+        run: gradlew.bat build --no-daemon
+
       - run: npm ci
 
       - run: npm run typecheck

@@ -1,7 +1,7 @@
 # Aloria — notes pour Claude
 
 Launcher Minecraft perso d'Alykell (« Aloria Client »), répondre **en français**.
-Electron 44 + electron-vite + React 19 + TypeScript (`src/`), mod Fabric **Aloria HUD** (`mod/`) pour 26.3, 26.2, 1.21.11, 1.21.8, 1.21.4, 1.21.1, 1.20.4 et 1.20.1.
+Electron 44 + electron-vite + React 19 + TypeScript (`src/`), mod Fabric **Aloria HUD** (`mod/`) de la 1.20.1 à la 26.3, et en 1.8.9 (`mod-legacy/`).
 Données du jeu : `%APPDATA%\.aloria` (profils, instances, `shared/` = serveurs et jeux de réglages communs).
 
 ## Publication
@@ -22,6 +22,13 @@ Données du jeu : `%APPDATA%\.aloria` (profils, instances, `shared/` = serveurs 
 - Versions, Fabric API et Java : table `targets` de `mod/build.gradle` ; liste côté launcher : `src/shared/aloriaHud.ts`.
 - 1.21.x obfusqué (plugin `fabric-loom-remap`, noms Mojang au build) : pas de réflexion par nom à l'exécution → invokers mixin.
 - Sources décompilées : `./gradlew genSources -Pminecraft_version=X` (jar `-sources` dans `.gradle/loom-cache/minecraftMaven`).
+
+## Mod 1.8.9 (`mod-legacy/`)
+- Projet séparé : Legacy Fabric (meta.legacyfabric.net, même format que Fabric ; le launcher l'utilise avant 1.14),
+  Java 8, noms **Yarn** (`MinecraftClient`, `DrawableHelper`…), pas de Fabric API (tout en mixins). `./gradlew build` dans `mod-legacy`.
+- Mêmes modules, menus et réglages que le mod moderne ; `ModuleSettings`/`GlobalSettings`/`VisualSettings` sont copiés depuis
+  `mod/` à la construction (même fichier JSON). Dessin via `G` (mêmes noms que l'API moderne). Pas de polices TTF ni d'écran Visuel.
+- Auto-test : profil `selftest189f` (Legacy Fabric 1.8.9, lance la démo) ; captures dans `<dossier>/screenshots`.
 
 ## Pièges Minecraft 26.x (non obfusqué, noms Mojang)
 - Rendu : `GuiGraphicsExtractor`, `extractRenderState` ; écrans : `mc.gui.setScreen(...)`.

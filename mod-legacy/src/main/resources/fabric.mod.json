@@ -1,0 +1,29 @@
+{
+	"schemaVersion": 1,
+	"id": "aloriahud",
+	"version": "${version}",
+	"name": "Aloria HUD",
+	"description": "HUD personnalisable du launcher Aloria : modules déplaçables et réglables en direct depuis le menu Échap.",
+	"authors": [
+		"Alykell"
+	],
+	"contact": {
+		"homepage": "https://alykell.github.io/Aloria/",
+		"sources": "https://github.com/Alykell/Aloria"
+	},
+	"license": "MIT",
+	"icon": "assets/aloriahud/icon.png",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"fr.alykell.aloria.hud.AloriaHud"
+		]
+	},
+	"mixins": [
+		"aloriahud.mixins.json"
+	],
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "1.8.9"
+	}
+}

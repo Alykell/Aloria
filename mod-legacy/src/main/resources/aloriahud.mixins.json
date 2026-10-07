@@ -1,0 +1,18 @@
+{
+	"required": true,
+	"package": "fr.alykell.aloria.hud.mixin",
+	"compatibilityLevel": "JAVA_8",
+	"client": [
+		"CameraAccessor",
+		"CreeperAccessor",
+		"GameMenuScreenMixin",
+		"GameOptionsMixin",
+		"InGameHudMixin",
+		"InteractionManagerAccessor",
+		"KeyBindingMixin",
+		"MinecraftClientMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

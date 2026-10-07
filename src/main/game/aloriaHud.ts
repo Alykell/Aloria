@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import { copyFile, mkdir, readdir, rm, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { installContent, listInstalled } from '../modrinth/content'
+import { isLegacyFabric } from './fabric'
 import { sharedDir } from '../shared/presets'
 import { paths } from './paths'
 import { ALORIA_HUD_MC_LABEL, ALORIA_HUD_MC_VERSIONS } from '../../shared/aloriaHud'
@@ -16,10 +17,16 @@ const JAR_NAME = 'aloria-hud.jar'
  * en développement on prend celui que Gradle vient de construire.
  */
 async function bundledJar(gameVersion: string): Promise<string | null> {
-  const dir = app.isPackaged ? join(process.resourcesPath, 'mods') : join(app.getAppPath(), 'mod', 'build', 'libs')
-  if (!existsSync(dir)) return null
-  const jar = (await readdir(dir)).find((f) => f.startsWith('aloria-hud-') && f.endsWith(`+${gameVersion}.jar`))
-  return jar ? join(dir, jar) : null
+  // En développement : mod moderne (mod/) et mod 1.8.9 (mod-legacy/) construits par Gradle
+  const dirs = app.isPackaged
+    ? [join(process.resourcesPath, 'mods')]
+    : [join(app.getAppPath(), 'mod', 'build', 'libs'), join(app.getAppPath(), 'mod-legacy', 'build', 'libs')]
+  for (const dir of dirs) {
+    if (!existsSync(dir)) continue
+    const jar = (await readdir(dir)).find((f) => f.startsWith('aloria-hud-') && f.endsWith(`+${gameVersion}.jar`))
+    if (jar) return join(dir, jar)
+  }
+  return null
 }
 
 export const hudEnabled = (profile: Profile) => profile.loader === 'fabric' && profile.aloriaHud !== false
@@ -43,6 +50,8 @@ export async function syncAloriaHud(profile: Profile, gameVersion: string, gameD
   await mkdir(join(gameDir, 'mods'), { recursive: true })
   await copyFile(jar, target)
 
+  // Le mod 1.8.9 (Legacy Fabric) n'a pas besoin de Fabric API
+  if (isLegacyFabric(gameVersion)) return null
   const installed = await listInstalled(profile.id)
   if (!installed.some((i) => i.projectId === FABRIC_API)) await installContent(profile.id, FABRIC_API, 'mod')
   return null

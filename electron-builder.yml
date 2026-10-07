@@ -13,6 +13,11 @@ extraResources:
     to: mods
     filter:
       - aloria-hud-*.jar
+  # Mod 1.8.9 (Legacy Fabric)
+  - from: mod-legacy/build/libs
+    to: mods
+    filter:
+      - aloria-hud-*.jar
 win:
   target: nsis
   icon: resources/icon.png

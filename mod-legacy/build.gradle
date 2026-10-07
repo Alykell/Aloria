@@ -1,0 +1,47 @@
+// Aloria HUD pour Minecraft 1.8.9 (Legacy Fabric) : Java 8, noms Yarn, pas de Fabric API (tout passe par des mixins).
+// Les réglages (config/aloria-hud.json, ou le fichier commun du launcher) sont les mêmes que ceux du mod moderne.
+plugins {
+	id 'net.fabricmc.fabric-loom-remap' version "${loom_version}"
+	id 'legacy-looming' version "${loom_version}"
+}
+
+version = "${project.mod_version}+${project.minecraft_version}"
+
+base {
+	archivesName = 'aloria-hud'
+}
+
+// Classes de réglages partagées avec le mod moderne (simples et compatibles Java 8) : même format de fichier
+def sharedConfig = tasks.register('sharedConfig', Sync) {
+	from('../mod/src/main/java') {
+		include 'fr/alykell/aloria/hud/config/ModuleSettings.java'
+		include 'fr/alykell/aloria/hud/config/GlobalSettings.java'
+		include 'fr/alykell/aloria/hud/config/VisualSettings.java'
+	}
+	into layout.buildDirectory.dir('shared-src')
+}
+sourceSets.main.java.srcDir(sharedConfig)
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	mappings(legacy.yarn(project.minecraft_version, project.yarn_build))
+	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+}
+
+processResources {
+	def version = project.version
+	inputs.property "version", version
+	filesMatching("fabric.mod.json") {
+		expand "version": version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.encoding = 'UTF-8'
+	it.options.release = 8
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_1_8
+	targetCompatibility = JavaVersion.VERSION_1_8
+}
