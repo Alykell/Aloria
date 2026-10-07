@@ -123,12 +123,26 @@ public abstract class AloriaScreen extends Screen {
 
 	protected abstract void draw(GuiGraphicsExtractor g, int mouseX, int mouseY);
 
+	//#if MC < 12109
+	//$$ /** Avant 1.21.9, les clics arrivent en trois nombres : on les regroupe comme dans les versions récentes */
+	//$$ public record Click(double x, double y, int button) {
+	//$$ }
+	//$$
+	//#endif
 	/** Clic gauche sur une zone enregistrée ; sinon laisse l'écran gérer */
 	@Override
+	//#if MC >= 12109
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
 		for (var child : children()) {
 			if (child.isMouseOver(event.x(), event.y())) return super.mouseClicked(event, doubleClick);
 		}
+	//#else
+	//$$ public boolean mouseClicked(double mouseX, double mouseY, int button) {
+	//$$ 	Click event = new Click(mouseX, mouseY, button);
+	//$$ 	for (var child : children()) {
+	//$$ 		if (child.isMouseOver(event.x(), event.y())) return super.mouseClicked(mouseX, mouseY, button);
+	//$$ 	}
+	//#endif
 		if (event.button() == InputConstants.MOUSE_BUTTON_LEFT) {
 			for (int i = hits.size() - 1; i >= 0; i--) {
 				Hit hit = hits.get(i);
@@ -148,7 +162,12 @@ public abstract class AloriaScreen extends Screen {
 	}
 
 	@Override
+	//#if MC >= 12109
 	public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
+	//#else
+	//$$ public boolean mouseDragged(double mouseX, double mouseY, int button, double dx, double dy) {
+	//$$ 	Click event = new Click(mouseX, mouseY, button);
+	//#endif
 		Drag drag = dragging == null ? null : drags.get(dragging);
 		if (drag == null) return false;
 		drag.apply(event.x(), event.y());
@@ -156,7 +175,11 @@ public abstract class AloriaScreen extends Screen {
 	}
 
 	@Override
+	//#if MC >= 12109
 	public boolean mouseReleased(MouseButtonEvent event) {
+	//#else
+	//$$ public boolean mouseReleased(double mouseX, double mouseY, int button) {
+	//#endif
 		dragging = null;
 		return true;
 	}

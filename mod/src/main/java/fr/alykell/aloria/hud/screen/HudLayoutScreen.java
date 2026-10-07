@@ -8,7 +8,9 @@ import fr.alykell.aloria.hud.Theme;
 import fr.alykell.aloria.hud.config.ModuleSettings;
 import fr.alykell.aloria.hud.module.HudModule;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+//#if MC >= 12109
 import net.minecraft.client.input.KeyEvent;
+//#endif
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import org.jspecify.annotations.Nullable;
@@ -121,7 +123,12 @@ public class HudLayoutScreen extends AloriaScreen {
 	}
 
 	@Override
+	//#if MC >= 12109
 	public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
+	//#else
+	//$$ public boolean mouseDragged(double mouseX, double mouseY, int button, double dx, double dy) {
+	//$$ 	Click event = new Click(mouseX, mouseY, button);
+	//#endif
 		if (dragging == null) return false;
 		Bounds b = bounds(dragging);
 		guides.clear();
@@ -180,7 +187,11 @@ public class HudLayoutScreen extends AloriaScreen {
 	}
 
 	@Override
+	//#if MC >= 12109
 	public boolean mouseReleased(MouseButtonEvent event) {
+	//#else
+	//$$ public boolean mouseReleased(double mouseX, double mouseY, int button) {
+	//#endif
 		dragging = null;
 		guides.clear();
 		return true;
@@ -197,16 +208,23 @@ public class HudLayoutScreen extends AloriaScreen {
 	}
 
 	@Override
+	//#if MC >= 12109
 	public boolean keyPressed(KeyEvent event) {
+		int key = event.key();
+		boolean shift = event.hasShiftDown();
+	//#else
+	//$$ public boolean keyPressed(int key, int scanCode, int modifiers) {
+	//$$ 	boolean shift = hasShiftDown();
+	//#endif
 		// Flèches : déplacement précis du module sélectionné (Maj = 10 pixels)
 		if (selected != null) {
-			int step = event.hasShiftDown() ? 10 : 1;
-			int dx = switch (event.key()) {
+			int step = shift ? 10 : 1;
+			int dx = switch (key) {
 				case InputConstants.KEY_RIGHT -> step;
 				case InputConstants.KEY_LEFT -> -step;
 				default -> 0;
 			};
-			int dy = switch (event.key()) {
+			int dy = switch (key) {
 				case InputConstants.KEY_DOWN -> step;
 				case InputConstants.KEY_UP -> -step;
 				default -> 0;
@@ -217,7 +235,11 @@ public class HudLayoutScreen extends AloriaScreen {
 				return true;
 			}
 		}
+		//#if MC >= 12109
 		return super.keyPressed(event);
+		//#else
+		//$$ return super.keyPressed(key, scanCode, modifiers);
+		//#endif
 	}
 
 	@Override

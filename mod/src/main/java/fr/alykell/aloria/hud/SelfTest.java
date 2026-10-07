@@ -15,7 +15,9 @@ import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.input.MouseButtonEvent;
+//#if MC >= 12109
 import net.minecraft.client.input.MouseButtonInfo;
+//#endif
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 
 import net.minecraft.world.effect.MobEffectInstance;
@@ -76,15 +78,28 @@ public final class SelfTest {
 		Window w = mc.getWindow();
 		double sx = guiX * w.getScreenWidth() / w.getGuiScaledWidth();
 		double sy = guiY * w.getScreenHeight() / w.getGuiScaledHeight();
+		//#if MC >= 260000
 		// Signature différente selon la version (26.2 : 3 paramètres, 26.3 : 5) : appel par réflexion
 		Method move = mouseMethod("onMove");
 		if (move.getParameterCount() == 3) call(move, mc, w.handle(), sx, sy);
 		else call(move, mc, w.handle(), sx, sy, 0.0, 0.0);
+		//#else
+		//$$ // Jeu obfusqué : pas de réflexion par nom, invoker remappé
+		//$$ ((fr.alykell.aloria.hud.mixin.InputInvoker) mc.mouseHandler).invokeOnMove(w.handle(), sx, sy);
+		//#endif
 	}
 
 	private static void button(Minecraft mc, boolean press) {
+		//#if MC >= 260000
 		// Privée en 26.2 : appel par réflexion
 		call(mouseMethod("onButton"), mc, mc.getWindow().handle(), new MouseButtonInfo(InputConstants.MOUSE_BUTTON_LEFT, 0), press ? 1 : 0);
+		//#elseif MC >= 12109
+		//$$ ((fr.alykell.aloria.hud.mixin.InputInvoker) mc.mouseHandler)
+		//$$ 	.invokeOnButton(mc.getWindow().handle(), new MouseButtonInfo(InputConstants.MOUSE_BUTTON_LEFT, 0), press ? 1 : 0);
+		//#else
+		//$$ ((fr.alykell.aloria.hud.mixin.InputInvoker) mc.mouseHandler)
+		//$$ 	.invokeOnPress(mc.getWindow().handle(), InputConstants.MOUSE_BUTTON_LEFT, press ? 1 : 0, 0);
+		//#endif
 	}
 
 	private static Method mouseMethod(String name) {
@@ -142,6 +157,17 @@ public final class SelfTest {
 
 	/** Tape du texte comme au clavier (signature différente selon la version : appel par réflexion) */
 	private static void type(Minecraft mc, String text) {
+		//#if MC < 260000
+		//$$ var keyboard = (fr.alykell.aloria.hud.mixin.KeyboardInvoker) mc.keyboardHandler;
+		//$$ for (int cp : text.codePoints().toArray()) {
+		//#if MC >= 12109
+		//$$ 	keyboard.invokeCharTyped(mc.getWindow().handle(), new net.minecraft.client.input.CharacterEvent(cp, 0));
+		//#else
+		//$$ 	keyboard.invokeCharTyped(mc.getWindow().handle(), cp, 0);
+		//#endif
+		//$$ }
+		//$$ if (true) return;
+		//#endif
 		for (Method m : KeyboardHandler.class.getDeclaredMethods()) {
 			if (!m.getName().equals("charTyped") || m.getParameterTypes().length == 0 || m.getParameterTypes()[0] != long.class) continue;
 			m.setAccessible(true);
@@ -327,7 +353,11 @@ public final class SelfTest {
 			moveTo(mc, 120, 90);
 			// Minecraft ignore les mouvements quand sa fenêtre n'a pas le focus : on livre le glisser directement
 			if (mc.gui.screen() instanceof HudLayoutScreen layout) {
+				//#if MC >= 12109
 				layout.mouseDragged(new MouseButtonEvent(120, 90, new MouseButtonInfo(InputConstants.MOUSE_BUTTON_LEFT, 0)), 0, 0);
+				//#else
+				//$$ layout.mouseDragged(120, 90, InputConstants.MOUSE_BUTTON_LEFT, 0, 0);
+				//#endif
 			}
 			return true;
 		});
@@ -447,7 +477,8 @@ public final class SelfTest {
 			server.execute(() -> server.getAllLevels().forEach(level ->
 				level.getEntities(net.minecraft.world.entity.EntityTypes.CREEPER, c -> true).forEach(c -> c.setSwellDir(tick % 3 == 2 ? -1 : 1))));
 			for (var e : mc.level.entitiesForRendering()) {
-				if (!(e instanceof net.minecraft.world.entity.monster.Creeper c) || tick < 3) continue;
+				// Seulement le creeper du test (sans IA) : le monde peut avoir ses propres creepers, cachés à raison
+				if (!(e instanceof net.minecraft.world.entity.monster.Creeper c) || !c.isNoAi() || tick < 3) continue;
 				if (c.getSwellDir() <= 0) hiddenOld++;
 				if (fr.alykell.aloria.hud.module.ExplosionModule.secondsLeft(c, 0) < 0) hiddenNew++;
 			}
@@ -462,7 +493,11 @@ public final class SelfTest {
 		});
 		add("retirer le creeper", 1, () -> removeExplosives(mc, false));
 		add("ouvrir le chat", 2, () -> {
+			//#if MC >= 12109
 			mc.gui.setScreen(new net.minecraft.client.gui.screens.ChatScreen("", false));
+			//#else
+			//$$ mc.gui.setScreen(new net.minecraft.client.gui.screens.ChatScreen(""));
+			//#endif
 			return true;
 		});
 		add("capture chat ouvert", 10, () -> screenshot(mc, "11-chat-ouvert"));
@@ -629,8 +664,36 @@ public final class SelfTest {
 		});
 	}
 
+	/** Version sans monde de test : on clique une fois sur « Jouer la démo » depuis l'écran titre */
+	private static boolean demoClicked;
+
+	private static void startDemo(Minecraft mc) {
+		if (mc.gui.overlay() != null) return;
+		// Premier lancement d'une version : écran d'accessibilité avant l'écran titre
+		if (mc.gui.screen() instanceof net.minecraft.client.gui.screens.AccessibilityOnboardingScreen) {
+			log("premier lancement : écran d'accessibilité passé");
+			mc.options.onboardAccessibility = false;
+			mc.options.save();
+			mc.gui.setScreen(new net.minecraft.client.gui.screens.TitleScreen());
+			return;
+		}
+		if (demoClicked || !(mc.gui.screen() instanceof net.minecraft.client.gui.screens.TitleScreen title)) return;
+		String label = net.minecraft.network.chat.Component.translatable("menu.playdemo").getString();
+		for (AbstractWidget w : Screens.getWidgets(title)) {
+			if (!w.getMessage().getString().equals(label)) continue;
+			log("écran titre : lancement de la démo");
+			demoClicked = true;
+			clickAt(mc, w.getX() + w.getWidth() / 2.0, w.getY() + w.getHeight() / 2.0);
+			return;
+		}
+	}
+
 	public static void tick(Minecraft mc) {
 		if (STEPS.isEmpty()) return;
+		if (!menuOnly() && mc.level == null) {
+			startDemo(mc);
+			return;
+		}
 		if (!menuOnly() && (mc.player == null || mc.level == null)) return;
 		// Écran de chargement (ressources) : les clics y sont ignorés
 		if (mc.gui.overlay() != null) return;

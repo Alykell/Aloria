@@ -35,17 +35,16 @@ jobs:
           distribution: temurin
           java-version: 25
 
-      # Un jar par version de Minecraft (les classes de rendu diffèrent entre 26.2 et 26.3).
+      # Un jar par version de Minecraft (préprocesseur dans mod/build.gradle, Fabric API choisie selon la version).
       # « shell: cmd » : PowerShell couperait les arguments comme -Pminecraft_version=26.2 au niveau du point
-      - name: Construire le mod Aloria HUD (Minecraft 26.3)
+      - name: Construire le mod Aloria HUD (26.3, 26.2, 1.21.11, 1.21.8)
         working-directory: mod
         shell: cmd
-        run: gradlew.bat build --no-daemon
-
-      - name: Construire le mod Aloria HUD (Minecraft 26.2)
-        working-directory: mod
-        shell: cmd
-        run: gradlew.bat build --no-daemon -Pminecraft_version=26.2 -Pfabric_api_version=0.161.0+26.2
+        run: |
+          call gradlew.bat build --no-daemon || exit /b 1
+          call gradlew.bat build --no-daemon -Pminecraft_version=26.2 || exit /b 1
+          call gradlew.bat build --no-daemon -Pminecraft_version=1.21.11 || exit /b 1
+          call gradlew.bat build --no-daemon -Pminecraft_version=1.21.8 || exit /b 1
 
       - run: npm ci
 

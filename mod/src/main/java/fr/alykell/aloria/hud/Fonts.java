@@ -3,7 +3,9 @@ package fr.alykell.aloria.hud;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
+//#if MC >= 12109
 import net.minecraft.network.chat.FontDescription;
+//#endif
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 import net.minecraft.resources.Identifier;
@@ -50,7 +52,12 @@ public final class Fonts {
 	private static Style style(String font, boolean bold) {
 		String id = valid(font);
 		if (id.equals(MINECRAFT)) return Style.EMPTY.withBold(bold);
-		return Style.EMPTY.withFont(new FontDescription.Resource(Identifier.fromNamespaceAndPath(AloriaHud.MOD_ID, bold ? id + "_bold" : id)));
+		Identifier file = Identifier.fromNamespaceAndPath(AloriaHud.MOD_ID, bold ? id + "_bold" : id);
+		//#if MC >= 12109
+		return Style.EMPTY.withFont(new FontDescription.Resource(file));
+		//#else
+		//$$ return Style.EMPTY.withFont(file);
+		//#endif
 	}
 
 	public static Component text(String font, String text) {

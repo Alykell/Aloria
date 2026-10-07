@@ -1,37 +1,112 @@
 plugins {
-	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+	// 26.x : jeu livré avec les noms de Mojang (pas de remappage) ; 1.21.x : jeu obfusqué, remappé par Loom
+	id 'net.fabricmc.fabric-loom' version "${loom_version}" apply false
+	id 'net.fabricmc.fabric-loom-remap' version "${loom_version}" apply false
 }
 
-// Un jar par version de Minecraft : ./gradlew build -Pminecraft_version=26.2 -Pfabric_api_version=0.161.0+26.2
-version = "${project.mod_version}+${project.minecraft_version}"
+// Un jar par version de Minecraft : ./gradlew build -Pminecraft_version=1.21.11
+def mc = project.minecraft_version as String
+
+/** Versions prises en charge : Fabric API et Java à utiliser pour chacune */
+// Renommages entre 26.x (noms du code source) et 1.21.x : voir PreprocessTask.rename
+def renames121 = [
+	'GuiGraphicsExtractor => GuiGraphics',
+	'g.text( => g.drawString(',
+	'g.centeredText( => g.drawCenteredString(',
+	'g.item( => g.renderItem(',
+	'g.horizontalLine( => g.hLine(',
+	'g.verticalLine( => g.vLine(',
+	'extractRenderState => render',
+	'extractBackground => renderBackground',
+	'.gui.setScreen( => .setScreen(',
+	'.gui.screen() => .screen',
+	'.gui.overlay() => .getOverlay()',
+	'mc.gui.hud.isHidden() => mc.options.hideGui',
+	'.mainCamera() => .getMainCamera()',
+	'mc.gameRenderer.mainRenderTarget() => mc.getMainRenderTarget()',
+	'EntityTypes => EntityType',
+	'net.minecraft.client.gui.Hud; => net.minecraft.client.gui.Gui;',
+	'Hud.getMobEffectSprite( => Gui.getMobEffectSprite(',
+	'VanillaHudElements.MOB_EFFECTS => VanillaHudElements.STATUS_EFFECTS',
+	'client.keymapping.v1.KeyMappingHelper => client.keybinding.v1.KeyBindingHelper',
+	'KeyMappingHelper.registerKeyMapping( => KeyBindingHelper.registerKeyBinding(',
+	'Screens.getWidgets( => Screens.getButtons(',
+]
+def targets = [
+	'26.3'   : [fabricApi: '0.161.0+26.3', java: 25, renames: []],
+	'26.2'   : [fabricApi: '0.161.0+26.2', java: 25, renames: []],
+	'1.21.11': [fabricApi: '0.141.6+1.21.11', java: 21, renames: renames121],
+	'1.21.8' : [fabricApi: '0.136.1+1.21.8', java: 21, renames: renames121 + [
+		'Identifier => ResourceLocation',
+		'org.jspecify.annotations.Nullable => org.jetbrains.annotations.Nullable',
+		'w.handle() => w.getWindow()',
+		'mc.getWindow().handle() => mc.getWindow().getWindow()',
+		'camera.entity() => camera.getEntity()',
+		'camera.position() => camera.getPosition()',
+		'world.entity.vehicle.minecart.MinecartTNT => world.entity.vehicle.MinecartTNT',
+		'import net.minecraft.client.input.MouseButtonEvent; => ',
+		'MouseButtonEvent => Click',
+	]],
+]
+def target = targets[mc]
+if (target == null) throw new GradleException("Minecraft ${mc} n'est pas prise en charge (versions : ${targets.keySet().join(', ')})")
+def obfuscated = !mc.startsWith('26.')
+
+apply plugin: obfuscated ? 'net.fabricmc.fabric-loom-remap' : 'net.fabricmc.fabric-loom'
+
+version = "${project.mod_version}+${mc}"
 
 base {
 	archivesName = 'aloria-hud'
 }
 
+// ---------------------------------------------------------------- préprocesseur multi-version
+// Le code est écrit pour 26.3 ; pour une autre version, il passe d'abord par le préprocesseur (buildSrc/PreprocessTask)
+
+def REFERENCE = '26.3'
+def preprocessSources = tasks.register('preprocessSources', PreprocessTask) {
+	sourceDir = file('src/main/java')
+	outputDir = layout.buildDirectory.dir("preprocessed/${mc}")
+	minecraftVersion = mc
+	renames = target.renames
+}
+
+if (mc != REFERENCE) {
+	sourceSets.main.java.srcDirs = [preprocessSources.flatMap { it.outputDir }]
+}
+
+// ---------------------------------------------------------------- dépendances
+
 dependencies {
-	minecraft "com.mojang:minecraft:${project.minecraft_version}"
-	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
-	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+	minecraft "com.mojang:minecraft:${mc}"
+	if (obfuscated) {
+		mappings loom.officialMojangMappings()
+		modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+		modImplementation "net.fabricmc.fabric-api:fabric-api:${target.fabricApi}"
+	} else {
+		implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+		implementation "net.fabricmc.fabric-api:fabric-api:${target.fabricApi}"
+	}
 }
 
 processResources {
 	def version = project.version
-	def minecraft = project.minecraft_version
+	def java = target.java
 	inputs.property "version", version
-	inputs.property "minecraft", minecraft
+	inputs.property "minecraft", mc
+	inputs.property "java", java
 
-	filesMatching("fabric.mod.json") {
-		expand "version": version, "minecraft": minecraft
+	filesMatching(["fabric.mod.json", "aloriahud.mixins.json"]) {
+		expand "version": version, "minecraft": mc, "java": java
 	}
 }
 
 tasks.withType(JavaCompile).configureEach {
-	it.options.release = 25
+	it.options.release = target.java
 	it.options.encoding = 'UTF-8'
 }
 
 java {
-	sourceCompatibility = JavaVersion.VERSION_25
-	targetCompatibility = JavaVersion.VERSION_25
+	sourceCompatibility = JavaVersion.toVersion(target.java)
+	targetCompatibility = JavaVersion.toVersion(target.java)
 }

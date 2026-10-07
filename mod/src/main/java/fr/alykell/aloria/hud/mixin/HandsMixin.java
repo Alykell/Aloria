@@ -16,10 +16,18 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * La classe a changé de nom en 26.3 (ItemInHandRenderer → FirstPersonHandsAndItemsRenderer) et ses paramètres aussi :
  * on vise les deux noms, et les paramètres utiles sont repérés par leur type.
  */
+//#if MC >= 260000
 @Pseudo
 @Mixin(targets = {"net.minecraft.client.renderer.FirstPersonHandsAndItemsRenderer", "net.minecraft.client.renderer.ItemInHandRenderer"})
+//#else
+//$$ @Mixin(net.minecraft.client.renderer.ItemInHandRenderer.class)
+//#endif
 public class HandsMixin {
+	//#if MC >= 260000
 	@Inject(method = "submitArmWithItem", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;pushPose()V", shift = At.Shift.AFTER))
+	//#else
+	//$$ @Inject(method = "renderArmWithItem", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;pushPose()V", shift = At.Shift.AFTER))
+	//#endif
 	private void aloriahud$moveHand(CallbackInfo ci, @Local(argsOnly = true) InteractionHand hand, @Local(argsOnly = true) ItemStack stack,
 		@Local(argsOnly = true) PoseStack pose) {
 		Visual.transformHand(pose, hand, stack);

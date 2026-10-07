@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs'
 import { copyFile, mkdir, readdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { installContent, listInstalled } from '../modrinth/content'
-import { ALORIA_HUD_MC_VERSIONS } from '../../shared/aloriaHud'
+import { ALORIA_HUD_MC_LABEL, ALORIA_HUD_MC_VERSIONS } from '../../shared/aloriaHud'
 import type { Profile } from '../../shared/types'
 
 const FABRIC_API = 'P7dR8mSH'
@@ -32,7 +32,7 @@ export async function syncAloriaHud(profile: Profile, gameVersion: string, gameD
 
   if (!wanted) {
     await rm(target, { force: true })
-    return hudEnabled(profile) ? `Aloria HUD n'existe que pour Minecraft ${ALORIA_HUD_MC_VERSIONS.join(' et ')}.` : null
+    return hudEnabled(profile) ? `Aloria HUD n'existe que pour Minecraft ${ALORIA_HUD_MC_LABEL}.` : null
   }
 
   const jar = await bundledJar(gameVersion)

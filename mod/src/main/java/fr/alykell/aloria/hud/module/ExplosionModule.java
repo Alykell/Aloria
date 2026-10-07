@@ -156,7 +156,14 @@ public final class ExplosionModule extends HudModule {
 		// Les plus proches par-dessus
 		fuses.sort(Comparator.comparingDouble(Fuse::distance).reversed());
 
+		//#if MC >= 260000
 		Matrix4f projection = camera.getViewRotationProjectionMatrix(new Matrix4f());
+		//#else
+		//$$ // Projection du jeu (FOV dynamique compris) × rotation de la caméra, comme pour le rendu du monde
+		//$$ float fov = ((fr.alykell.aloria.hud.mixin.GameRendererAccessor) mc.gameRenderer).invokeGetFov(camera, partialTick, true);
+		//$$ Matrix4f projection = mc.gameRenderer.getProjectionMatrix(fov)
+		//$$ 	.mul(new Matrix4f().rotation(camera.rotation().conjugate(new org.joml.Quaternionf())));
+		//#endif
 		for (Fuse fuse : fuses) {
 			Vec3 pos = fuse.entity().getPosition(partialTick).add(0, fuse.entity().getBbHeight() + 0.5, 0);
 			Vector4f clip = projection.transform(new Vector4f((float) (pos.x - eye.x), (float) (pos.y - eye.y), (float) (pos.z - eye.z), 1f));

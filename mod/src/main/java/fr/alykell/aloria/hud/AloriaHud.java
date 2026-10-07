@@ -49,7 +49,11 @@ public class AloriaHud implements ClientModInitializer {
 		});
 
 		// Maj droite ouvre l'éditeur, comme sur Lunar / Feather (modifiable dans les contrôles)
+		//#if MC >= 12109
 		KeyMapping.Category category = KeyMapping.Category.register(Identifier.fromNamespaceAndPath(MOD_ID, "main"));
+		//#else
+		//$$ String category = "key.category.aloriahud.main";
+		//#endif
 		KeyMapping openEditor = KeyMappingHelper.registerKeyMapping(
 			new KeyMapping("key.aloriahud.editor", InputConstants.KEY_RSHIFT, category)
 		);

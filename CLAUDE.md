@@ -1,24 +1,32 @@
 # Aloria — notes pour Claude
 
 Launcher Minecraft perso d'Alykell (« Aloria Client »), répondre **en français**.
-Electron 44 + electron-vite + React 19 + TypeScript (`src/`), mod Fabric **Aloria HUD** en Java 25 (`mod/`).
+Electron 44 + electron-vite + React 19 + TypeScript (`src/`), mod Fabric **Aloria HUD** (`mod/`) pour 26.3, 26.2, 1.21.11 et 1.21.8.
 Données du jeu : `%APPDATA%\.aloria` (profils, instances, `shared/` = serveurs et jeux de réglages communs).
 
 ## Publication
 - Changer `version` dans `package.json`, commit, `git tag vX.Y.Z`, push du tag → GitHub Actions
-  (`.github/workflows/release.yml`) compile le mod pour 26.3 **et** 26.2, construit l'installeur, publie
+  (`.github/workflows/release.yml`) compile le mod pour chaque version, construit l'installeur, publie
   (brouillon créé avant l'envoi des fichiers, sinon doublons). `npm run dist` en local échoue (Windows bloque l'exe non signé).
 - Le launcher installé se met à jour seul (electron-updater, GitHub Releases).
+
+## Mod multi-version (`mod/`)
+- Code écrit pour **26.3** (référence). `./gradlew build -Pminecraft_version=1.21.11` : `buildSrc/PreprocessTask` copie le code
+  dans `build/preprocessed/<version>` en activant les blocs `//#if MC >= 12109` … `//#else` / `//$$ code` … `//#endif`
+  (1.21.11 = 12111, 26.3 = 260300), puis applique les renommages de `build.gradle` (`renames121`, ex. `GuiGraphicsExtractor => GuiGraphics`).
+- Versions, Fabric API et Java : table `targets` de `mod/build.gradle` ; liste côté launcher : `src/shared/aloriaHud.ts`.
+- 1.21.x obfusqué (plugin `fabric-loom-remap`, noms Mojang au build) : pas de réflexion par nom à l'exécution → invokers mixin.
+- Sources décompilées : `./gradlew genSources -Pminecraft_version=X` (jar `-sources` dans `.gradle/loom-cache/minecraftMaven`).
 
 ## Pièges Minecraft 26.x (non obfusqué, noms Mojang)
 - Rendu : `GuiGraphicsExtractor`, `extractRenderState` ; écrans : `mc.gui.setScreen(...)`.
 - Touches = scancodes SDL ; souris : **gauche = 1, droit = 3** (`InputConstants.MOUSE_BUTTON_*`).
-- `RenderPipeline` a changé de package entre 26.2 et 26.3 → un jar par version
-  (`./gradlew build -Pminecraft_version=26.2 -Pfabric_api_version=0.161.0+26.2`). Liste : `src/shared/aloriaHud.ts`.
+- `RenderPipeline` a changé de package entre 26.2 et 26.3 → un jar par version.
 - Pas d'`ItemStack` sans monde chargé (« Components not bound »).
 
 ## Tests (mode développement, sans compte)
-- Auto-test du HUD en jeu : profils `selftest` (26.3, monde `Demo_World`) et `selftest262` (menu seul) ;
+- Auto-test du HUD en jeu : profils `selftest` (26.3, monde `Demo_World`), `selftest12111` / `selftest1218`
+  (sans `--quickPlay` : l'auto-test passe l'écran d'accessibilité et clique « Jouer la démo ») et `selftest262` (menu seul) ;
   variables : `ALORIA_USER_DATA=<dossier temp>` (isole du launcher installé), `ALORIA_AUTOPLAY=1`,
   `ALORIA_TEST_DEMO=1`, `ALORIA_AUTOPLAY_PROFILE=selftest`, `ALORIA_DEBUG=1`,
   `ALORIA_EXTRA_JVM_ARGS="-Daloriahud.selftest=<dossier captures> [-Daloriahud.selftest.menu=1]"`,

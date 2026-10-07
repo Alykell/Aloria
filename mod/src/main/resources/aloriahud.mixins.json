@@ -1,12 +1,15 @@
 {
 	"required": true,
 	"package": "fr.alykell.aloria.hud.mixin",
-	"compatibilityLevel": "JAVA_25",
+	"compatibilityLevel": "JAVA_${java}",
 	"client": [
 		"CreeperAccessor",
 		"FogMixin",
 		"GameModeAccessor",
+		"GameRendererAccessor",
 		"HandsMixin",
+		"InputInvoker",
+		"KeyboardInvoker",
 		"LightmapMixin",
 		"MouseHandlerMixin",
 		"TotemMixin"

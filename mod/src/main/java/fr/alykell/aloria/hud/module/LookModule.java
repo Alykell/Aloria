@@ -108,7 +108,14 @@ public final class LookModule extends HudModule {
 		ItemStack icon;
 		if (entity instanceof ItemEntity item) icon = item.getItem().copy();
 		else if (entity instanceof Player) icon = new ItemStack(Items.PLAYER_HEAD);
+		//#if MC >= 260000
 		else icon = SpawnEggItem.byId(entity.getType()).map(ItemStack::new).orElse(null);
+		//#else
+		//$$ else {
+		//$$ 	SpawnEggItem egg = SpawnEggItem.byId(entity.getType());
+		//$$ 	icon = egg != null ? new ItemStack(egg) : null;
+		//$$ }
+		//#endif
 		String name = entity.getDisplayName().getString();
 		String source = modName(BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).getNamespace());
 		if (entity instanceof LivingEntity living) {
