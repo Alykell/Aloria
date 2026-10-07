@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6cc4ea"/><stop offset="0.45" stop-color="#b7e6f5"/><stop offset="0.6" stop-color="#fdf1d6"/>
+    </linearGradient>
+    <radialGradient id="glow">
+      <stop offset="0" stop-color="#fff1b8" stop-opacity="0.75"/>
+      <stop offset="1" stop-color="#fff1b8" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2fa9cf"/><stop offset="0.55" stop-color="#1a9bc7"/><stop offset="1" stop-color="#62d0e3"/>
+    </linearGradient>
+    <linearGradient id="sand" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f6e4bb"/><stop offset="1" stop-color="#ecd29e"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#sky)"/>
+  <g fill="#ffffff" opacity="0.85" transform="translate(300 190) scale(1)">
+    <ellipse cx="0" cy="0" rx="90" ry="34"/><ellipse cx="60" cy="-22" rx="60" ry="40"/><ellipse cx="-50" cy="-12" rx="50" ry="30"/></g><g fill="#ffffff" opacity="0.85" transform="translate(620 120) scale(0.8)">
+    <ellipse cx="0" cy="0" rx="90" ry="34"/><ellipse cx="60" cy="-22" rx="60" ry="40"/><ellipse cx="-50" cy="-12" rx="50" ry="30"/></g><g fill="#ffffff" opacity="0.85" transform="translate(1380 170) scale(0.9)">
+    <ellipse cx="0" cy="0" rx="90" ry="34"/><ellipse cx="60" cy="-22" rx="60" ry="40"/><ellipse cx="-50" cy="-12" rx="50" ry="30"/></g><g fill="#ffffff" opacity="0.85" transform="translate(960 230) scale(0.6)">
+    <ellipse cx="0" cy="0" rx="90" ry="34"/><ellipse cx="60" cy="-22" rx="60" ry="40"/><ellipse cx="-50" cy="-12" rx="50" ry="30"/></g>
+  <circle cx="1150" cy="330" r="230" fill="url(#glow)"/>
+  <circle cx="1150" cy="330" r="72" fill="#fff7dc"/>
+  <path d="M0 570 C 120 548, 220 540, 330 562 L 330 570 Z" fill="#3d8f8a"/>
+  <rect y="568" width="1600" height="240" fill="url(#sea)"/>
+  <rect x="1110" y="590" width="80" height="4" rx="2" fill="#fff6d8" opacity="0.55"/><rect x="1113" y="612" width="74" height="4" rx="2" fill="#fff6d8" opacity="0.5"/><rect x="1116" y="634" width="68" height="4" rx="2" fill="#fff6d8" opacity="0.45000000000000007"/><rect x="1119" y="656" width="62" height="4" rx="2" fill="#fff6d8" opacity="0.4"/><rect x="1122" y="678" width="56" height="4" rx="2" fill="#fff6d8" opacity="0.35000000000000003"/><rect x="1125" y="700" width="50" height="4" rx="2" fill="#fff6d8" opacity="0.30000000000000004"/><rect x="1128" y="722" width="44" height="4" rx="2" fill="#fff6d8" opacity="0.25"/><rect x="1131" y="744" width="38" height="4" rx="2" fill="#fff6d8" opacity="0.2"/><rect x="1134" y="766" width="32" height="4" rx="2" fill="#fff6d8" opacity="0.15000000000000002"/>
+  <g fill="none" stroke="#ffffff" stroke-linecap="round">
+    <path d="M0 640 C 200 630, 400 650, 600 638 S 1000 628, 1200 642 S 1500 650, 1600 640" stroke-width="3" opacity="0.35"/>
+    <path d="M0 700 C 220 688, 420 712, 640 698 S 1060 686, 1280 704 S 1520 712, 1600 700" stroke-width="4" opacity="0.45"/>
+  </g>
+  <path d="M0 780 C 260 752, 520 790, 800 770 S 1340 748, 1600 776 L 1600 1000 L 0 1000 Z" fill="#e3c88f"/>
+  <path d="M0 800 C 260 772, 520 810, 800 790 S 1340 768, 1600 796 L 1600 1000 L 0 1000 Z" fill="url(#sand)"/>
+  <path d="M0 782 C 260 754, 520 792, 800 772 S 1340 750, 1600 778" fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" opacity="0.7"/>
+  
+  <g transform="translate(250 300)">
+    <path d="M150 700 C 140 560, 110 420, 40 300 L 62 292 C 132 410, 168 552, 182 700 Z" fill="#8a6a45"/>
+    <g fill="#2f8a63">
+      <path d="M50 296 C -40 250, -150 270, -230 340 C -140 300, -40 300, 46 312 Z"/>
+      <path d="M52 294 C -10 200, -110 150, -210 160 C -110 190, -30 230, 40 306 Z"/>
+      <path d="M56 292 C 60 190, 20 110, -40 60 C 30 120, 60 200, 66 296 Z"/>
+      <path d="M58 294 C 140 230, 240 220, 320 260 C 230 250, 150 270, 66 306 Z"/>
+      <path d="M58 296 C 150 300, 240 350, 290 430 C 220 370, 140 330, 60 312 Z"/>
+      <path d="M54 300 C 30 380, -30 450, -110 480 C -40 430, 10 380, 40 304 Z"/>
+    </g>
+    <circle cx="58" cy="304" r="16" fill="#8a6a45"/>
+  </g>
+</svg>

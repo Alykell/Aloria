@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aloria — Launcher Minecraft</title>
+  <meta name="description" content="Aloria, un launcher Minecraft: Java Edition au style plage et océan : profils Fabric, mods Modrinth, HUD intégré et mises à jour automatiques. Gratuit, pour Windows.">
+  <meta name="theme-color" content="#1a9bc7">
+  <meta property="og:title" content="Aloria — Launcher Minecraft">
+  <meta property="og:description" content="Ton launcher Minecraft, entre ciel et océan. Profils Fabric, mods Modrinth, HUD intégré.">
+  <meta property="og:image" content="img/launcher-accueil.png">
+  <link rel="icon" href="img/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="img/icon.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Quicksand:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="nav">
+    <a class="nav__logo" href="#">
+      <img src="img/icon.svg" alt="" width="32" height="32">
+      <span>Aloria</span>
+    </a>
+    <nav class="nav__links">
+      <a href="#fonctionnalites">Fonctionnalités</a>
+      <a href="#hud">Aloria HUD</a>
+      <a href="#installation">Installation</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Accueil : illustration de plage, titre et bouton de téléchargement -->
+    <section class="hero">
+      <div class="hero__scene" aria-hidden="true"></div>
+      <div class="hero__content">
+        <img class="hero__icon" src="img/icon.svg" alt="" width="96" height="96">
+        <h1>Aloria</h1>
+        <p class="hero__tagline">Ton launcher Minecraft, entre ciel et océan.</p>
+        <a class="download" id="download" href="https://github.com/Alykell/Aloria/releases/latest">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 3a1 1 0 0 1 1 1v9.59l3.3-3.3a1 1 0 1 1 1.4 1.42l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.42l3.3 3.3V4a1 1 0 0 1 1-1Zm-8 15a1 1 0 0 1 1 1v1h14v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"/></svg>
+          <span>Télécharger pour Windows</span>
+        </a>
+        <p class="hero__meta" id="download-meta">Gratuit · Windows 10 et 11</p>
+        <p class="hero__note">Il faut un compte Microsoft qui possède <strong>Minecraft: Java Edition</strong>.</p>
+      </div>
+    </section>
+
+    <section class="showcase">
+      <figure class="window">
+        <picture>
+          <source srcset="img/launcher-accueil-nuit.png" media="(prefers-color-scheme: dark)">
+          <img src="img/launcher-accueil.png" alt="Écran d'accueil du launcher Aloria" width="1378" height="853" loading="lazy">
+        </picture>
+      </figure>
+    </section>
+
+    <section class="section" id="fonctionnalites">
+      <h2>Tout ce qu'il faut pour jouer</h2>
+      <p class="section__lead">Un launcher léger, joli et pensé pour qu'on n'ait rien à configurer.</p>
+      <div class="features">
+        <article class="feature">
+          <span class="feature__icon">🔐</span>
+          <h3>Connexion Microsoft</h3>
+          <p>Connexion officielle et sécurisée, plusieurs comptes. Tes identifiants restent chiffrés sur ton PC.</p>
+        </article>
+        <article class="feature">
+          <span class="feature__icon">🧩</span>
+          <h3>Profils et Fabric</h3>
+          <p>Une version, un dossier et une quantité de RAM par profil, de la 1.8 aux dernières versions, avec Fabric en un clic.</p>
+        </article>
+        <article class="feature">
+          <span class="feature__icon">🐚</span>
+          <h3>Mods, packs et shaders</h3>
+          <p>Bibliothèque <a href="https://modrinth.com">Modrinth</a> intégrée : recherche, installation et dépendances automatiques.</p>
+        </article>
+        <article class="feature">
+          <span class="feature__icon">🎮</span>
+          <h3>Réglages partagés</h3>
+          <p>Touches, son, champ de vision et options d'accessibilité réglés une fois, appliqués à tous tes profils.</p>
+        </article>
+        <article class="feature">
+          <span class="feature__icon">🌐</span>
+          <h3>Serveurs communs</h3>
+          <p>Ta liste de serveurs te suit d'un profil à l'autre, et ton statut Discord montre à quoi tu joues.</p>
+        </article>
+        <article class="feature">
+          <span class="feature__icon">🌊</span>
+          <h3>Toujours à jour</h3>
+          <p>Java est installé automatiquement, et le launcher se met à jour tout seul en arrière-plan.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section section--hud" id="hud">
+      <div class="split">
+        <div class="split__text">
+          <h2>Aloria HUD</h2>
+          <p class="section__lead">Un HUD personnalisable, ajouté automatiquement à tes profils Fabric récents.</p>
+          <ul class="checks">
+            <li>FPS, CPS, coordonnées, vitesse, horloge</li>
+            <li>Touches, armure avec durabilité, effets actifs</li>
+            <li>Bloc ou créature visé, avec ses infos</li>
+            <li>Chrono au-dessus des TNT et des creepers</li>
+            <li>Polices, couleurs, fonds et bordures au choix</li>
+            <li>Placement libre à la souris (Maj droite en jeu)</li>
+          </ul>
+        </div>
+        <figure class="window window--game">
+          <img src="img/hud-jeu.png" alt="Le HUD Aloria en jeu" width="1280" height="720" loading="lazy">
+        </figure>
+      </div>
+    </section>
+
+    <section class="section" id="installation">
+      <h2>Installation</h2>
+      <ol class="steps">
+        <li>
+          <span class="steps__num">1</span>
+          <h3>Télécharge l'installeur</h3>
+          <p>Clique sur <a href="#" class="js-download">Télécharger pour Windows</a> et ouvre le fichier <code>Aloria-Setup.exe</code>.</p>
+        </li>
+        <li>
+          <span class="steps__num">2</span>
+          <h3>Passe l'avertissement Windows</h3>
+          <p>L'installeur n'est pas signé (un certificat coûte cher). Si Windows SmartScreen s'affiche, clique sur
+            <strong>Informations complémentaires</strong> puis <strong>Exécuter quand même</strong>.</p>
+        </li>
+        <li>
+          <span class="steps__num">3</span>
+          <h3>Connecte-toi et joue</h3>
+          <p>Connecte ton compte Microsoft, crée un profil, et lance la partie. Le jeu se télécharge tout seul.</p>
+        </li>
+      </ol>
+    </section>
+
+    <section class="section" id="faq">
+      <h2>Questions fréquentes</h2>
+      <div class="faq">
+        <details>
+          <summary>Aloria est-il gratuit ?</summary>
+          <p>Oui, entièrement. Il faut seulement posséder Minecraft: Java Edition sur ton compte Microsoft.</p>
+        </details>
+        <details>
+          <summary>Est-ce que ça marche sans acheter Minecraft ?</summary>
+          <p>Non. Aloria n'a pas de mode « crack » : il vérifie que ton compte possède le jeu, comme le launcher officiel.</p>
+        </details>
+        <details>
+          <summary>Mon compte est-il en sécurité ?</summary>
+          <p>La connexion passe par la page officielle de Microsoft : Aloria ne voit jamais ton mot de passe.
+            Les jetons de connexion sont chiffrés sur ton PC et envoyés uniquement à Microsoft, Xbox Live et Mojang.
+            Le code est <a href="https://github.com/Alykell/Aloria">public sur GitHub</a>.</p>
+        </details>
+        <details>
+          <summary>Pourquoi Windows affiche un avertissement ?</summary>
+          <p>Parce que l'installeur n'est pas signé avec un certificat payant. C'est normal pour un petit projet :
+            clique sur « Informations complémentaires » puis « Exécuter quand même ».</p>
+        </details>
+        <details>
+          <summary>Et sur Mac ou Linux ?</summary>
+          <p>Pas pour l'instant : Aloria est disponible uniquement pour Windows.</p>
+        </details>
+        <details>
+          <summary>Je perds mes mondes si je désinstalle ?</summary>
+          <p>Non, tes mondes, profils et comptes sont conservés dans <code>%APPDATA%\.aloria</code>.</p>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>
+      <a href="https://github.com/Alykell/Aloria">GitHub</a> ·
+      <a href="https://github.com/Alykell/Aloria/releases">Toutes les versions</a> ·
+      Fait par <a href="https://github.com/Alykell">Alykell</a>
+    </p>
+    <p class="footer__legal">Projet non officiel, non affilié à Mojang ni à Microsoft. Minecraft est une marque de Mojang AB.</p>
+  </footer>
+
+  <script src="main.js"></script>
+</body>
+</html>
