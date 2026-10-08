@@ -160,6 +160,15 @@
             clique sur « Informations complémentaires » puis « Exécuter quand même ».</p>
         </details>
         <details>
+          <summary>Windows bloque complètement l'installation, sans bouton « Exécuter quand même »</summary>
+          <p>C'est le <strong>contrôle intelligent des applications</strong> de Windows 11 (Sécurité Windows → Contrôle des
+            applications et du navigateur) : quand il est actif, il refuse tout programme non signé, sans exception possible.
+            Il est surtout actif sur les PC où Windows vient d'être installé. Tu peux le désactiver à cet endroit, mais c'est
+            une protection de Windows : fais-le seulement si tu fais confiance au programme (le
+            <a href="https://github.com/Alykell/Aloria">code d'Aloria est public</a>), et sache qu'une fois désactivé, Windows ne
+            permet pas toujours de le réactiver sans réinstallation. Une fois Aloria installé, ses mises à jour passent sans blocage.</p>
+        </details>
+        <details>
           <summary>Et sur Mac ou Linux ?</summary>
           <p>Pas pour l'instant : Aloria est disponible uniquement pour Windows.</p>
         </details>
@@ -170,17 +179,14 @@
       </div>
     </section>
     <section class="section legal" id="signature">
-      <h2>Signature du code</h2>
-      <p class="section__lead">Code signing policy</p>
-      <p>Free code signing provided by <a href="https://about.signpath.io">SignPath.io</a>, certificate by
-        <a href="https://signpath.org">SignPath Foundation</a> <em>(demande en cours)</em>.</p>
-      <p>Les installeurs et programmes Windows d'Aloria sont construits automatiquement par
+      <h2>Sécurité</h2>
+      <p>L'installeur d'Aloria n'est pas encore signé (un certificat de signature coûte cher pour un projet gratuit).
+        À la place, tout est transparent : les installeurs et programmes Windows sont construits automatiquement par
         <a href="https://github.com/Alykell/Aloria/actions">GitHub Actions</a> à partir du
         <a href="https://github.com/Alykell/Aloria">code source public</a> (licence <a href="https://github.com/Alykell/Aloria/blob/main/LICENSE">MIT</a>),
-        puis signés. Chaque signature est approuvée manuellement.</p>
+        et chaque mise à jour est vérifiée par son empreinte (SHA-512) avant d'être installée.</p>
       <ul class="legal__list">
-        <li><strong>Auteurs et relecteurs</strong> (committers and reviewers) : <a href="https://github.com/Alykell">Alykell</a></li>
-        <li><strong>Approbation des signatures</strong> (approvers) : <a href="https://github.com/Alykell">Alykell</a></li>
+        <li><strong>Auteur et relecteur</strong> : <a href="https://github.com/Alykell">Alykell</a></li>
       </ul>
       <p>Confidentialité : Aloria ne collecte aucune donnée et ne contacte que les services nécessaires au jeu
         (Microsoft, Mojang, Modrinth, Fabric, GitHub, Discord). Détails dans la <a href="confidentialite.html">politique de confidentialité</a>.
@@ -194,7 +200,7 @@
       <a href="https://github.com/Alykell/Aloria">GitHub</a> ·
       <a href="https://github.com/Alykell/Aloria/releases">Toutes les versions</a> ·
       <a href="confidentialite.html">Confidentialité</a> ·
-      <a href="#signature">Signature du code</a> ·
+      <a href="#signature">Sécurité</a> ·
       Licence <a href="https://github.com/Alykell/Aloria/blob/main/LICENSE">MIT</a> ·
       Fait par <a href="https://github.com/Alykell">Alykell</a>
     </p>

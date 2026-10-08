@@ -43,13 +43,12 @@ Aloria ne collecte aucune donnée : voir la [politique de confidentialité](http
 *This program will not transfer any information to other networked systems unless specifically requested by the user
 or the person installing or operating it, except for the automatic update check (a download request to GitHub).*
 
-## Signature du code / Code signing policy
+## Sécurité / Security
 
-Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org) *(application in progress)*.
-Windows builds are produced by GitHub Actions from this public repository, then signed after manual approval.
+L'installeur n'est pas encore signé : Windows affiche un avertissement (« Informations complémentaires » → « Exécuter quand même »).
+Windows builds are produced by GitHub Actions from this public repository; updates are verified by their SHA-512 hash before being installed.
 
-- Committers and reviewers: [Alykell](https://github.com/Alykell)
-- Approvers: [Alykell](https://github.com/Alykell)
+- Committer and reviewer: [Alykell](https://github.com/Alykell)
 
 ## Licence / License
 

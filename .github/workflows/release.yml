@@ -71,7 +71,7 @@ jobs:
 
           Téléchargement : https://alykell.github.io/Aloria/
 
-          **Code signing policy** : free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org) (demande en cours). Committers, reviewers et approvers : [Alykell](https://github.com/Alykell). Détails : https://alykell.github.io/Aloria/#signature — Confidentialité : https://alykell.github.io/Aloria/confidentialite.html"
+          Installeur non signé : si Windows affiche un avertissement, « Informations complémentaires » puis « Exécuter quand même » (détails : https://alykell.github.io/Aloria/#faq). Construit par GitHub Actions à partir du code public. Confidentialité : https://alykell.github.io/Aloria/confidentialite.html"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
