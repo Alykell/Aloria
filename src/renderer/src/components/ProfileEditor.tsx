@@ -3,6 +3,7 @@ import { useVersions } from '../hooks/useVersions'
 import { hudAvailable, hudVersionsLabel } from '../../../shared/aloriaHud'
 import { forgeSupported, prefersForge } from '../../../shared/loaders'
 import type { Loader, LoaderVersion, Profile, ProfileInput, SettingsPreset } from '../../../shared/types'
+import Select from './Select'
 
 const ICONS = ['🏝️', '🌊', '🐚', '⚓', '🐬', '🐠', '🦀', '🌴', '⛵', '🏰', '⚔️', '🧪', '🌙', '🔥', '💎', '🌸']
 
@@ -67,7 +68,12 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
     if (form.loader === 'vanilla' || !gameVersion) return
     setLoaders(null)
     const list = form.loader === 'forge' ? window.aloria.game.forgeLoaders(gameVersion) : window.aloria.game.fabricLoaders(gameVersion)
-    list.then((res) => setLoaders(res.ok ? res.value : []))
+    // Une réponse arrivée après un changement de chargeur ou de version est ignorée (sinon Fabric écrasait Forge)
+    let current = true
+    list.then((res) => current && setLoaders(res.ok ? res.value : []))
+    return () => {
+      current = false
+    }
   }, [form.loader, gameVersion])
 
   const loaderName = form.loader === 'forge' ? 'Forge' : 'Fabric'
@@ -107,19 +113,19 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
           />
         </label>
 
-        <label className="field">
+        <div className="field">
           <span>Version du jeu</span>
-          <select value={form.versionId} onChange={(e) => set({ versionId: e.target.value, loaderVersion: null })}>
-            <option value="latest-release">Dernière version{latestRelease ? ` (${latestRelease})` : ''}</option>
-            {showSnapshots && <option value="latest-snapshot">Dernier snapshot{latestSnapshot ? ` (${latestSnapshot})` : ''}</option>}
-            {versions.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.id}
-                {v.type === 'snapshot' ? ' (snapshot)' : ''}
-              </option>
-            ))}
-          </select>
-        </label>
+          <Select
+            name="game-version"
+            value={form.versionId}
+            onChange={(v) => set({ versionId: v, loaderVersion: null })}
+            options={[
+              { value: 'latest-release', label: `Dernière version${latestRelease ? ` (${latestRelease})` : ''}` },
+              ...(showSnapshots ? [{ value: 'latest-snapshot', label: `Dernier snapshot${latestSnapshot ? ` (${latestSnapshot})` : ''}` }] : []),
+              ...versions.map((v) => ({ value: v.id, label: `${v.id}${v.type === 'snapshot' ? ' (snapshot)' : ''}` }))
+            ]}
+          />
+        </div>
 
         <div className="field">
           <span>Mods</span>
@@ -164,7 +170,7 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
         )}
 
         {form.loader !== 'vanilla' && (
-          <label className="field">
+          <div className="field">
             <span>Version de {loaderName}</span>
             {loaders === null ? (
               <small className="muted">Chargement…</small>
@@ -174,24 +180,25 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
                 {form.loader === 'forge' ? ' dans Aloria (géré jusqu’à la 1.12.2)' : ''}.
               </small>
             ) : (
-              <select value={form.loaderVersion ?? ''} onChange={(e) => set({ loaderVersion: e.target.value || null })}>
-                <option value="">
-                  {form.loader === 'forge' ? 'Recommandée' : 'Dernière stable'} (
-                  {(() => {
-                    const l = loaders.find((x) => x.stable) ?? loaders[0]
-                    return l.label ?? l.version
-                  })()}
-                  )
-                </option>
-                {loaders.map((l) => (
-                  <option key={l.version} value={l.version}>
-                    {l.label ?? l.version}
-                    {form.loader === 'forge' ? (l.stable ? ' (recommandée)' : '') : l.stable ? '' : ' (bêta)'}
-                  </option>
-                ))}
-              </select>
+              <Select
+                value={form.loaderVersion ?? ''}
+                onChange={(v) => set({ loaderVersion: v || null })}
+                options={[
+                  {
+                    value: '',
+                    label: `${form.loader === 'forge' ? 'Recommandée' : 'Dernière stable'} (${(() => {
+                      const l = loaders.find((x) => x.stable) ?? loaders[0]
+                      return l.label ?? l.version
+                    })()})`
+                  },
+                  ...loaders.map((l) => ({
+                    value: l.version,
+                    label: `${l.label ?? l.version}${form.loader === 'forge' ? (l.stable ? ' (recommandée)' : '') : l.stable ? '' : ' (bêta)'}`
+                  }))
+                ]}
+              />
             )}
-          </label>
+          </div>
         )}
 
         <div className="field">
@@ -219,20 +226,14 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
           )}
         </div>
 
-        <label className="field">
+        <div className="field">
           <span>Réglages du jeu</span>
-          <select
+          <Select
             value={form.settingsPreset === null ? '' : (form.settingsPreset ?? 'main')}
-            onChange={(e) => set({ settingsPreset: e.target.value === '' ? null : e.target.value })}
-          >
-            {presets.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-            <option value="">Propres à ce profil (non partagés)</option>
-          </select>
-        </label>
+            onChange={(v) => set({ settingsPreset: v === '' ? null : v })}
+            options={[...presets.map((p) => ({ value: p.id, label: p.name })), { value: '', label: 'Propres à ce profil (non partagés)' }]}
+          />
+        </div>
 
         <label className="toggle-line">
           <input type="checkbox" checked={form.shareServers !== false} onChange={(e) => set({ shareServers: e.target.checked })} />

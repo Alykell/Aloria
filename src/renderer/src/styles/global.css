@@ -87,9 +87,17 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   backdrop-filter: blur(8px);
 }
 .titlebar__name { font-family: 'Quicksand', sans-serif; font-weight: 700; color: var(--sea-deep); font-size: 13px; }
-.titlebar__controls { display: flex; height: 100%; -webkit-app-region: no-drag; }
-.titlebar__controls button { width: 46px; height: 100%; color: var(--text-soft); transition: background 0.15s; }
-.titlebar__controls button:hover { background: rgba(26, 155, 199, 0.15); }
+.titlebar__controls { display: flex; align-items: center; gap: 2px; height: 100%; padding-right: 6px; -webkit-app-region: no-drag; }
+.titlebar__controls button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 26px;
+  border-radius: 8px;
+  color: var(--text-soft);
+  transition: background 0.15s, color 0.15s;
+}
+.titlebar__controls button:hover { background: rgba(92, 200, 224, 0.18); color: var(--sea-deep); }
 .titlebar__controls .close:hover { background: #e5534b; color: white; }
 
 /* Barre latérale */
@@ -155,7 +163,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .placeholder h2 { font-family: 'Quicksand', sans-serif; color: var(--sea-deep); margin-bottom: 8px; }
 .placeholder p { color: var(--text-soft); }
 
-.version { position: absolute; right: 18px; bottom: 12px; font-size: 12px; color: var(--text-soft); }
+.version { position: fixed; right: 22px; bottom: 10px; z-index: 5; font-size: 12px; color: var(--text-soft); }
 .version a { color: inherit; text-decoration: none; }
 .version a:hover { color: var(--sea-deep); text-decoration: underline; }
 
@@ -187,7 +195,8 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .account__current span { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .account__current strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .account__current small { font-size: 11px; opacity: 0.75; }
-.account__current .chevron { flex: 0; opacity: 0.7; }
+.account__current .chevron { flex-shrink: 0; margin-right: 2px; opacity: 0.75; transition: transform 0.2s; }
+.account__current .chevron.open { transform: rotate(180deg); }
 .account__menu {
   position: absolute;
   bottom: calc(100% + 8px);
@@ -237,17 +246,57 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .toast button:hover { opacity: 1; }
 
 /* Lancement */
-.version-select {
-  margin-top: 4px;
-  padding: 8px 14px;
-  border-radius: 999px;
+.select.version-select { margin-top: 4px; padding: 9px 16px 9px 18px; border-radius: 999px; background: var(--card); font-weight: 600; }
+
+/* Menus déroulants (composant Select) */
+.select {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 14px;
+  border-radius: 12px;
   border: 1px solid var(--line);
-  background: var(--card);
+  background: var(--surface);
   color: var(--text);
   font: inherit;
-  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.select:hover { border-color: var(--lagoon); }
+.select:focus-visible, .select.open { outline: none; border-color: var(--lagoon); box-shadow: 0 0 0 3px rgba(92, 200, 224, 0.25); }
+.select__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.select__chevron { flex-shrink: 0; color: var(--text-soft); transition: transform 0.2s; }
+.select.open .select__chevron { transform: rotate(180deg); }
+.select__list {
+  position: fixed;
+  z-index: 1000;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  overflow-y: auto;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 14px 34px rgba(4, 30, 48, 0.28);
+  animation: select-in 0.12s ease-out;
+}
+@keyframes select-in { from { opacity: 0; transform: translateY(-4px); } }
+.select__list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 12px;
+  border-radius: 9px;
+  white-space: nowrap;
   cursor: pointer;
 }
+.select__list li.active { background: var(--foam); }
+.select__list li.chosen { color: var(--sea-deep); font-weight: 700; }
+.select__check { font-size: 13px; }
 .progress { margin-top: 18px; width: min(460px, 100%); display: flex; flex-direction: column; gap: 8px; }
 .progress__label { display: flex; justify-content: space-between; color: var(--sea-deep); }
 .progress small { color: var(--text-soft); }
@@ -330,7 +379,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .dialog.editor { width: min(560px, 92vw); max-height: 90vh; overflow-y: auto; gap: 16px; }
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field > span { font-weight: 700; font-size: 14px; color: var(--sea-deep); }
-.field input:not([type]), .field select {
+.field input:not([type]) {
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--line);
@@ -339,7 +388,8 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   background: var(--surface);
   user-select: text;
 }
-.field input:focus, .field select:focus { outline: 2px solid var(--lagoon); outline-offset: 1px; }
+.field input:focus { outline: 2px solid var(--lagoon); outline-offset: 1px; }
+.field .select { width: 100%; }
 .icon-picker { display: flex; flex-wrap: wrap; gap: 6px; }
 .icon-picker button { width: 40px; height: 40px; border-radius: 10px; font-size: 20px; background: var(--foam); border: 2px solid transparent; }
 .icon-picker button.active { border-color: var(--sea); background: var(--surface); }
@@ -361,14 +411,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .library { gap: 12px; }
 .library__header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .library__profile { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--sea-deep); }
-.library__profile select, .search-bar select {
-  padding: 8px 12px;
-  border-radius: 10px;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  font: inherit;
-  color: var(--text);
-}
+.library__profile .select { font-weight: 600; }
 .tabs { display: flex; gap: 4px; border-bottom: 2px solid rgba(26, 155, 199, 0.15); }
 .tabs button { padding: 10px 16px; font-weight: 700; color: var(--text-soft); border-bottom: 3px solid transparent; margin-bottom: -2px; display: flex; align-items: center; gap: 6px; }
 .tabs button:hover { color: var(--sea-deep); }
@@ -479,7 +522,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; align-items: start; }
 .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 34px; font-weight: 600; font-size: 14px; }
 .setting-row > span { flex-shrink: 0; }
-.setting-row select { padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: inherit; }
+.setting-row .select { padding: 6px 12px; border-radius: 10px; min-width: 120px; }
 .setting-row .slider-line { flex: 1; max-width: 230px; }
 .setting-row .slider-line strong { min-width: 74px; font-size: 13px; text-align: right; }
 .card.keys { grid-row: span 2; }
@@ -495,3 +538,10 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .sub-options .toggle-line { font-weight: 500; font-size: 14px; }
 .discord-name { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-weight: 500; font-size: 14px; }
 .discord-name .segmented button { padding: 6px 14px; }
+
+/* Barres de défilement fines, aux couleurs du launcher (au lieu de celles de Windows) */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(92, 200, 224, 0.35); border-radius: 999px; border: 3px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background-color: rgba(92, 200, 224, 0.6); }
+::-webkit-scrollbar-button { display: none; height: 0; }

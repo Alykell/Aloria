@@ -3,6 +3,7 @@ import { describeProfile } from '../hooks/useVersions'
 import type { AccountsState } from '../hooks/useAccounts'
 import type { ProfilesState } from '../hooks/useProfiles'
 import type { useGame } from '../hooks/useGame'
+import Select from './Select'
 
 interface Props {
   accounts: AccountsState
@@ -23,17 +24,12 @@ export default function HomePage({ accounts, profiles, game }: Props) {
         <>
           <PlayButton status={game.status} disabled={!selected} onPlay={() => selected && game.play(selected.id)} />
           {game.status.state === 'idle' && selected && (
-            <select
+            <Select
               className="version-select"
               value={selected.id}
-              onChange={(e) => profiles.select(e.target.value)}
-            >
-              {profiles.profiles.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.icon} {p.name} · {describeProfile(p)}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => profiles.select(v)}
+              options={profiles.profiles.map((p) => ({ value: p.id, label: `${p.icon} ${p.name} · ${describeProfile(p)}` }))}
+            />
           )}
         </>
       ) : (

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { keyFromCode, keyFromMouse, keyLabel } from '../keys'
 import type { SettingsPreset } from '../../../shared/types'
+import Select from './Select'
 
 const LANGUAGES: [string, string][] = [
   ['fr_fr', 'Français'], ['en_us', 'English (US)'], ['en_gb', 'English (UK)'], ['es_es', 'Español'],
@@ -185,13 +186,7 @@ export default function GameSettingsPage({ onError }: { onError: (message: strin
         <div className="card">
           <h3>Général</h3>
           <Row label="Langue">
-            <select value={o.lang ?? 'fr_fr'} onChange={(e) => set({ lang: e.target.value })}>
-              {LANGUAGES.map(([id, name]) => (
-                <option key={id} value={id}>
-                  {name}
-                </option>
-              ))}
-            </select>
+            <Select value={o.lang ?? 'fr_fr'} onChange={(v) => set({ lang: v })} options={LANGUAGES.map(([id, name]) => ({ value: id, label: name }))} />
           </Row>
           <Slider label="Champ de vision" value={fov} min={30} max={110} display={(v) => (v === 70 ? 'Normal' : v === 110 ? 'Quake Pro' : `${v}°`)}
             onChange={(v) => set({ fov: String((v - 70) / 40) })} />
@@ -200,14 +195,11 @@ export default function GameSettingsPage({ onError }: { onError: (message: strin
           <Slider label="Distance de rendu" value={num('renderDistance', 12)} min={2} max={32} display={(v) => `${v} tronçons`}
             onChange={(v) => set({ renderDistance: String(v) })} />
           <Row label="Taille de l'interface">
-            <select value={o.guiScale ?? '0'} onChange={(e) => set({ guiScale: e.target.value })}>
-              <option value="0">Auto</option>
-              {[1, 2, 3, 4].map((n) => (
-                <option key={n} value={String(n)}>
-                  {n}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={o.guiScale ?? '0'}
+              onChange={(v) => set({ guiScale: v })}
+              options={[{ value: '0', label: 'Auto' }, ...['1', '2', '3', '4'].map((n) => ({ value: n, label: n }))]}
+            />
           </Row>
           <Slider label="FPS maximum" value={maxFps} min={10} max={260} step={10} display={(v) => (v >= 260 ? 'Illimité' : `${v} FPS`)}
             onChange={(v) => set({ maxFps: String(v) })} />
@@ -262,12 +254,16 @@ export default function GameSettingsPage({ onError }: { onError: (message: strin
           <h3 className="spaced">Texte et chat</h3>
           <Toggle label="Sous-titres" value={bool('showSubtitles')} onChange={(v) => set({ showSubtitles: String(v) })} />
           <Row label="Narrateur">
-            <select value={o.narrator ?? '0'} onChange={(e) => set({ narrator: e.target.value })}>
-              <option value="0">Désactivé</option>
-              <option value="1">Tout</option>
-              <option value="2">Chat</option>
-              <option value="3">Système</option>
-            </select>
+            <Select
+              value={o.narrator ?? '0'}
+              onChange={(v) => set({ narrator: v })}
+              options={[
+                { value: '0', label: 'Désactivé' },
+                { value: '1', label: 'Tout' },
+                { value: '2', label: 'Chat' },
+                { value: '3', label: 'Système' }
+              ]}
+            />
           </Row>
           <Slider label="Fond du texte" value={percent('textBackgroundOpacity', 0.5)} min={0} max={100} display={(v) => `${v} %`}
             onChange={(v) => set({ textBackgroundOpacity: String(v / 100) })} />

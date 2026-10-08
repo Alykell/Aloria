@@ -260,28 +260,36 @@ async function captureScreens(win: BrowserWindow, dir: string): Promise<void> {
     }
   }
   // Création d'un profil en 1.8.9 (Forge proposé en premier), puis bibliothèque d'un profil Forge (OptiFine)
-  const select = (selector: string, value: string) =>
-    win.webContents.executeJavaScript(
-      `(() => { const s = document.querySelector(${JSON.stringify(selector)}); if (!s) return;
-        Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(s, ${JSON.stringify(value)});
-        s.dispatchEvent(new Event('change', { bubbles: true })) })()`
+  // Menus Aloria (composant Select) : ouvre le menu nommé puis choisit l'option dont le texte correspond
+  const select = async (name: string, text: string) => {
+    await win.webContents.executeJavaScript(`document.querySelector('[data-select=${JSON.stringify(name)}]')?.click()`)
+    await wait(300)
+    await win.webContents.executeJavaScript(
+      `(() => { const items = [...document.querySelectorAll('.select__list li')]
+        ;(items.find((li) => li.textContent.trim() === ${JSON.stringify(text)}) ?? items.find((li) => li.textContent.includes(${JSON.stringify(text)})))?.click() })()`
     )
+  }
   await click('Profils')
   await wait(600)
   await click('Nouveau profil')
   await wait(800)
-  await select('.editor select', '1.8.9')
+  await select('game-version', '1.8.9')
   await wait(2500)
   await writeFile(join(dir, 'nuit-profil-1.8.9.png'), (await win.webContents.capturePage()).toPNG())
   await win.webContents.executeJavaScript(`document.querySelector('.overlay')?.click()`)
   await wait(400)
   await click('Bibliothèque')
   await wait(800)
-  await select('.library__profile select', 'selftest189forge')
+  await select('library-profile', 'Auto-test 1.8.9 Forge')
   await wait(600)
   await click('Mods')
   await wait(2500)
   await writeFile(join(dir, 'nuit-bibliotheque-forge.png'), (await win.webContents.capturePage()).toPNG())
+  // Menu déroulant ouvert (aspect de la liste)
+  await win.webContents.executeJavaScript(`document.querySelector('[data-select="library-profile"]')?.click()`)
+  await wait(500)
+  await writeFile(join(dir, 'nuit-menu-ouvert.png'), (await win.webContents.capturePage()).toPNG())
+  await win.webContents.executeJavaScript(`document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))`)
   // On remet le réglage par défaut
   await click('Paramètres')
   await wait(300)

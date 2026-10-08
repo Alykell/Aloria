@@ -3,6 +3,7 @@ import InstalledList from './InstalledList'
 import { describeProfile } from '../hooks/useVersions'
 import type { ProfilesState } from '../hooks/useProfiles'
 import type { ContentType, InstalledContent, SearchHit, SearchSort } from '../../../shared/types'
+import Select from './Select'
 
 type Tab = ContentType | 'installed'
 
@@ -111,16 +112,15 @@ export default function LibraryPage({ profiles, onError, onOpenProfiles }: Props
     <section className="page wide library">
       <div className="library__header">
         <h2>Bibliothèque</h2>
-        <label className="library__profile">
+        <div className="library__profile">
           <span>Profil</span>
-          <select value={profile.id} onChange={(e) => setProfileId(e.target.value)}>
-            {profiles.profiles.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.icon} {p.name} · {describeProfile(p)}
-              </option>
-            ))}
-          </select>
-        </label>
+          <Select
+            name="library-profile"
+            value={profile.id}
+            onChange={setProfileId}
+            options={profiles.profiles.map((p) => ({ value: p.id, label: `${p.icon} ${p.name} · ${describeProfile(p)}` }))}
+          />
+        </div>
       </div>
 
       <div className="tabs">
@@ -185,13 +185,7 @@ export default function LibraryPage({ profiles, onError, onOpenProfiles }: Props
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
-            <select value={sort} onChange={(e) => setSort(e.target.value as SearchSort)}>
-              {SORTS.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
+            <Select value={sort} onChange={setSort} options={SORTS.map((s) => ({ value: s.id, label: s.label }))} />
           </div>
           {gameVersion && (
             <small className="muted">
