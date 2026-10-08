@@ -1,8 +1,7 @@
 import { app } from 'electron'
 import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, writeFileSync } from 'node:fs'
-import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 /**
@@ -29,6 +28,21 @@ interface LightManifest {
 
 const stagingRoot = () => join(app.getPath('userData'), 'light-update')
 
+/**
+ * Electron prend les fichiers .asar pour des dossiers : un aloria-app.asar téléchargé ne pouvait plus être supprimé
+ * (EBUSY), et toutes les mises à jour légères suivantes échouaient. Le dossier de préparation se manipule donc avec
+ * la gestion des .asar coupée, en synchrone pour qu'aucun autre code ne s'exécute entre-temps.
+ */
+function withoutAsar<T>(fn: () => T): T {
+  const previous = process.noAsar
+  process.noAsar = true
+  try {
+    return fn()
+  } finally {
+    process.noAsar = previous
+  }
+}
+
 /** 0.1.10 > 0.1.9 */
 function isNewer(candidate: string, current: string): boolean {
   const a = candidate.split('.').map(Number)
@@ -46,35 +60,34 @@ async function download(url: string): Promise<Buffer> {
 }
 
 /**
- * Cherche une mise à jour légère et la télécharge. Renvoie null s'il n'y en a pas, ou si elle ne convient pas
- * (Electron différent, ancienne release sans fichiers légers) : l'installeur complet prend alors le relais.
+ * Cherche une mise à jour légère et la télécharge (sa version), « none » s'il n'y a rien de nouveau, ou « full »
+ * si seul l'installeur complet convient (Electron différent). Une erreur (réseau, fichier abîmé) est levée : on
+ * réessaiera plus tard, sans se rabattre sur l'installeur, que Windows peut bloquer.
  */
-export async function downloadLightUpdate(onProgress: (version: string, percent: number) => void): Promise<string | null> {
-  let manifest: LightManifest
-  try {
-    manifest = JSON.parse((await download(`${RELEASES}/latest/download/aloria-light.json`)).toString('utf8')) as LightManifest
-  } catch {
-    return null
-  }
-  if (!isNewer(manifest.version, app.getVersion()) || manifest.electron !== process.versions.electron) return null
+export async function downloadLightUpdate(onProgress: (version: string, percent: number) => void): Promise<string | 'none' | 'full'> {
+  const manifest = JSON.parse((await download(`${RELEASES}/latest/download/aloria-light.json`)).toString('utf8')) as LightManifest
+  if (!isNewer(manifest.version, app.getVersion())) return 'none'
+  if (manifest.electron !== process.versions.electron) return 'full'
 
   const dir = join(stagingRoot(), manifest.version)
   // Déjà téléchargée lors d'un démarrage précédent
-  if (existsSync(join(dir, 'manifest.json'))) return manifest.version
+  if (withoutAsar(() => existsSync(join(dir, 'manifest.json')))) return manifest.version
 
-  await rm(stagingRoot(), { recursive: true, force: true })
-  await mkdir(dir, { recursive: true })
+  withoutAsar(() => {
+    rmSync(stagingRoot(), { recursive: true, force: true })
+    mkdirSync(dir, { recursive: true })
+  })
   const total = manifest.files.reduce((sum, f) => sum + f.size, 0)
   let done = 0
   for (const file of manifest.files) {
     const data = await download(`${RELEASES}/download/v${manifest.version}/${file.asset}`)
     if (createHash('sha512').update(data).digest('base64') !== file.sha512) throw new Error(`Fichier abîmé : ${file.asset}`)
-    await writeFile(join(dir, file.asset), data)
+    withoutAsar(() => writeFileSync(join(dir, file.asset), data))
     done += file.size
     onProgress(manifest.version, (done / total) * 100)
   }
   // Écrit en dernier : sa présence signifie que tout est téléchargé et vérifié
-  await writeFile(join(dir, 'manifest.json'), JSON.stringify(manifest))
+  withoutAsar(() => writeFileSync(join(dir, 'manifest.json'), JSON.stringify(manifest)))
   return manifest.version
 }
 

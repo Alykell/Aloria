@@ -24,16 +24,23 @@ export const getUpdateStatus = () => status
  */
 async function checkForUpdates(): Promise<void> {
   if (status.state === 'downloading' || status.state === 'ready') return
+  let result: string
   try {
-    const version = await downloadLightUpdate((v, percent) => setStatus({ state: 'downloading', version: v, percent }))
-    if (version) {
-      lightReady = version
-      setStatus({ state: 'ready', version })
-      return
-    }
+    result = await downloadLightUpdate((v, percent) => setStatus({ state: 'downloading', version: v, percent }))
   } catch (err) {
+    // Réseau, fichier abîmé… : on réessaiera au prochain contrôle. Surtout pas l'installeur complet à la place :
+    // Windows peut le bloquer, et deux installeurs lancés à la suite se gênent (« échec de désinstallation »)
     console.warn('[mise à jour légère]', err)
+    setStatus({ state: 'idle' })
+    return
   }
+  if (result === 'none') return setStatus({ state: 'idle' })
+  if (result !== 'full') {
+    lightReady = result
+    setStatus({ state: 'ready', version: result })
+    return
+  }
+  // Electron a changé : seul l'installeur complet convient
   autoUpdater.checkForUpdates().catch(() => setStatus({ state: 'idle' }))
 }
 
