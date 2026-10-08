@@ -23,13 +23,24 @@ interface Props<T extends string> {
 export default function Select<T extends string>({ value, options, onChange, className, name }: Props<T>) {
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(0)
-  const [place, setPlace] = useState<{ left: number; width: number; top?: number; bottom?: number; maxHeight: number } | null>(null)
+  const [place, setPlace] = useState<{
+    left: number
+    width: number
+    top?: number
+    bottom?: number
+    maxHeight: number
+  } | null>(null)
   const button = useRef<HTMLButtonElement>(null)
   const list = useRef<HTMLUListElement>(null)
   const selected = options.find((o) => o.value === value)
 
   const openList = () => {
-    setActive(Math.max(0, options.findIndex((o) => o.value === value)))
+    setActive(
+      Math.max(
+        0,
+        options.findIndex((o) => o.value === value)
+      )
+    )
     setOpen(true)
   }
 
@@ -103,8 +114,20 @@ export default function Select<T extends string>({ value, options, onChange, cla
     } else if (e.key.length === 1) {
       // Première option qui commence par la lettre tapée (après l'icône éventuelle)
       const letter = e.key.toLowerCase()
-      const i = options.findIndex((o, j) => j > active && o.label.replace(/^\P{L}+/u, '').toLowerCase().startsWith(letter))
-      const first = options.findIndex((o) => o.label.replace(/^\P{L}+/u, '').toLowerCase().startsWith(letter))
+      const i = options.findIndex(
+        (o, j) =>
+          j > active &&
+          o.label
+            .replace(/^\P{L}+/u, '')
+            .toLowerCase()
+            .startsWith(letter)
+      )
+      const first = options.findIndex((o) =>
+        o.label
+          .replace(/^\P{L}+/u, '')
+          .toLowerCase()
+          .startsWith(letter)
+      )
       if (i >= 0 || first >= 0) setActive(i >= 0 ? i : first)
     }
   }
@@ -133,7 +156,13 @@ export default function Select<T extends string>({ value, options, onChange, cla
             ref={list}
             className="select__list"
             role="listbox"
-            style={{ left: place.left, minWidth: place.width, top: place.top, bottom: place.bottom, maxHeight: place.maxHeight }}
+            style={{
+              left: place.left,
+              minWidth: place.width,
+              top: place.top,
+              bottom: place.bottom,
+              maxHeight: place.maxHeight
+            }}
           >
             {options.map((o, i) => (
               <li

@@ -140,6 +140,24 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   gap: 14px;
   text-align: center;
 }
+.hero__row { display: flex; align-items: center; justify-content: center; gap: 36px; flex-wrap: wrap; }
+.hero__main { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+/* Perso 3D : ombre douce au sol, apparition en fondu une fois le skin chargé */
+.skin-viewer { position: relative; width: 240px; height: 330px; }
+.skin-viewer::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  width: 120px;
+  height: 18px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(4, 30, 48, 0.32), transparent 70%);
+  pointer-events: none;
+}
+.skin-viewer canvas { position: relative; z-index: 1; cursor: grab; transition: opacity 0.4s; }
+.skin-viewer canvas:active { cursor: grabbing; }
 .hero h1 { font-family: 'Quicksand', sans-serif; font-size: 42px; color: var(--sea-deep); }
 .hero p { color: var(--text-soft); font-size: 17px; }
 .hero small { color: var(--text-soft); opacity: 0.8; }

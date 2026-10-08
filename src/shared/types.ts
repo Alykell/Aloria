@@ -3,6 +3,13 @@ export interface PublicAccount {
   name: string
 }
 
+/** Skin d'un joueur pour l'aperçu 3D : textures en data URL, modèle à bras fins ou non */
+export interface PlayerSkin {
+  texture: string
+  slim: boolean
+  cape: string | null
+}
+
 export type Result<T> = { ok: true; value: T } | { ok: false; code: string; error: string }
 
 export interface Settings {

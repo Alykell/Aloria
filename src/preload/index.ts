@@ -11,6 +11,7 @@ import type {
   LoaderVersion,
   Profile,
   ProfileInput,
+  PlayerSkin,
   PublicAccount,
   Result,
   Settings,
@@ -41,7 +42,8 @@ const api = {
     list: (): Promise<{ active: string | null; accounts: PublicAccount[] }> => ipcRenderer.invoke('accounts:list'),
     add: (): Promise<Result<PublicAccount>> => ipcRenderer.invoke('accounts:add'),
     select: (uuid: string): Promise<void> => ipcRenderer.invoke('accounts:select', uuid),
-    remove: (uuid: string): Promise<void> => ipcRenderer.invoke('accounts:remove', uuid)
+    remove: (uuid: string): Promise<void> => ipcRenderer.invoke('accounts:remove', uuid),
+    skin: (uuid: string): Promise<PlayerSkin | null> => ipcRenderer.invoke('accounts:skin', uuid)
   },
   settings: {
     get: (): Promise<{ settings: Settings; systemRamMb: number }> => ipcRenderer.invoke('settings:get'),

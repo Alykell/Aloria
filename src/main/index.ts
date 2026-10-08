@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { join } from 'node:path'
 import { addAccount, listAccounts, removeAccount, selectAccount } from './auth/accounts'
 import { toAuthError } from './auth/errors'
+import { getSkin } from './auth/skin'
 import { getStatus, isGameRunning, listVersions, play } from './game/controller'
 import { fabricLoaders } from './game/fabric'
 import { forgeLoaders } from './game/forge'
@@ -82,7 +83,12 @@ ipcMain.handle('updater:status', () => getUpdateStatus())
 ipcMain.on('updater:install', () => installUpdate())
 ipcMain.on('keyboard:layout', (_e, layout: Record<string, string>) => saveKeyboardLayout(layout))
 
-ipcMain.handle('accounts:list', () => listAccounts())
+ipcMain.handle('accounts:list', () => {
+  // Captures de développement : ALORIA_CAPTURE_ACCOUNT="pseudo:uuid" affiche un compte d'exemple (skin 3D de l'accueil)
+  const demo = !app.isPackaged && process.env.ALORIA_CAPTURE ? process.env.ALORIA_CAPTURE_ACCOUNT?.split(':') : undefined
+  if (demo?.length === 2) return { active: demo[1], accounts: [{ name: demo[0], uuid: demo[1] }] }
+  return listAccounts()
+})
 ipcMain.handle('accounts:add', async (e): Promise<Result<PublicAccount>> => {
   try {
     return { ok: true, value: await addAccount(BrowserWindow.fromWebContents(e.sender)) }
@@ -93,6 +99,7 @@ ipcMain.handle('accounts:add', async (e): Promise<Result<PublicAccount>> => {
 })
 ipcMain.handle('accounts:select', (_e, uuid: string) => selectAccount(uuid))
 ipcMain.handle('accounts:remove', (_e, uuid: string) => removeAccount(uuid))
+ipcMain.handle('accounts:skin', (_e, uuid: string) => getSkin(uuid).catch(() => null))
 
 ipcMain.handle('settings:get', () => ({ settings: getSettings(), systemRamMb: systemRamMb() }))
 ipcMain.handle('settings:update', (_e, patch: Partial<Settings>) => {
