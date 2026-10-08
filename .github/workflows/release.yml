@@ -51,6 +51,12 @@ jobs:
         shell: cmd
         run: gradlew.bat build --no-daemon
 
+      # 1.8.9 sous Forge : le code de mod-legacy converti aux noms MCP (a besoin du cache Gradle de mod-legacy)
+      - name: Construire le mod Aloria HUD (1.8.9 Forge)
+        working-directory: mod-forge
+        shell: cmd
+        run: gradlew.bat build --no-daemon
+
       - run: npm ci
 
       - run: npm run typecheck

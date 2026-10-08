@@ -1,7 +1,7 @@
 # Aloria — notes pour Claude
 
 Launcher Minecraft perso d'Alykell (« Aloria Client »), répondre **en français**.
-Electron 44 + electron-vite + React 19 + TypeScript (`src/`), mod Fabric **Aloria HUD** (`mod/`) de la 1.20.1 à la 26.3, et en 1.8.9 (`mod-legacy/`).
+Electron 44 + electron-vite + React 19 + TypeScript (`src/`), mod Fabric **Aloria HUD** (`mod/`) de la 1.20.1 à la 26.3, et en 1.8.9 (`mod-legacy/`, Legacy Fabric ; `mod-forge/`, même code pour Forge).
 Données du jeu : `%APPDATA%\.aloria` (profils, instances, `shared/` = serveurs et jeux de réglages communs).
 
 ## Publication
@@ -29,6 +29,20 @@ Données du jeu : `%APPDATA%\.aloria` (profils, instances, `shared/` = serveurs 
 - Mêmes modules, menus et réglages que le mod moderne ; `ModuleSettings`/`GlobalSettings`/`VisualSettings` sont copiés depuis
   `mod/` à la construction (même fichier JSON). Dessin via `G` (mêmes noms que l'API moderne). Pas de polices TTF ni d'écran Visuel.
 - Auto-test : profil `selftest189f` (Legacy Fabric 1.8.9, lance la démo) ; captures dans `<dossier>/screenshots`.
+
+## Mod 1.8.9 sous Forge (`mod-forge/`)
+- **Pas de code à lui** hormis les mixins (`mod-forge/src/main/java/.../mixin`, noms MCP, Mixin 0.7 embarqué dans le jar)
+  et `aloriahud.mixins.json` : `buildSrc/RemapSourcesTask` reprend `mod-legacy/src/main/java` (sans ses mixins) à chaque
+  compilation, active les blocs `//#if FORGE` (code Forge en `//$$`, le `//#else` = Fabric) puis convertit Yarn → MCP
+  avec Mercury. Toute modif du mod 1.8.9 se fait donc dans `mod-legacy` ; un nouveau mixin s'écrit dans les deux projets.
+- Outils : `gg.essential.loom` (Forge 1.8.9.2318, MCP stable_22). `mod-legacy` doit avoir été compilé avant (cache Yarn).
+- Forge remplace le HUD du jeu par `GuiIngameForge` ; Mixin 0.7 n'injecte dans un constructeur qu'au `RETURN`.
+- Auto-test : profil `selftest189forge` (OptiFine M5 dans ses mods, pour vérifier la compatibilité) ; `selftest1122forge` = Forge seul.
+
+## Forge dans le launcher
+- `src/main/game/forge.ts` : jusqu'à la 1.12.2 (installeur sans « processors ») ; JSON de version + jar de Forge extrait
+  de l'installeur, id `forge-<version maven>`. Proposé en premier avant Sodium/Iris (`src/shared/loaders.ts`).
+- OptiFine n'est pas redistribuable : le joueur le télécharge, « Ajouter OptiFine » (bibliothèque) le range dans `mods`.
 
 ## Pièges Minecraft 26.x (non obfusqué, noms Mojang)
 - Rendu : `GuiGraphicsExtractor`, `extractRenderState` ; écrans : `mc.gui.setScreen(...)`.

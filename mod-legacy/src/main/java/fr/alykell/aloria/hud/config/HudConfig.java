@@ -7,7 +7,10 @@ import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 import fr.alykell.aloria.hud.AloriaHud;
 import fr.alykell.aloria.hud.module.HudModule;
+//#if FORGE
+//#else
 import net.fabricmc.loader.api.FabricLoader;
+//#endif
 
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -29,7 +32,11 @@ public final class HudConfig {
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 	private static final Path FILE = System.getProperty("aloriahud.config") != null
 		? Paths.get(System.getProperty("aloriahud.config"))
+		//#if FORGE
+		//$$ : net.minecraftforge.fml.common.Loader.instance().getConfigDir().toPath().resolve("aloria-hud.json");
+		//#else
 		: FabricLoader.getInstance().getConfigDir().resolve("aloria-hud.json");
+		//#endif
 	private static final Type MODULES_TYPE = new TypeToken<Map<String, ModuleSettings>>() {}.getType();
 
 	private GlobalSettings global = new GlobalSettings();

@@ -6,7 +6,7 @@ import { installContent, listInstalled } from '../modrinth/content'
 import { isLegacyFabric } from './fabric'
 import { sharedDir } from '../shared/presets'
 import { paths } from './paths'
-import { ALORIA_HUD_MC_LABEL, ALORIA_HUD_MC_VERSIONS } from '../../shared/aloriaHud'
+import { hudAvailable, hudVersionsLabel } from '../../shared/aloriaHud'
 import type { Profile } from '../../shared/types'
 
 const FABRIC_API = 'P7dR8mSH'
@@ -16,20 +16,22 @@ const JAR_NAME = 'aloria-hud.jar'
  * Jar du mod pour cette version du jeu (aloria-hud-<version>+<minecraft>.jar). Il est livré avec le launcher ;
  * en développement on prend celui que Gradle vient de construire.
  */
-async function bundledJar(gameVersion: string): Promise<string | null> {
-  // En développement : mod moderne (mod/) et mod 1.8.9 (mod-legacy/) construits par Gradle
+async function bundledJar(gameVersion: string, forge: boolean): Promise<string | null> {
+  // En développement : mod moderne (mod/), mod 1.8.9 (mod-legacy/) et sa version Forge (mod-forge/) construits par Gradle
   const dirs = app.isPackaged
     ? [join(process.resourcesPath, 'mods')]
-    : [join(app.getAppPath(), 'mod', 'build', 'libs'), join(app.getAppPath(), 'mod-legacy', 'build', 'libs')]
+    : ['mod', 'mod-legacy', 'mod-forge'].map((d) => join(app.getAppPath(), d, 'build', 'libs'))
+  // aloria-hud-0.1.0+1.8.9.jar (Fabric) ou aloria-hud-0.1.0+1.8.9-forge.jar
+  const suffix = `+${gameVersion}${forge ? '-forge' : ''}.jar`
   for (const dir of dirs) {
     if (!existsSync(dir)) continue
-    const jar = (await readdir(dir)).find((f) => f.startsWith('aloria-hud-') && f.endsWith(`+${gameVersion}.jar`))
+    const jar = (await readdir(dir)).find((f) => f.startsWith('aloria-hud-') && f.endsWith(suffix))
     if (jar) return join(dir, jar)
   }
   return null
 }
 
-export const hudEnabled = (profile: Profile) => profile.loader === 'fabric' && profile.aloriaHud !== false
+export const hudEnabled = (profile: Profile) => profile.loader !== 'vanilla' && profile.aloriaHud !== false
 
 /**
  * Met le mod dans le dossier mods du profil (avec Fabric API) ou l'en retire selon le réglage du profil.
@@ -37,21 +39,22 @@ export const hudEnabled = (profile: Profile) => profile.loader === 'fabric' && p
  */
 export async function syncAloriaHud(profile: Profile, gameVersion: string, gameDir: string): Promise<string | null> {
   const target = join(gameDir, 'mods', JAR_NAME)
-  const wanted = hudEnabled(profile) && ALORIA_HUD_MC_VERSIONS.includes(gameVersion)
+  const forge = profile.loader === 'forge'
+  const wanted = hudEnabled(profile) && hudAvailable(profile.loader, gameVersion)
 
   if (!wanted) {
     await rm(target, { force: true })
-    return hudEnabled(profile) ? `Aloria HUD n'existe que pour Minecraft ${ALORIA_HUD_MC_LABEL}.` : null
+    return hudEnabled(profile) ? `Aloria HUD n'existe que pour Minecraft ${hudVersionsLabel(profile.loader)}${forge ? ' sous Forge' : ''}.` : null
   }
 
-  const jar = await bundledJar(gameVersion)
+  const jar = await bundledJar(gameVersion, forge)
   if (!jar) return `Le mod Aloria HUD pour Minecraft ${gameVersion} est introuvable (dossier mod : gradlew build).`
 
   await mkdir(join(gameDir, 'mods'), { recursive: true })
   await copyFile(jar, target)
 
-  // Le mod 1.8.9 (Legacy Fabric) n'a pas besoin de Fabric API
-  if (isLegacyFabric(gameVersion)) return null
+  // Le mod 1.8.9 (Legacy Fabric ou Forge) n'a pas besoin de Fabric API
+  if (forge || isLegacyFabric(gameVersion)) return null
   const installed = await listInstalled(profile.id)
   if (!installed.some((i) => i.projectId === FABRIC_API)) await installContent(profile.id, FABRIC_API, 'mod')
   return null

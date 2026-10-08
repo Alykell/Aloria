@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useVersions } from '../hooks/useVersions'
-import { ALORIA_HUD_MC_LABEL, ALORIA_HUD_MC_VERSIONS } from '../../../shared/aloriaHud'
+import { hudAvailable, hudVersionsLabel } from '../../../shared/aloriaHud'
 import { forgeSupported, prefersForge } from '../../../shared/loaders'
 import type { Loader, LoaderVersion, Profile, ProfileInput, SettingsPreset } from '../../../shared/types'
 
@@ -132,7 +132,7 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
           </div>
         </div>
 
-        {form.loader === 'fabric' && (
+        {form.loader !== 'vanilla' && (
           <label className="toggle-line hud-toggle">
             <input
               type="checkbox"
@@ -145,16 +145,17 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
           </label>
         )}
 
-        {form.loader === 'fabric' && form.aloriaHud !== false && gameVersion && !ALORIA_HUD_MC_VERSIONS.includes(gameVersion) && (
+        {form.loader !== 'vanilla' && form.aloriaHud !== false && gameVersion && !hudAvailable(form.loader, gameVersion) && (
           <small className="warning">
-            Aloria HUD n'existe que pour Minecraft {ALORIA_HUD_MC_LABEL} : il ne sera pas chargé en {gameVersion}.
+            Aloria HUD n'existe que pour Minecraft {hudVersionsLabel(form.loader)}
+            {form.loader === 'forge' ? ' sous Forge' : ''} : il ne sera pas chargé en {gameVersion}.
           </small>
         )}
 
         {form.loader === 'forge' && (
           <small className="muted">
-            Forge, pour jouer avec OptiFine (shaders, zoom…) dans les versions d'avant Sodium et Iris. Aloria HUD n'existe pas
-            encore sous Forge. Forge vit des publicités de son site :{' '}
+            Forge, pour jouer avec OptiFine (shaders, zoom…) dans les versions d'avant Sodium et Iris. Forge vit des publicités
+            de son site :{' '}
             <a href="https://www.patreon.com/LexManos/" target="_blank" rel="noreferrer">
               tu peux le soutenir ici
             </a>

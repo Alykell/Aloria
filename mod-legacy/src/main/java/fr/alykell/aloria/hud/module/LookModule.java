@@ -5,8 +5,11 @@ import fr.alykell.aloria.hud.G;
 import fr.alykell.aloria.hud.Theme;
 import fr.alykell.aloria.hud.config.ModuleSettings;
 import fr.alykell.aloria.hud.mixin.InteractionManagerAccessor;
+//#if FORGE
+//#else
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
+//#endif
 import net.minecraft.block.Block;
 import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
@@ -79,9 +82,15 @@ public final class LookModule extends HudModule {
 	/** Nom du mod qui ajoute le bloc ou la créature (« Minecraft » pour le jeu de base) */
 	private static String modName(String namespace) {
 		if (namespace.equals("minecraft")) return "Minecraft";
+		//#if FORGE
+		//$$ for (net.minecraftforge.fml.common.ModContainer mod : net.minecraftforge.fml.common.Loader.instance().getModList()) {
+		//$$ 	if (mod.getModId().equalsIgnoreCase(namespace)) return mod.getName();
+		//$$ }
+		//#else
 		for (ModContainer mod : FabricLoader.getInstance().getAllMods()) {
 			if (mod.getMetadata().getId().equals(namespace)) return mod.getMetadata().getName();
 		}
+		//#endif
 		return namespace;
 	}
 

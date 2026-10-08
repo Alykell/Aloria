@@ -185,7 +185,16 @@ public abstract class AloriaScreen extends Screen {
 				}
 			}
 		}
-		if (!clicked(mouseX, mouseY, button)) super.mouseClicked(mouseX, mouseY, button);
+		if (!clicked(mouseX, mouseY, button)) superMouseClicked(mouseX, mouseY, button);
+	}
+
+	/** Sous Forge, les méthodes de l'écran du jeu peuvent lever IOException : on l'absorbe pour les deux versions */
+	private void superMouseClicked(int mouseX, int mouseY, int button) {
+		try {
+			super.mouseClicked(mouseX, mouseY, button);
+		} catch (Exception e) {
+			throw e instanceof RuntimeException ? (RuntimeException) e : new RuntimeException(e);
+		}
 	}
 
 	/** Clic hors des zones (0 = gauche, 1 = droit en 1.8.9) */
@@ -219,7 +228,11 @@ public abstract class AloriaScreen extends Screen {
 
 	@Override
 	public void handleMouse() {
-		super.handleMouse();
+		try {
+			super.handleMouse();
+		} catch (Exception e) {
+			throw e instanceof RuntimeException ? (RuntimeException) e : new RuntimeException(e);
+		}
 		int wheel = Mouse.getEventDWheel();
 		if (wheel != 0) {
 			int mx = Mouse.getEventX() * width / client.width;

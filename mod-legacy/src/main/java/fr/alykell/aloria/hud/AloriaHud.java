@@ -4,7 +4,10 @@ import fr.alykell.aloria.hud.config.HudConfig;
 import fr.alykell.aloria.hud.module.HudModule;
 import fr.alykell.aloria.hud.module.Modules;
 import fr.alykell.aloria.hud.screen.HudMenuScreen;
+//#if FORGE
+//#else
 import net.fabricmc.api.ClientModInitializer;
+//#endif
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
 import org.apache.logging.log4j.LogManager;
@@ -13,8 +16,16 @@ import org.lwjgl.input.Keyboard;
 
 import java.util.List;
 
-/** Aloria HUD pour la 1.8.9 (Legacy Fabric) : tout passe par des mixins, sans Fabric API. */
+/**
+ * Aloria HUD pour la 1.8.9 : tout passe par des mixins, sans Fabric API. Le même code sert à la version Forge
+ * (mod-forge, noms convertis à la compilation) : les blocs « //#if FORGE » y sont activés.
+ */
+//#if FORGE
+//$$ @net.minecraftforge.fml.common.Mod(modid = AloriaHud.MOD_ID, name = "Aloria HUD", version = "1", clientSideOnly = true, acceptedMinecraftVersions = "[1.8.9]")
+//$$ public class AloriaHud {
+//#else
 public class AloriaHud implements ClientModInitializer {
+//#endif
 	public static final String MOD_ID = "aloriahud";
 	public static final Logger LOGGER = LogManager.getLogger("Aloria HUD");
 
@@ -31,7 +42,14 @@ public class AloriaHud implements ClientModInitializer {
 		return config;
 	}
 
+	//#if FORGE
+	//$$ @net.minecraftforge.fml.common.Mod.EventHandler
+	//$$ public void init(net.minecraftforge.fml.common.event.FMLInitializationEvent event) {
+	//$$ 	onInitializeClient();
+	//$$ }
+	//#else
 	@Override
+	//#endif
 	public void onInitializeClient() {
 		config = HudConfig.load(MODULES);
 		if (SelfTest.enabled()) SelfTest.init();

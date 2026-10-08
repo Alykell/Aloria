@@ -1,0 +1,88 @@
+// Aloria HUD pour Minecraft 1.8.9 sous Forge (avec OptiFine) : Java 8, noms MCP, mixins (Mixin 0.7 embarqué).
+plugins {
+	id 'gg.essential.loom' version '1.15.51'
+	id 'dev.architectury.architectury-pack200' version '0.1.3'
+}
+
+version = "${project.mod_version}+1.8.9-forge"
+
+base {
+	archivesName = 'aloria-hud'
+}
+
+loom {
+	forge {
+		pack200Provider = new dev.architectury.pack200.java.Pack200Adapter()
+		mixinConfig 'aloriahud.mixins.json'
+	}
+	mixin {
+		useLegacyMixinAp = true
+		defaultRefmapName = 'aloriahud.refmap.json'
+	}
+}
+
+repositories {
+	maven { url = 'https://repo.spongepowered.org/maven/' }
+}
+
+configurations {
+	// Embarqué dans le jar : Forge 1.8.9 n'a pas Mixin
+	shade
+	implementation.extendsFrom shade
+}
+
+dependencies {
+	minecraft 'com.mojang:minecraft:1.8.9'
+	mappings 'de.oceanlabs.mcp:mcp_stable:22-1.8.9'
+	forge 'net.minecraftforge:forge:1.8.9-11.15.1.2318-1.8.9'
+	shade('org.spongepowered:mixin:0.7.11-SNAPSHOT') { transitive = false }
+	annotationProcessor 'org.spongepowered:mixin:0.8.5-SNAPSHOT:processor'
+}
+
+jar {
+	from(configurations.shade.collect { zipTree(it) }) {
+		exclude 'META-INF/*.SF', 'META-INF/*.RSA', 'META-INF/*.DSA', 'META-INF/MANIFEST.MF', 'LICENSE.txt'
+	}
+	manifest.attributes(
+		'TweakClass': 'org.spongepowered.asm.launch.MixinTweaker',
+		'TweakOrder': '0',
+		'MixinConfigs': 'aloriahud.mixins.json',
+		'FMLCorePluginContainsFMLMod': 'true',
+		'ForceLoadAsMod': 'true'
+	)
+}
+
+// Le code vient du mod 1.8.9 Legacy Fabric (mod-legacy), converti des noms Yarn aux noms MCP à chaque compilation
+// (voir buildSrc/RemapSourcesTask) ; seuls les mixins et les ressources propres à Forge sont dans ce projet.
+// mod-legacy doit avoir été compilé une fois : ses fichiers Yarn sont dans le cache de Gradle.
+def loomCache = new File(gradle.gradleUserHomeDir, 'caches')
+def yarn = '1.8.9-net.legacyfabric.yarn.1_8_9.1.8.9+build.604-v2'
+def remapLegacy = tasks.register('remapLegacy', RemapSourcesTask) {
+	legacySources = file('../mod-legacy/src/main/java')
+	sharedSources = file('../mod/src/main/java')
+	sharedFiles = ['ModuleSettings', 'GlobalSettings', 'VisualSettings'].collect { "fr/alykell/aloria/hud/config/${it}.java".toString() }
+	yarnMappings = new File(loomCache, 'fabric-loom/1.8.9/net.legacyfabric.yarn.1_8_9.1.8.9+build.604-v2/mappings.tiny')
+	mcpMappings = new File(loomCache, 'essential-loom/1.8.9/de.oceanlabs.mcp.mcp_stable.1_8_9.22-1.8.9-forge-1.8.9-11.15.1.2318-1.8.9/mappings.tiny')
+	classpath.from(new File(loomCache, "fabric-loom/minecraftMaven/net/minecraft/minecraft-merged-legacy-intermediary-1-v2/${yarn}/minecraft-merged-legacy-intermediary-1-v2-${yarn}.jar"))
+	// Bibliothèques du jeu (les mêmes en Fabric et en Forge), sans le Minecraft en noms MCP
+	classpath.from(configurations.compileClasspath.filter { !it.path.contains('essential-loom') })
+	output = layout.buildDirectory.dir('remapped-src')
+}
+sourceSets.main.java.srcDir(remapLegacy)
+
+processResources {
+	// Textures, polices et traductions du mod 1.8.9
+	from('../mod-legacy/src/main/resources') {
+		include 'assets/**'
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.encoding = 'UTF-8'
+	it.options.release = 8
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_1_8
+	targetCompatibility = JavaVersion.VERSION_1_8
+}

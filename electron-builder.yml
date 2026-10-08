@@ -18,6 +18,11 @@ extraResources:
     to: mods
     filter:
       - aloria-hud-*.jar
+  # Mod 1.8.9 pour Forge (même code, converti à la compilation)
+  - from: mod-forge/build/libs
+    to: mods
+    filter:
+      - aloria-hud-*.jar
 win:
   target: nsis
   icon: resources/icon.png

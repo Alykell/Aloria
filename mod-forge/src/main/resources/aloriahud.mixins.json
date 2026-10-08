@@ -1,0 +1,23 @@
+{
+	"required": true,
+	"minVersion": "0.7",
+	"package": "fr.alykell.aloria.hud.mixin",
+	"refmap": "aloriahud.refmap.json",
+	"compatibilityLevel": "JAVA_8",
+	"client": [
+		"AttackMixin",
+		"CameraAccessor",
+		"CreeperAccessor",
+		"FovMixin",
+		"GameMenuScreenMixin",
+		"GameOptionsMixin",
+		"InGameHudMixin",
+		"InteractionManagerAccessor",
+		"KeyBindingMixin",
+		"MinecraftClientMixin",
+		"MouseInputMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}
