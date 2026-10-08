@@ -571,9 +571,11 @@ function HotbarTool({
 // ---------------------------------------------------------------- vie, armure, faim
 
 /** Moitié gauche d'une icône 9×9 (le cœur à moitié du jeu garde les 5 colonnes de gauche) */
-async function leftHalf(src: string): Promise<string> {
+async function leftHalf(src: string, rightFrom?: string): Promise<string> {
   const img = await loadImage(src)
   const [c, g] = canvas(9, 9)
+  // Armure : la partie droite d'une demi-armure est celle de l'armure vide (le jeu ne dessine rien dessous)
+  if (rightFrom) g.drawImage(await loadImage(rightFrom), 5, 0, 4, 9, 5, 0, 4, 9)
   g.drawImage(img, 0, 0, 5, 9, 0, 0, 5, 9)
   return c.toDataURL('image/png')
 }
@@ -608,6 +610,19 @@ function HealthTool({
   const [colors, setColors] = useState({ heart: '#ff4fa3', armor: '#5cc8e0', food: '#ffb347' })
   const [strength, setStrength] = useState(80)
   const [drawing, setDrawing] = useState(false)
+  const [drawGroup, setDrawGroup] = useState<Group['id']>('heart')
+  const [drawHalf, setDrawHalf] = useState(false)
+  const [autoHalf, setAutoHalf] = useState(true)
+  const group = GROUPS.find((g) => g.id === drawGroup)!
+  const el: PackElement = drawHalf ? group.half : group.full
+
+  /** Dessin d'une icône ; la moitié suit l'icône pleine (5 colonnes de gauche) si « moitié automatique » */
+  const drawn = async (v: string | null) => {
+    onChange(el, v)
+    if (!drawHalf && autoHalf) {
+      onChange(group.half, v ? await leftHalf(v, group.id === 'armor' ? base.armor_empty : undefined) : null)
+    }
+  }
 
   const tintGroup = async (g: Group) => {
     const color = colors[g.id]
@@ -651,27 +666,49 @@ function HealthTool({
         </div>
       ))}
 
-      <h4>Dessiner ton cœur</h4>
+      <h4>Dessiner tes icônes</h4>
       {!drawing ? (
         <div className="tool__presets">
           <button onClick={() => setDrawing(true)}>Ouvrir l’éditeur de pixels</button>
         </div>
       ) : (
-        <PixelEditor
-          size={9}
-          cell={26}
-          value={image('heart_full')}
-          custom={!!pack.images.heart_full}
-          mirror="horizontal"
-          defaultColor="#ff4fa3"
-          presets={HEARTS}
-          onChange={async (v) => {
-            onChange('heart_full', v)
-            // La moitié suit le cœur plein : ses 5 colonnes de gauche
-            onChange('heart_half', v ? await leftHalf(v) : null)
-          }}
-          extra={<small className="muted">Le cœur à moitié est fait automatiquement avec la moitié gauche.</small>}
-        />
+        <>
+          <div className="tool__row">
+            <div className="segmented small">
+              {GROUPS.map((g) => (
+                <button key={g.id} className={drawGroup === g.id ? 'active' : ''} onClick={() => setDrawGroup(g.id)}>
+                  {g.label}
+                </button>
+              ))}
+            </div>
+            <div className="segmented small">
+              <button className={!drawHalf ? 'active' : ''} onClick={() => setDrawHalf(false)}>
+                Plein
+              </button>
+              <button className={drawHalf ? 'active' : ''} onClick={() => setDrawHalf(true)}>
+                Moitié
+              </button>
+            </div>
+          </div>
+          {!drawHalf && (
+            <label className="toggle-line">
+              <input type="checkbox" checked={autoHalf} onChange={(e) => setAutoHalf(e.target.checked)} />
+              <span>Moitié automatique (la partie gauche de l’icône pleine)</span>
+            </label>
+          )}
+          <PixelEditor
+            key={el}
+            size={9}
+            cell={26}
+            value={image(el)}
+            custom={!!pack.images[el]}
+            mirror="horizontal"
+            mirrorDefault={drawGroup !== 'food'}
+            defaultColor={colors[drawGroup]}
+            presets={drawGroup === 'heart' && !drawHalf ? HEARTS : undefined}
+            onChange={drawn}
+          />
+        </>
       )}
     </div>
   )

@@ -368,6 +368,13 @@ async function captureScreens(win: BrowserWindow, dir: string): Promise<void> {
     await click('Totem')
     await wait(800)
     await writeFile(join(dir, 'nuit-createur-totem.png'), (await snap()).toPNG())
+    await click('Vie')
+    await wait(300)
+    await click('Ouvrir l’éditeur de pixels')
+    await wait(300)
+    await click('Armure')
+    await wait(800)
+    await writeFile(join(dir, 'nuit-createur-armure.png'), (await snap()).toPNG())
     await writeFile(join(dir, 'nuit-createur.png'), (await snap()).toPNG())
     for (const profile of ['Auto-test (dev)', 'Auto-test 1.8.9 Fabric']) {
       await select('pack-target', profile)
