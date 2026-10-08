@@ -96,6 +96,7 @@ const api = {
     create: (name: string): Promise<Result<PackInfo>> => ipcRenderer.invoke('packs:create', name),
     rename: (id: string, name: string): Promise<Result<void>> => ipcRenderer.invoke('packs:rename', id, name),
     remove: (id: string): Promise<Result<void>> => ipcRenderer.invoke('packs:delete', id),
+    setScale: (id: string, scale: number): Promise<Result<void>> => ipcRenderer.invoke('packs:setScale', id, scale),
     saveImage: (id: string, element: PackElement, image: string | null): Promise<Result<void>> =>
       ipcRenderer.invoke('packs:saveImage', id, element, image),
     vanilla: (target: { profileId?: string; gameVersion?: string }): Promise<Result<PackVanilla>> => ipcRenderer.invoke('packs:vanilla', target),

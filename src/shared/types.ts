@@ -15,12 +15,19 @@ export type PackElement =
   | 'armor_half'
   | 'food_full'
   | 'food_half'
+  | 'heart_container'
+  | 'armor_empty'
+  | 'food_empty'
+  | 'xp_background'
+  | 'xp_progress'
 
 export interface PackInfo {
   id: string
   name: string
   createdAt: number
   updatedAt: number
+  /** Résolution : 1 = celle du jeu (cœur 9×9), 2 = deux fois plus de pixels (18×18), 4… */
+  scale: number
   /** Images personnalisées (data URL PNG) ; absente = celle du jeu */
   images: Partial<Record<PackElement, string>>
 }

@@ -16,7 +16,23 @@ import type { PackElement, PackInfo, PackLayout, PackVanilla } from '../shared/t
  * l'interface recompose à partir de celles du jeu. Le format du pack se lit dans le jar de la version.
  */
 const PACKS = join(paths.root, 'packs')
-const ELEMENTS: PackElement[] = ['crosshair', 'hotbar', 'hotbar_selection', 'totem', 'heart_full', 'heart_half', 'armor_full', 'armor_half', 'food_full', 'food_half']
+const ELEMENTS: PackElement[] = [
+  'crosshair',
+  'hotbar',
+  'hotbar_selection',
+  'totem',
+  'heart_full',
+  'heart_half',
+  'heart_container',
+  'armor_full',
+  'armor_half',
+  'armor_empty',
+  'food_full',
+  'food_half',
+  'food_empty',
+  'xp_background',
+  'xp_progress'
+]
 
 /** Icônes de la barre de vie (1.20.2+) : chemin sous textures/gui/sprites/hud/, éléments modifiables puis fonds (aperçu) */
 const HUD_SPRITES: Record<string, string> = {
@@ -28,7 +44,9 @@ const HUD_SPRITES: Record<string, string> = {
   armor_empty: 'armor_empty',
   food_full: 'food_full',
   food_half: 'food_half',
-  food_empty: 'food_empty'
+  food_empty: 'food_empty',
+  xp_background: 'experience_bar_background',
+  xp_progress: 'experience_bar_progress'
 }
 const packDir = (id: string) => join(PACKS, id)
 const infoFile = (id: string) => join(packDir(id), 'pack.json')
@@ -55,20 +73,28 @@ export async function getPack(id: string): Promise<PackInfo> {
     const file = join(packDir(id), `${el}.png`)
     if (existsSync(file)) images[el] = dataUrl(await readFile(file))
   }
-  return { ...info, images }
+  return { ...info, scale: info.scale ?? 1, images }
 }
 
 export async function createPack(name: string): Promise<PackInfo> {
   const id = randomUUID().slice(0, 8)
   const now = Date.now()
   await mkdir(packDir(id), { recursive: true })
-  await writeFile(infoFile(id), JSON.stringify({ id, name: name.trim() || 'Mon pack', createdAt: now, updatedAt: now }, null, 2))
+  await writeFile(infoFile(id), JSON.stringify({ id, name: name.trim() || 'Mon pack', createdAt: now, updatedAt: now, scale: 1 }, null, 2))
   return getPack(id)
 }
 
 export async function renamePack(id: string, name: string): Promise<void> {
   const info = JSON.parse(await readFile(infoFile(id), 'utf8')) as PackInfo
   info.name = name.trim() || info.name
+  info.updatedAt = Date.now()
+  await writeFile(infoFile(id), JSON.stringify(info, null, 2))
+}
+
+/** Résolution du pack (les images ont déjà été redimensionnées par l'interface) */
+export async function setPackScale(id: string, scale: number): Promise<void> {
+  const info = JSON.parse(await readFile(infoFile(id), 'utf8')) as PackInfo
+  info.scale = scale
   info.updatedAt = Date.now()
   await writeFile(infoFile(id), JSON.stringify(info, null, 2))
 }

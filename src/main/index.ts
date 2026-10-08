@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { addAccount, listAccounts, removeAccount, selectAccount } from './auth/accounts'
 import { toAuthError } from './auth/errors'
 import { getSkin, listCapes, listSavedSkins, removeSavedSkin, resetSkin, setCape, uploadSkin } from './auth/skin'
-import { createPack, deletePack, installPack, listPacks, packVanilla, renamePack, savePackImage } from './packs'
+import { createPack, deletePack, installPack, listPacks, packVanilla, renamePack, savePackImage, setPackScale } from './packs'
 import { getStatus, isGameRunning, listVersions, play } from './game/controller'
 import { fabricLoaders } from './game/fabric'
 import { forgeLoaders } from './game/forge'
@@ -202,6 +202,7 @@ ipcMain.handle('packs:list', () => wrap(() => listPacks()))
 ipcMain.handle('packs:create', (_e, name: string) => wrap(() => createPack(name)))
 ipcMain.handle('packs:rename', (_e, id: string, name: string) => wrap(() => renamePack(id, name)))
 ipcMain.handle('packs:delete', (_e, id: string) => wrap(() => deletePack(id)))
+ipcMain.handle('packs:setScale', (_e, id: string, scale: number) => wrap(() => setPackScale(id, scale)))
 ipcMain.handle('packs:saveImage', (_e, id: string, element: PackElement, image: string | null) => wrap(() => savePackImage(id, element, image)))
 ipcMain.handle('packs:vanilla', (_e, target: { profileId?: string; gameVersion?: string }) => wrap(() => packVanilla(target)))
 ipcMain.handle('packs:install', (_e, id: string, profileId: string, files: Record<string, string>) => wrap(() => installPack(id, profileId, files)))
@@ -350,6 +351,8 @@ async function captureScreens(win: BrowserWindow, dir: string): Promise<void> {
     await wait(200)
     await win.webContents.executeJavaScript(`document.querySelector('.dialog .primary')?.click()`)
     await wait(3000)
+    await click('×2')
+    await wait(2500)
     await click('Croix + point')
     await wait(500)
     await click('Hotbar')
@@ -360,6 +363,13 @@ async function captureScreens(win: BrowserWindow, dir: string): Promise<void> {
     await wait(400)
     await click('Teinter')
     await wait(1500)
+    await click('Colorer')
+    await wait(1500)
+    await click('XP')
+    await wait(400)
+    await click('Teinter')
+    await wait(1500)
+    await writeFile(join(dir, 'nuit-createur-xp.png'), (await snap()).toPNG())
     await click('Hotbar')
     await wait(300)
     await click('Dessiner une case')

@@ -705,3 +705,14 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .skin-grid__delete:hover { color: var(--danger); }
 .segmented.small { flex-wrap: wrap; align-self: stretch; }
 .segmented.small button { padding: 6px 12px; font-size: 13px; }
+/* Créations : résolution, barre d'XP, grilles fines */
+.pack-editor__header h2 { flex: 1; }
+.pack-editor__scale { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--sea-deep); font-size: 14px; }
+.pixel-grid__cell.fine { box-shadow: none; }
+.hud-preview__xp { position: absolute; left: 0; top: -14px; width: 364px; height: 10px; }
+.hud-preview__xp img { position: absolute; left: 0; top: 0; width: 364px; height: 10px; }
+.hud-preview__xp-progress { position: absolute; left: 0; top: 0; width: 70%; height: 10px; overflow: hidden; }
+.xp-row { display: grid; grid-template-columns: 110px 44px 1fr; align-items: center; gap: 8px 10px; }
+.xp-row .tool__presets { flex-wrap: nowrap; }
+.xp-row__bar { grid-column: 1 / -1; }
+.xp-row__bar img { display: block; width: 100%; height: auto; }
