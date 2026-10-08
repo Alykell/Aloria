@@ -20,7 +20,7 @@ const EMPTY: ProfileInput = {
   name: '',
   icon: '🌊',
   versionId: 'latest-release',
-  loader: 'vanilla',
+  loader: 'fabric',
   loaderVersion: null,
   ramMb: null
 }
@@ -101,11 +101,11 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
         <div className="field">
           <span>Mods</span>
           <div className="segmented">
-            <button className={form.loader === 'vanilla' ? 'active' : ''} onClick={() => set({ loader: 'vanilla', loaderVersion: null })}>
-              Vanilla
-            </button>
             <button className={form.loader === 'fabric' ? 'active' : ''} onClick={() => set({ loader: 'fabric' })}>
               Fabric
+            </button>
+            <button className={form.loader === 'vanilla' ? 'active' : ''} onClick={() => set({ loader: 'vanilla', loaderVersion: null })}>
+              Vanilla
             </button>
           </div>
         </div>

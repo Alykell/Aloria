@@ -85,6 +85,12 @@ public final class LookModule extends HudModule {
 		return namespace;
 	}
 
+	/** Nom de ce qui est visé (auto-test) */
+	public static String targetName(MinecraftClient mc) {
+		Target t = target(mc, false);
+		return t != null ? t.name : null;
+	}
+
 	private static Target target(MinecraftClient mc, boolean preview) {
 		Target t = null;
 		BlockHitResult hit = mc.result;
@@ -101,9 +107,10 @@ public final class LookModule extends HudModule {
 	private static Target block(MinecraftClient mc, BlockPos pos) {
 		Block block = mc.world.getBlockState(pos).getBlock();
 		if (block == Blocks.AIR) return null;
-		Item item = Item.fromBlock(block);
-		ItemStack icon = item != null ? new ItemStack(item) : null;
-		String name = block.getTranslatedName();
+		// Comme le clic molette : objet et variante (couleur, essence…) du bloc, ex. « Argile orange »
+		Item item = block.getPickItem(mc.world, pos);
+		ItemStack icon = item != null ? new ItemStack(item, 1, block.getMeta(mc.world, pos)) : null;
+		String name = icon != null ? icon.getCustomName() : block.getTranslatedName();
 		Identifier id = Block.REGISTRY.getIdentifier(block);
 		String source = modName(id != null ? id.getNamespace() : "minecraft");
 

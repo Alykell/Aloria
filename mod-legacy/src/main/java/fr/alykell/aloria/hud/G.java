@@ -90,7 +90,8 @@ public final class G {
 	public void item(ItemStack stack, int x, int y) {
 		if (stack == null) return;
 		GlStateManager.enableRescaleNormal();
-		DiffuseLighting.enableNormally();
+		// Éclairage des objets d'interface (comme la barre du jeu) ; enableNormally est celui du monde et assombrit les blocs
+		DiffuseLighting.enable();
 		mc.getItemRenderer().renderInGuiWithOverrides(stack, x, y);
 		DiffuseLighting.disable();
 		GlStateManager.disableRescaleNormal();

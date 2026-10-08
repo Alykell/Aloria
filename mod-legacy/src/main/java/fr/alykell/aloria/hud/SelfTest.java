@@ -4,6 +4,10 @@ import fr.alykell.aloria.hud.config.HudConfig;
 import fr.alykell.aloria.hud.config.ModuleSettings;
 import fr.alykell.aloria.hud.module.ExplosionModule;
 import fr.alykell.aloria.hud.module.HudModule;
+import fr.alykell.aloria.hud.module.LookModule;
+import net.minecraft.block.Blocks;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.math.BlockPos;
 import fr.alykell.aloria.hud.screen.AloriaScreen;
 import fr.alykell.aloria.hud.screen.HudLayoutScreen;
 import fr.alykell.aloria.hud.screen.HudMenuScreen;
@@ -227,10 +231,19 @@ public final class SelfTest {
 			check("le module Effets accepte un niveau reçu négatif (reçu : " + received + ")", received && ok);
 			return true;
 		});
-		add("bloc visé", 3, () -> {
+		add("argile orange visée", 3, () -> {
+			if (mc.result == null || mc.result.type != BlockHitResult.Type.BLOCK) return retries >= 20;
+			final BlockPos pos = mc.result.getBlockPos();
+			// Variante 1 = orange : le module doit l'afficher sous ce nom, avec la bonne couleur
+			server(mc, (world, player) -> world.setBlockState(pos, Blocks.STAINED_TERRACOTTA.stateFromData(1)));
+			return true;
+		});
+		add("bloc visé", 6, () -> {
 			HudModule look = null;
 			for (HudModule m : AloriaHud.modules()) if (m.id().equals("look")) look = m;
 			check("le module Bloc visé a quelque chose à montrer", look != null && look.hasContent(mc));
+			String name = LookModule.targetName(mc);
+			check("le Bloc visé montre la variante (" + name + ")", name != null && !name.equals(Blocks.STAINED_TERRACOTTA.getTranslatedName()));
 			return screenshot(mc, "08-bloc-vise");
 		});
 		add("réglages du jeu (1.8.9)", 2, () -> {
