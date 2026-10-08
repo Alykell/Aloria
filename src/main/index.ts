@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { addAccount, listAccounts, removeAccount, selectAccount } from './auth/accounts'
 import { toAuthError } from './auth/errors'
 import { getSkin } from './auth/skin'
+import { createPack, deletePack, installPack, listPacks, packVanilla, renamePack, savePackImage } from './packs'
 import { getStatus, isGameRunning, listVersions, play } from './game/controller'
 import { fabricLoaders } from './game/fabric'
 import { forgeLoaders } from './game/forge'
@@ -15,6 +16,7 @@ import { initDiscord, refreshDiscord } from './discord'
 import { processPending } from './shared/pending'
 import { saveKeyboardLayout } from './shared/options'
 import type {
+  PackElement,
   ContentType,
   LoaderVersion,
   Profile,
@@ -182,6 +184,15 @@ ipcMain.handle('library:openFolder', async (_e, profileId: string, type: Content
   await shell.openPath(await openContentFolder(profileId, type))
 })
 
+// Créations : packs de ressources faits dans Aloria
+ipcMain.handle('packs:list', () => wrap(() => listPacks()))
+ipcMain.handle('packs:create', (_e, name: string) => wrap(() => createPack(name)))
+ipcMain.handle('packs:rename', (_e, id: string, name: string) => wrap(() => renamePack(id, name)))
+ipcMain.handle('packs:delete', (_e, id: string) => wrap(() => deletePack(id)))
+ipcMain.handle('packs:saveImage', (_e, id: string, element: PackElement, image: string | null) => wrap(() => savePackImage(id, element, image)))
+ipcMain.handle('packs:vanilla', (_e, target: { profileId?: string; gameVersion?: string }) => wrap(() => packVanilla(target)))
+ipcMain.handle('packs:install', (_e, id: string, profileId: string, files: Record<string, string>) => wrap(() => installPack(id, profileId, files)))
+
 // Tests en développement : dossier de données séparé, pour ne pas croiser le launcher installé
 if (!app.isPackaged && process.env.ALORIA_USER_DATA) app.setPath('userData', process.env.ALORIA_USER_DATA)
 
@@ -297,6 +308,33 @@ async function captureScreens(win: BrowserWindow, dir: string): Promise<void> {
   await wait(500)
   await writeFile(join(dir, 'nuit-menu-ouvert.png'), (await win.webContents.capturePage()).toPNG())
   await win.webContents.executeJavaScript(`document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))`)
+  // Créations (si ALORIA_CAPTURE_PACK est défini) : un pack de test installé dans les profils d'auto-test 26.3 et 1.8.9
+  if (process.env.ALORIA_CAPTURE_PACK) {
+    await click('Créations')
+    await wait(800)
+    await click('Créer un pack')
+    await wait(400)
+    await win.webContents.executeJavaScript(`(() => { const i = document.querySelector('.dialog input');
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, ${JSON.stringify(process.env.ALORIA_CAPTURE_PACK)});
+      i.dispatchEvent(new Event('input', { bubbles: true })) })()`)
+    await wait(200)
+    await win.webContents.executeJavaScript(`document.querySelector('.dialog .primary')?.click()`)
+    await wait(3000)
+    await click('Croix + point')
+    await wait(500)
+    await click('Hotbar')
+    await wait(400)
+    await click('Appliquer la teinte')
+    await wait(1500)
+    await writeFile(join(dir, 'nuit-createur.png'), (await win.webContents.capturePage()).toPNG())
+    for (const profile of ['Auto-test (dev)', 'Auto-test 1.8.9 Fabric']) {
+      await select('pack-target', profile)
+      await wait(4000)
+      await click('Installer')
+      await wait(3000)
+    }
+    await writeFile(join(dir, 'nuit-createur-installe.png'), (await win.webContents.capturePage()).toPNG())
+  }
   // On remet le réglage par défaut
   await click('Paramètres')
   await wait(300)

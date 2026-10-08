@@ -12,6 +12,7 @@ import { useSettings } from './hooks/useSettings'
 import { useGame } from './hooks/useGame'
 import { useProfiles } from './hooks/useProfiles'
 import { DISCORD_INVITE } from '../../shared/links'
+import CreationsPage from './components/CreationsPage'
 import { useTheme } from './hooks/useTheme'
 
 export default function App() {
@@ -65,6 +66,7 @@ export default function App() {
             <ProfilesPage profiles={profiles} settings={settings} onPlay={playFromProfiles} onError={setPageError} />
           )}
           {page === 'gamesettings' && <GameSettingsPage onError={setPageError} />}
+          {page === 'creations' && <CreationsPage profiles={profiles} onError={setPageError} />}
           {page === 'settings' && <SettingsPage state={settings} />}
           {page === 'library' && (
             <LibraryPage profiles={profiles} onError={setPageError} onOpenProfiles={() => setPage('profiles')} />

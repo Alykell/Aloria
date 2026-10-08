@@ -11,6 +11,9 @@ import type {
   LoaderVersion,
   Profile,
   ProfileInput,
+  PackElement,
+  PackInfo,
+  PackVanilla,
   PlayerSkin,
   PublicAccount,
   Result,
@@ -76,6 +79,17 @@ const api = {
       ipcRenderer.invoke('library:remove', profileId, type, fileName),
     openFolder: (profileId: string, type: ContentType): Promise<void> => ipcRenderer.invoke('library:openFolder', profileId, type),
     addOptiFine: (profileId: string): Promise<Result<boolean>> => ipcRenderer.invoke('library:addOptiFine', profileId)
+  },
+  packs: {
+    list: (): Promise<Result<PackInfo[]>> => ipcRenderer.invoke('packs:list'),
+    create: (name: string): Promise<Result<PackInfo>> => ipcRenderer.invoke('packs:create', name),
+    rename: (id: string, name: string): Promise<Result<void>> => ipcRenderer.invoke('packs:rename', id, name),
+    remove: (id: string): Promise<Result<void>> => ipcRenderer.invoke('packs:delete', id),
+    saveImage: (id: string, element: PackElement, image: string | null): Promise<Result<void>> =>
+      ipcRenderer.invoke('packs:saveImage', id, element, image),
+    vanilla: (target: { profileId?: string; gameVersion?: string }): Promise<Result<PackVanilla>> => ipcRenderer.invoke('packs:vanilla', target),
+    install: (id: string, profileId: string, files: Record<string, string>): Promise<Result<string>> =>
+      ipcRenderer.invoke('packs:install', id, profileId, files)
   },
   game: {
     versions: (snapshots: boolean): Promise<Result<VersionEntry[]>> => ipcRenderer.invoke('game:versions', snapshots),

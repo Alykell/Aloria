@@ -3,6 +3,32 @@ export interface PublicAccount {
   name: string
 }
 
+/** Éléments modifiables d'un pack créé dans Aloria (format commun à toutes les versions) */
+export type PackElement = 'crosshair' | 'hotbar' | 'hotbar_selection' | 'totem'
+
+export interface PackInfo {
+  id: string
+  name: string
+  createdAt: number
+  updatedAt: number
+  /** Images personnalisées (data URL PNG) ; absente = celle du jeu */
+  images: Partial<Record<PackElement, string>>
+}
+
+/** « sprites » : une image par élément (1.20.2+) ; « atlas » : planches icons.png / widgets.png */
+export type PackLayout = 'sprites' | 'atlas'
+
+/** Ce qu'il faut pour convertir un pack vers une version du jeu (images d'origine en data URL) */
+export interface PackVanilla {
+  gameVersion: string
+  layout: PackLayout
+  format: [number, number]
+  /** Chemin du totem dans cette version, ou null (pas de totem avant la 1.11) */
+  totemPath: string | null
+  images: Partial<Record<PackElement, string | null>>
+  atlases: { icons?: string | null; widgets?: string | null }
+}
+
 /** Skin d'un joueur pour l'aperçu 3D : textures en data URL, modèle à bras fins ou non */
 export interface PlayerSkin {
   texture: string

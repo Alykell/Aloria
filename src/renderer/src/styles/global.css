@@ -563,3 +563,92 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 ::-webkit-scrollbar-thumb { background: rgba(92, 200, 224, 0.35); border-radius: 999px; border: 3px solid transparent; background-clip: padding-box; }
 ::-webkit-scrollbar-thumb:hover { background-color: rgba(92, 200, 224, 0.6); }
 ::-webkit-scrollbar-button { display: none; height: 0; }
+
+/* Créations : packs de textures faits dans Aloria */
+.pixel { image-rendering: pixelated; }
+.page__lead { color: var(--text-soft); max-width: 760px; }
+.pack-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
+.pack-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 18px 14px;
+  border-radius: var(--radius);
+  background: var(--card);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.pack-card:hover { border-color: var(--lagoon); transform: translateY(-2px); }
+.pack-card--new { border: 2px dashed var(--line); color: var(--sea-deep); justify-content: center; min-height: 170px; }
+.pack-card__plus { font-size: 40px; line-height: 1; }
+.pack-card__preview {
+  width: 96px;
+  height: 96px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: linear-gradient(#5cc8e0, #0b5f86);
+  font-size: 34px;
+}
+.pack-card__preview img { width: 75px; height: 75px; }
+.pack-card__delete { position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; border-radius: 8px; color: var(--text-soft); opacity: 0; }
+.pack-card:hover .pack-card__delete { opacity: 1; }
+.pack-card__delete:hover { background: rgba(229, 83, 75, 0.15); color: var(--danger); }
+
+.pack-editor__header { display: flex; align-items: center; gap: 16px; }
+.link-back { color: var(--sea-deep); font-weight: 700; padding: 6px 10px; border-radius: 10px; }
+.link-back:hover { background: var(--foam); }
+.pack-editor__body { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(320px, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .pack-editor__body { grid-template-columns: 1fr; } }
+.pack-editor__preview, .pack-editor__tools { display: flex; flex-direction: column; gap: 12px; }
+.pack-editor__install { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-weight: 700; color: var(--sea-deep); }
+.pack-editor__install .select { flex: 1; min-width: 200px; }
+.success { color: var(--success); font-weight: 600; }
+.pack-editor__tools .tabs button { white-space: nowrap; padding-left: 12px; padding-right: 12px; }
+.tabs .dot { display: inline-block; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%; background: var(--lagoon); vertical-align: middle; }
+
+/* Aperçu : décor de jeu, hotbar ×2, viseur ×3 inversé selon le fond comme en jeu */
+.hud-preview {
+  position: relative;
+  height: 280px;
+  border-radius: 12px;
+  overflow: hidden;
+  background:
+    linear-gradient(to bottom, #8ccfee 0%, #bfe6f7 52%, #6aa84f 52%, #4f8a38 70%, #8a6a45 70%, #6b5034 100%);
+}
+.hud-preview__crosshair { position: absolute; left: 50%; top: 45%; width: 45px; height: 45px; transform: translate(-50%, -50%); mix-blend-mode: difference; }
+.hud-preview__hotbar { position: absolute; left: 50%; bottom: 10px; width: 364px; height: 44px; transform: translateX(-50%); }
+.hud-preview__hotbar > img:first-child { width: 364px; height: 44px; }
+.hud-preview__selection { position: absolute; left: 78px; top: -2px; width: 48px; height: 48px; }
+.totem-preview, .totem-tool { display: grid; place-items: center; padding: 10px; }
+.totem-preview img, .totem-tool img { width: 112px; height: 112px; }
+
+.tool { display: flex; flex-direction: column; gap: 10px; }
+.tool h4 { font-family: 'Quicksand', sans-serif; color: var(--sea-deep); margin-top: 6px; }
+.tool__row { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.tool__presets { display: flex; flex-wrap: wrap; gap: 8px; }
+.tool__presets button { padding: 7px 12px; border-radius: 10px; background: var(--foam); color: var(--sea-deep); font-weight: 600; font-size: 13px; }
+.tool__presets button:hover:not(:disabled) { background: rgba(92, 200, 224, 0.25); }
+.tool__presets button.primary { background: var(--sea); color: white; }
+.tool__presets button:disabled { opacity: 0.45; cursor: default; }
+.color-field { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; }
+.color-field input { width: 36px; height: 30px; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: none; cursor: pointer; }
+.pixel-grid {
+  display: grid;
+  grid-template-columns: repeat(15, 20px);
+  grid-template-rows: repeat(15, 20px);
+  align-self: center;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background-color: #1d3343;
+  background-image: linear-gradient(45deg, #24404f 25%, transparent 25%, transparent 75%, #24404f 75%), linear-gradient(45deg, #24404f 25%, transparent 25%, transparent 75%, #24404f 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 10px 10px;
+  user-select: none;
+}
+.pixel-grid__cell { box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.06); cursor: crosshair; }
+.pixel-grid__cell.center { box-shadow: inset 0 0 0 1px rgba(92, 200, 224, 0.55); }
