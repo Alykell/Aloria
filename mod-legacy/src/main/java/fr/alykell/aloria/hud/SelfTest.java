@@ -19,6 +19,7 @@ import net.minecraft.entity.TntEntity;
 import net.minecraft.entity.effect.StatusEffect;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.mob.CreeperEntity;
+import net.minecraft.entity.mob.ZombieEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
@@ -229,6 +230,30 @@ public final class SelfTest {
 				ok = false;
 			}
 			check("le module Effets accepte un niveau reçu négatif (reçu : " + received + ")", received && ok);
+			return true;
+		});
+		add("cible du Reach", 2, () -> {
+			// Zombie immobile à 3 blocs devant le joueur (centre), au même niveau
+			server(mc, (world, player) -> {
+				double yaw = Math.toRadians(player.yaw);
+				ZombieEntity zombie = new ZombieEntity(world);
+				zombie.updatePositionAndAngles(player.x - Math.sin(yaw) * 3, player.y, player.z + Math.cos(yaw) * 3, 0, 0);
+				zombie.setAiDisabled(true);
+				world.spawnEntity(zombie);
+			});
+			return true;
+		});
+		add("coup et Reach", 6, () -> {
+			ZombieEntity target = null;
+			for (Entity e : mc.world.loadedEntities) if (e instanceof ZombieEntity) target = (ZombieEntity) e;
+			if (target == null) return retries >= 20 && check("le zombie du Reach est arrivé", false);
+			mc.interactionManager.attackEntity(mc.player, target);
+			double reach = Stats.reach();
+			// Boîte du zombie : 0,6 de large, donc son bord est à environ 2,7 blocs des yeux
+			check(String.format(java.util.Locale.ROOT, "le Reach mesure le coup (%.2f blocs)", reach), reach > 2.5 && reach < 2.95);
+			server(mc, (world, player) -> {
+				for (Entity e : world.loadedEntities) if (e instanceof ZombieEntity) e.remove();
+			});
 			return true;
 		});
 		add("argile orange visée", 3, () -> {

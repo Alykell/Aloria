@@ -22,6 +22,7 @@ public final class Modules {
 			new Cps(),
 			new Coordinates(),
 			new Speed(),
+			new Reach(),
 			new Clock(),
 			new KeystrokesModule(),
 			new ArmorModule(),
@@ -116,6 +117,30 @@ public final class Modules {
 		@Override
 		protected List<Line> lines(Minecraft mc, boolean preview) {
 			return List.of(new Line("Vitesse", String.format(Locale.ROOT, "%.2f b/s", Stats.speed())));
+		}
+	}
+
+	/** Distance du dernier coup porté (ex. « 3.20 blocs ») */
+	static final class Reach extends TextModule {
+		Reach() {
+			super("reach", "Reach");
+		}
+
+		@Override
+		public String category() {
+			return "pvp";
+		}
+
+		@Override
+		public ModuleSettings defaults() {
+			return new ModuleSettings(false, 1f, 0.17f);
+		}
+
+		@Override
+		protected List<Line> lines(Minecraft mc, boolean preview) {
+			double reach = Stats.reach();
+			if (reach < 0 && preview) reach = 3.2;
+			return List.of(new Line("Reach", reach < 0 ? "—" : String.format(Locale.ROOT, "%.2f blocs", reach)));
 		}
 	}
 

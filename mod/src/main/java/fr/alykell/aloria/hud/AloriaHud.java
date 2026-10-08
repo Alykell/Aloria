@@ -15,6 +15,8 @@ import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 //$$ import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 //#endif
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
+import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
+import net.minecraft.world.InteractionResult;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.gui.components.Button;
@@ -81,6 +83,13 @@ public class AloriaHud implements ClientModInitializer {
 			while (openEditor.consumeClick()) {
 				if (mc.gui.screen() == null && mc.player != null) mc.gui.setScreen(new HudMenuScreen(null));
 			}
+		});
+
+		// Coup porté (côté client) : mesure du Reach
+		AttackEntityCallback.EVENT.register((player, level, hand, entity, hit) -> {
+			// Aussi appelé côté serveur intégré en solo : on ne garde que le joueur du client
+			if (player == net.minecraft.client.Minecraft.getInstance().player) Stats.onAttack(player, entity);
+			return InteractionResult.PASS;
 		});
 
 		// Bouton « Aloria HUD » dans le menu Échap

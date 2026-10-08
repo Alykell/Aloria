@@ -514,6 +514,44 @@ public final class SelfTest {
 			return check("l'étiquette du creeper reste affichée quand il hésite (" + hiddenNew + " ticks cachée)", hiddenNew == 0);
 		});
 		add("retirer le creeper", 1, () -> removeExplosives(mc, false));
+		add("cible du Reach", 2, () -> {
+			// Zombie immobile à 3 blocs devant le joueur (centre), au même niveau
+			var server = mc.getSingleplayerServer();
+			if (server == null) return check("monde solo disponible", false);
+			var uuid = mc.player.getUUID();
+			server.execute(() -> {
+				var player = server.getPlayerList().getPlayer(uuid);
+				if (player == null) return;
+				var level = player.level();
+				var zombie = net.minecraft.world.entity.EntityTypes.ZOMBIE.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+				if (zombie == null) return;
+				var look = net.minecraft.world.phys.Vec3.directionFromRotation(0, player.getYRot());
+				zombie.setPos(player.position().add(look.scale(3)));
+				zombie.setNoAi(true);
+				zombie.setNoGravity(true);
+				zombie.setSilent(true);
+				level.addFreshEntity(zombie);
+			});
+			return true;
+		});
+		add("coup et Reach", 6, () -> {
+			net.minecraft.world.entity.Entity target = null;
+			for (var e : mc.level.entitiesForRendering()) {
+				if (e instanceof net.minecraft.world.entity.Mob m && m.getType() == net.minecraft.world.entity.EntityTypes.ZOMBIE && m.isNoAi()) target = m;
+			}
+			if (target == null) {
+				lastMissing = "zombie du Reach";
+				return false;
+			}
+			mc.gameMode.attack(mc.player, target);
+			double reach = Stats.reach();
+			// Boîte du zombie : 0,6 de large, donc son bord est à environ 2,7 blocs des yeux
+			check(String.format(java.util.Locale.ROOT, "le Reach mesure le coup (%.2f blocs)", reach), reach > 2.5 && reach < 2.95);
+			var server = mc.getSingleplayerServer();
+			server.execute(() -> server.getAllLevels().forEach(level ->
+				level.getEntities(net.minecraft.world.entity.EntityTypes.ZOMBIE, z -> z.isNoAi()).forEach(z -> z.discard())));
+			return true;
+		});
 		add("ouvrir le chat", 2, () -> {
 			//#if MC >= 12109
 			mc.gui.setScreen(new net.minecraft.client.gui.screens.ChatScreen("", false));
