@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Select from './Select'
 import { describeProfile } from '../hooks/useVersions'
-import { canvas, loadImage, packFiles, packIcon, resize, SIZES, vanillaElements, type BaseImages } from '../packImages'
+import { canvas, crop, loadImage, packFiles, packIcon, resize, SIZES, vanillaElements, type BaseImages } from '../packImages'
 import type { ProfilesState } from '../hooks/useProfiles'
 import type { PackElement, PackInfo, PackVanilla } from '../../../shared/types'
 
@@ -198,7 +198,7 @@ function HudPreview({ image, base }: { image: (el: PackElement) => string | unde
 // ---------------------------------------------------------------- éditeur de pixels (viseur, cœur)
 
 type Pixels = Uint8ClampedArray
-/** quad : symétrie sur les deux axes (viseur) ; horizontal : gauche/droite (cœur) */
+/** quad : symétrie sur les deux axes (viseur) ; horizontal : gauche/droite (cœur, totem) */
 type Mirror = 'quad' | 'horizontal'
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -206,16 +206,22 @@ function hexToRgb(hex: string): [number, number, number] {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
 }
 
-/** Grille de pixels : clic gauche dessine, clic droit efface, avec symétrie ; « presets » = formes toutes faites */
+/**
+ * Grille de pixels : clic gauche dessine, clic droit efface, Alt + clic prend la couleur (pipette), avec symétrie ;
+ * « presets » = formes toutes faites
+ */
 function PixelEditor({
   size,
   value,
   custom,
   onChange,
   mirror: mirrorMode,
+  mirrorDefault = true,
   defaultColor,
   cell,
   presets,
+  clearLabel = 'Vide',
+  resetLabel = 'Celui du jeu',
   extra
 }: {
   size: number
@@ -223,14 +229,17 @@ function PixelEditor({
   custom: boolean
   onChange: (v: string | null) => void
   mirror: Mirror
+  mirrorDefault?: boolean
   defaultColor: string
   cell: number
   presets?: { id: string; label: string; pixels: (x: number, y: number) => boolean }[]
+  clearLabel?: string
+  resetLabel?: string
   extra?: React.ReactNode
 }) {
   const [pixels, setPixels] = useState<Pixels>(() => new Uint8ClampedArray(size * size * 4))
   const [color, setColor] = useState(defaultColor)
-  const [mirror, setMirror] = useState(true)
+  const [mirror, setMirror] = useState(mirrorDefault)
   const painting = useRef<'paint' | 'erase' | null>(null)
   const latest = useRef(pixels)
   const center = (size - 1) / 2
@@ -304,6 +313,11 @@ function PixelEditor({
               className={`pixel-grid__cell ${x === center && y === center ? 'center' : ''}`}
               style={a ? { background: `rgba(${pixels[i * 4]}, ${pixels[i * 4 + 1]}, ${pixels[i * 4 + 2]}, ${a / 255})` } : undefined}
               onMouseDown={(e) => {
+                // Pipette : la couleur du pixel devient la couleur de dessin
+                if (e.altKey) {
+                  if (a) setColor('#' + [0, 1, 2].map((k) => pixels[i * 4 + k].toString(16).padStart(2, '0')).join(''))
+                  return
+                }
                 painting.current = e.button === 2 ? 'erase' : 'paint'
                 paint(x, y, painting.current)
               }}
@@ -312,7 +326,7 @@ function PixelEditor({
           )
         })}
       </div>
-      <small className="muted">Clic gauche : dessiner · clic droit : effacer</small>
+      <small className="muted">Clic gauche : dessiner · clic droit : effacer · Alt + clic : pipette</small>
       <div className="tool__row">
         <label className="color-field">
           <input type="color" value={color} onChange={(e) => setColor(e.target.value)} />
@@ -329,9 +343,9 @@ function PixelEditor({
             {p.label}
           </button>
         ))}
-        <button onClick={() => applyPreset(() => false)}>Vide</button>
+        <button onClick={() => applyPreset(() => false)}>{clearLabel}</button>
         <button disabled={!custom} onClick={() => onChange(null)}>
-          Celui du jeu
+          {resetLabel}
         </button>
       </div>
       {extra}
@@ -403,20 +417,45 @@ async function tint(src: string, hex: string, strength: number): Promise<string>
   return c.toDataURL('image/png')
 }
 
+/** Hotbar entière (182 × 22) à partir d'une case de 22 × 22 répétée tous les 20 pixels, comme celle du jeu */
+async function tileHotbar(slot: string): Promise<string> {
+  const img = await loadImage(slot)
+  const [c, g] = canvas(182, 22)
+  for (let i = 0; i < 9; i++) g.drawImage(img, i * 20, 0)
+  return c.toDataURL('image/png')
+}
+
+type HotbarMode = 'tint' | 'slot' | 'selection' | 'import'
+
+const HOTBAR_MODES: { id: HotbarMode; label: string }[] = [
+  { id: 'tint', label: 'Teinte' },
+  { id: 'slot', label: 'Dessiner une case' },
+  { id: 'selection', label: 'Dessiner la sélection' },
+  { id: 'import', label: 'Importer' }
+]
+
 function HotbarTool({
   base,
   pack,
   onChange
 }: {
-  base: Partial<Record<PackElement, string>>
+  base: BaseImages
   pack: PackInfo
   onChange: (el: PackElement, v: string | null) => void
 }) {
+  const [mode, setMode] = useState<HotbarMode>('tint')
   const [color, setColor] = useState('#5cc8e0')
   const [strength, setStrength] = useState(60)
   const [selectionToo, setSelectionToo] = useState(true)
   const file = useRef<HTMLInputElement>(null)
   const [importing, setImporting] = useState<PackElement>('hotbar')
+  const [slot, setSlot] = useState<string | undefined>()
+
+  // Case de départ de l'éditeur : la première case de la hotbar actuelle (la tienne, sinon celle du jeu)
+  const hotbar = pack.images.hotbar ?? base.hotbar
+  useEffect(() => {
+    if (hotbar) crop(hotbar, 0, 0, 22, 22).then(setSlot)
+  }, [hotbar === undefined ? '' : pack.images.hotbar ? 'custom' : hotbar])
 
   const applyTint = async () => {
     if (base.hotbar) onChange('hotbar', await tint(base.hotbar, color, strength / 100))
@@ -441,32 +480,79 @@ function HotbarTool({
 
   return (
     <div className="tool">
-      <h4>Teinte</h4>
-      <div className="tool__row">
-        <label className="color-field">
-          <input type="color" value={color} onChange={(e) => setColor(e.target.value)} />
-          Couleur
-        </label>
-        <div className="slider-line">
-          <input type="range" className="slider" min={10} max={100} value={strength} onChange={(e) => setStrength(Number(e.target.value))} />
-          <strong>{strength} %</strong>
-        </div>
-      </div>
-      <label className="toggle-line">
-        <input type="checkbox" checked={selectionToo} onChange={(e) => setSelectionToo(e.target.checked)} />
-        <span>Teinter aussi la case sélectionnée</span>
-      </label>
-      <div className="tool__presets">
-        <button className="primary" disabled={!base.hotbar} onClick={applyTint}>
-          Appliquer la teinte
-        </button>
+      <div className="segmented small">
+        {HOTBAR_MODES.map((m) => (
+          <button key={m.id} className={mode === m.id ? 'active' : ''} onClick={() => setMode(m.id)}>
+            {m.label}
+          </button>
+        ))}
       </div>
 
-      <h4>Ta propre image</h4>
-      <small className="muted">PNG redimensionné sans flou : hotbar 182 × 22, case sélectionnée 24 × 24 (ou une taille multiple).</small>
+      {mode === 'tint' && (
+        <>
+          <div className="tool__row">
+            <label className="color-field">
+              <input type="color" value={color} onChange={(e) => setColor(e.target.value)} />
+              Couleur
+            </label>
+            <div className="slider-line">
+              <input type="range" className="slider" min={10} max={100} value={strength} onChange={(e) => setStrength(Number(e.target.value))} />
+              <strong>{strength} %</strong>
+            </div>
+          </div>
+          <label className="toggle-line">
+            <input type="checkbox" checked={selectionToo} onChange={(e) => setSelectionToo(e.target.checked)} />
+            <span>Teinter aussi la case sélectionnée</span>
+          </label>
+          <div className="tool__presets">
+            <button className="primary" disabled={!base.hotbar} onClick={applyTint}>
+              Appliquer la teinte
+            </button>
+          </div>
+        </>
+      )}
+
+      {mode === 'slot' && (
+        <PixelEditor
+          size={22}
+          cell={13}
+          value={slot}
+          custom={!!pack.images.hotbar}
+          mirror="quad"
+          defaultColor="#5cc8e0"
+          clearLabel="Effacer"
+          resetLabel="Celle du jeu"
+          onChange={async (v) => onChange('hotbar', v ? await tileHotbar(v) : null)}
+          extra={<small className="muted">Ta case est répétée sur les 9 emplacements de la hotbar.</small>}
+        />
+      )}
+
+      {mode === 'selection' && (
+        <PixelEditor
+          size={24}
+          cell={12}
+          value={pack.images.hotbar_selection ?? base.hotbar_selection}
+          custom={!!pack.images.hotbar_selection}
+          mirror="quad"
+          defaultColor="#ffffff"
+          clearLabel="Effacer"
+          resetLabel="Celle du jeu"
+          onChange={(v) => onChange('hotbar_selection', v)}
+          extra={<small className="muted">Le cadre qui entoure l'objet tenu en main.</small>}
+        />
+      )}
+
+      {mode === 'import' && (
+        <>
+          <small className="muted">PNG redimensionné sans flou : hotbar 182 × 22, case sélectionnée 24 × 24 (ou une taille multiple).</small>
+          <div className="tool__presets">
+            <button onClick={() => pick('hotbar')}>Importer la hotbar…</button>
+            <button onClick={() => pick('hotbar_selection')}>Importer la sélection…</button>
+          </div>
+        </>
+      )}
+
       <div className="tool__presets">
-        <button onClick={() => pick('hotbar')}>Importer la hotbar…</button>
-        <button onClick={() => pick('hotbar_selection')}>Importer la sélection…</button>
         <button
           disabled={!pack.images.hotbar && !pack.images.hotbar_selection}
           onClick={() => {
@@ -474,7 +560,7 @@ function HotbarTool({
             onChange('hotbar_selection', null)
           }}
         >
-          Celle du jeu
+          Tout remettre comme dans le jeu
         </button>
       </div>
       <input ref={file} type="file" accept="image/png" hidden onChange={(e) => imported(e.target.files?.[0]).finally(() => (e.target.value = ''))} />
@@ -595,7 +681,6 @@ function HealthTool({
 
 function TotemTool({ value, custom, available, onChange }: { value?: string; custom: boolean; available: boolean; onChange: (v: string | null) => void }) {
   const file = useRef<HTMLInputElement>(null)
-  const preview = useMemo(() => value, [value])
 
   const imported = async (f: File | undefined) => {
     if (!f) return
@@ -609,19 +694,22 @@ function TotemTool({ value, custom, available, onChange }: { value?: string; cus
 
   return (
     <div className="tool">
-      <div className="totem-tool">
-        {preview ? <img src={preview} alt="" className="pixel" /> : <span className="muted">—</span>}
-      </div>
       {!available && <small className="warning">Le totem n'existe pas dans la version de ce profil : il sera ignoré à l'installation.</small>}
-      <small className="muted">Une image PNG carrée (16 × 16 ou multiple), redimensionnée sans flou.</small>
+      <PixelEditor
+        size={16}
+        cell={18}
+        value={value}
+        custom={custom}
+        mirror="horizontal"
+        mirrorDefault={false}
+        defaultColor="#f2c14e"
+        clearLabel="Effacer"
+        onChange={onChange}
+      />
       <div className="tool__presets">
-        <button className="primary" onClick={() => file.current?.click()}>
-          Importer une image…
-        </button>
-        <button disabled={!custom} onClick={() => onChange(null)}>
-          Celui du jeu
-        </button>
+        <button onClick={() => file.current?.click()}>Importer une image…</button>
       </div>
+      <small className="muted">Image PNG carrée (16 × 16 ou multiple), redimensionnée sans flou.</small>
       <input ref={file} type="file" accept="image/png" hidden onChange={(e) => imported(e.target.files?.[0]).finally(() => (e.target.value = ''))} />
     </div>
   )

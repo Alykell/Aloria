@@ -270,6 +270,13 @@ async function captureScreens(win: BrowserWindow, dir: string): Promise<void> {
     win.webContents.executeJavaScript(
       `[...document.querySelectorAll('button')].find((b) => b.textContent.includes(${JSON.stringify(label)}))?.click()`
     )
+  // Image à jour de la fenêtre : on force un nouveau rendu avant (sinon, après la vue 3D de l'accueil, la capture
+  // pouvait rester figée sur l'accueil)
+  const snap = async () => {
+    win.webContents.invalidate()
+    await wait(250)
+    return win.webContents.capturePage()
+  }
   await new Promise<void>((resolve) => win.webContents.once('did-finish-load', () => resolve()))
   await wait(2500)
   for (const [theme, label] of [['jour', '☀️ Jour'], ['nuit', '🌙 Nuit']]) {
@@ -280,12 +287,12 @@ async function captureScreens(win: BrowserWindow, dir: string): Promise<void> {
     for (const page of ['Réglages du jeu', 'Paramètres', 'Accueil']) {
       await click(page)
       await wait(page === 'Bibliothèque' ? 2500 : 800)
-      const image = await win.webContents.capturePage()
+      const image = await snap()
       await writeFile(join(dir, `${theme}-${page}.png`), image.toPNG())
       if (page === 'Réglages du jeu') {
         await win.webContents.executeJavaScript('document.querySelector(".content").scrollTop = 99999')
         await wait(400)
-        await writeFile(join(dir, `${theme}-${page}-bas.png`), (await win.webContents.capturePage()).toPNG())
+        await writeFile(join(dir, `${theme}-${page}-bas.png`), (await snap()).toPNG())
         await win.webContents.executeJavaScript('document.querySelector(".content").scrollTop = 0')
       }
     }
@@ -296,7 +303,7 @@ async function captureScreens(win: BrowserWindow, dir: string): Promise<void> {
     await wait(800)
     await click('Changer de skin')
     await wait(2500)
-    await writeFile(join(dir, 'nuit-skin.png'), (await win.webContents.capturePage()).toPNG())
+    await writeFile(join(dir, 'nuit-skin.png'), (await snap()).toPNG())
     await win.webContents.executeJavaScript(`document.querySelector('.overlay')?.click()`)
     await wait(300)
   }
@@ -316,7 +323,7 @@ async function captureScreens(win: BrowserWindow, dir: string): Promise<void> {
   await wait(800)
   await select('game-version', '1.8.9')
   await wait(2500)
-  await writeFile(join(dir, 'nuit-profil-1.8.9.png'), (await win.webContents.capturePage()).toPNG())
+  await writeFile(join(dir, 'nuit-profil-1.8.9.png'), (await snap()).toPNG())
   await win.webContents.executeJavaScript(`document.querySelector('.overlay')?.click()`)
   await wait(400)
   await click('Bibliothèque')
@@ -325,11 +332,11 @@ async function captureScreens(win: BrowserWindow, dir: string): Promise<void> {
   await wait(600)
   await click('Mods')
   await wait(2500)
-  await writeFile(join(dir, 'nuit-bibliotheque-forge.png'), (await win.webContents.capturePage()).toPNG())
+  await writeFile(join(dir, 'nuit-bibliotheque-forge.png'), (await snap()).toPNG())
   // Menu déroulant ouvert (aspect de la liste)
   await win.webContents.executeJavaScript(`document.querySelector('[data-select="library-profile"]')?.click()`)
   await wait(500)
-  await writeFile(join(dir, 'nuit-menu-ouvert.png'), (await win.webContents.capturePage()).toPNG())
+  await writeFile(join(dir, 'nuit-menu-ouvert.png'), (await snap()).toPNG())
   await win.webContents.executeJavaScript(`document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))`)
   // Créations (si ALORIA_CAPTURE_PACK est défini) : un pack de test installé dans les profils d'auto-test 26.3 et 1.8.9
   if (process.env.ALORIA_CAPTURE_PACK) {
@@ -353,14 +360,22 @@ async function captureScreens(win: BrowserWindow, dir: string): Promise<void> {
     await wait(400)
     await click('Teinter')
     await wait(1500)
-    await writeFile(join(dir, 'nuit-createur.png'), (await win.webContents.capturePage()).toPNG())
+    await click('Hotbar')
+    await wait(300)
+    await click('Dessiner une case')
+    await wait(800)
+    await writeFile(join(dir, 'nuit-createur-case.png'), (await snap()).toPNG())
+    await click('Totem')
+    await wait(800)
+    await writeFile(join(dir, 'nuit-createur-totem.png'), (await snap()).toPNG())
+    await writeFile(join(dir, 'nuit-createur.png'), (await snap()).toPNG())
     for (const profile of ['Auto-test (dev)', 'Auto-test 1.8.9 Fabric']) {
       await select('pack-target', profile)
       await wait(4000)
       await click('Installer')
       await wait(3000)
     }
-    await writeFile(join(dir, 'nuit-createur-installe.png'), (await win.webContents.capturePage()).toPNG())
+    await writeFile(join(dir, 'nuit-createur-installe.png'), (await snap()).toPNG())
   }
   // On remet le réglage par défaut
   await click('Paramètres')

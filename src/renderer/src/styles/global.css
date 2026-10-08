@@ -132,6 +132,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .content { flex: 1; position: relative; padding: 40px; overflow-y: auto; }
 
 .hero {
+  position: relative;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -140,7 +141,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   gap: 14px;
   text-align: center;
 }
-.hero__row { display: flex; align-items: center; justify-content: center; gap: 36px; flex-wrap: wrap; }
+.hero__row { display: flex; align-items: center; justify-content: center; }
 .hero__main { display: flex; flex-direction: column; align-items: center; gap: 14px; }
 /* Perso 3D : ombre douce au sol, apparition en fondu une fois le skin chargé */
 .skin-viewer { position: relative; width: 240px; height: 330px; }
@@ -148,8 +149,8 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   content: '';
   position: absolute;
   left: 50%;
-  bottom: 18px;
-  width: 120px;
+  bottom: 7%;
+  width: 50%;
   height: 18px;
   transform: translateX(-50%);
   border-radius: 50%;
@@ -666,8 +667,9 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .pixel-grid__cell.center { box-shadow: inset 0 0 0 1px rgba(92, 200, 224, 0.55); }
 
 /* Mon skin */
-.hero__skin { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.skin-change { padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--sea-deep); background: var(--card); opacity: 0.85; }
+/* Perso 3D discret, en bas à droite de l'accueil (au-dessus de « Discord · version ») */
+.hero__skin { position: absolute; right: 18px; bottom: 34px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.skin-change { padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; color: var(--sea-deep); background: var(--card); opacity: 0.85; }
 .skin-change:hover { opacity: 1; background: var(--foam); }
 .skin-dialog { width: min(820px, 94vw); max-height: 92vh; overflow-y: auto; }
 .skin-dialog__body { display: grid; grid-template-columns: 240px 1fr; gap: 24px; }
@@ -701,3 +703,5 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .skin-grid__delete { position: absolute; top: 2px; right: 4px; font-size: 11px; color: var(--text-soft); opacity: 0; }
 .skin-grid__item:hover .skin-grid__delete { opacity: 1; }
 .skin-grid__delete:hover { color: var(--danger); }
+.segmented.small { flex-wrap: wrap; align-self: stretch; }
+.segmented.small button { padding: 6px 12px; font-size: 13px; }

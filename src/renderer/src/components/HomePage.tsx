@@ -22,7 +22,7 @@ export default function HomePage({ accounts, profiles, game, onSkin }: Props) {
       <div className="hero__row">
         {accounts.active && (
           <div className="hero__skin">
-            <SkinViewer uuid={accounts.active.uuid} />
+            <SkinViewer uuid={accounts.active.uuid} width={150} height={205} />
             <button className="skin-change" onClick={onSkin}>
               🎽 Changer de skin
             </button>
