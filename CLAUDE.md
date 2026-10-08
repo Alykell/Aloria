@@ -46,6 +46,13 @@ Données du jeu : `%APPDATA%\.aloria` (profils, instances, `shared/` = serveurs 
   de l'installeur, id `forge-<version maven>`. Proposé en premier avant Sodium/Iris (`src/shared/loaders.ts`).
 - OptiFine n'est pas redistribuable : le joueur le télécharge, « Ajouter OptiFine » (bibliothèque) le range dans `mods`.
 
+## Créations (packs de textures, page « Créations »)
+- Packs dans `%APPDATA%\.aloria\packs\<id>` (pack.json + PNG au format commun : viseur 15×15, hotbar 182×22, sélection
+  24×24, totem 16×16). `src/main/packs.ts` (stockage, jar du jeu, zip, activation dans options.txt) ;
+  `src/renderer/src/packImages.ts` (conversion : sprites/hud depuis la 1.20.2, sinon icons.png/widgets.png recomposés).
+- Test : `ALORIA_CAPTURE=… ALORIA_CAPTURE_PACK="Test Aloria"` crée un pack et l'installe dans selftest et selftest189f
+  (penser à supprimer ensuite `%APPDATA%\.aloria\packs` et le pack des profils de test).
+
 ## Pièges Minecraft 26.x (non obfusqué, noms Mojang)
 - Rendu : `GuiGraphicsExtractor`, `extractRenderState` ; écrans : `mc.gui.setScreen(...)`.
 - Touches = scancodes SDL ; souris : **gauche = 1, droit = 3** (`InputConstants.MOUSE_BUTTON_*`).
