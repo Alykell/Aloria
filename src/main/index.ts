@@ -326,6 +326,10 @@ async function captureScreens(win: BrowserWindow, dir: string): Promise<void> {
     await wait(400)
     await click('Appliquer la teinte')
     await wait(1500)
+    await click('Vie')
+    await wait(400)
+    await click('Teinter')
+    await wait(1500)
     await writeFile(join(dir, 'nuit-createur.png'), (await win.webContents.capturePage()).toPNG())
     for (const profile of ['Auto-test (dev)', 'Auto-test 1.8.9 Fabric']) {
       await select('pack-target', profile)

@@ -16,7 +16,20 @@ import type { PackElement, PackInfo, PackLayout, PackVanilla } from '../shared/t
  * l'interface recompose à partir de celles du jeu. Le format du pack se lit dans le jar de la version.
  */
 const PACKS = join(paths.root, 'packs')
-const ELEMENTS: PackElement[] = ['crosshair', 'hotbar', 'hotbar_selection', 'totem']
+const ELEMENTS: PackElement[] = ['crosshair', 'hotbar', 'hotbar_selection', 'totem', 'heart_full', 'heart_half', 'armor_full', 'armor_half', 'food_full', 'food_half']
+
+/** Icônes de la barre de vie (1.20.2+) : chemin sous textures/gui/sprites/hud/, éléments modifiables puis fonds (aperçu) */
+const HUD_SPRITES: Record<string, string> = {
+  heart_full: 'heart/full',
+  heart_half: 'heart/half',
+  heart_container: 'heart/container',
+  armor_full: 'armor_full',
+  armor_half: 'armor_half',
+  armor_empty: 'armor_empty',
+  food_full: 'food_full',
+  food_half: 'food_half',
+  food_empty: 'food_empty'
+}
 const packDir = (id: string) => join(PACKS, id)
 const infoFile = (id: string) => join(packDir(id), 'pack.json')
 const dataUrl = (buf: Buffer) => `data:image/png;base64,${buf.toString('base64')}`
@@ -128,7 +141,8 @@ export async function packVanilla(gameVersionOrProfile: { profileId?: string; ga
             crosshair: png(`${T}gui/sprites/hud/crosshair.png`),
             hotbar: png(`${T}gui/sprites/hud/hotbar.png`),
             hotbar_selection: png(`${T}gui/sprites/hud/hotbar_selection.png`),
-            totem: totemPath ? png(totemPath) : null
+            totem: totemPath ? png(totemPath) : null,
+            ...Object.fromEntries(Object.entries(HUD_SPRITES).map(([k, path]) => [k, png(`${T}gui/sprites/hud/${path}.png`)]))
           }
         : { totem: totemPath ? png(totemPath) : null },
     atlases: layout === 'atlas' ? { icons: png(`${T}gui/icons.png`), widgets: png(`${T}gui/widgets.png`) } : {}

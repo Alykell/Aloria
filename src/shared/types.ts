@@ -4,7 +4,17 @@ export interface PublicAccount {
 }
 
 /** Éléments modifiables d'un pack créé dans Aloria (format commun à toutes les versions) */
-export type PackElement = 'crosshair' | 'hotbar' | 'hotbar_selection' | 'totem'
+export type PackElement =
+  | 'crosshair'
+  | 'hotbar'
+  | 'hotbar_selection'
+  | 'totem'
+  | 'heart_full'
+  | 'heart_half'
+  | 'armor_full'
+  | 'armor_half'
+  | 'food_full'
+  | 'food_half'
 
 export interface PackInfo {
   id: string
@@ -25,7 +35,8 @@ export interface PackVanilla {
   format: [number, number]
   /** Chemin du totem dans cette version, ou null (pas de totem avant la 1.11) */
   totemPath: string | null
-  images: Partial<Record<PackElement, string | null>>
+  /** Éléments, plus les fonds des icônes de vie pour l'aperçu (heart_container, armor_empty, food_empty) */
+  images: Partial<Record<string, string | null>>
   atlases: { icons?: string | null; widgets?: string | null }
 }
 

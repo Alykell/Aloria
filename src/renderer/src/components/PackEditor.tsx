@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Select from './Select'
 import { describeProfile } from '../hooks/useVersions'
-import { canvas, loadImage, packFiles, packIcon, resize, SIZES, vanillaElements } from '../packImages'
+import { canvas, loadImage, packFiles, packIcon, resize, SIZES, vanillaElements, type BaseImages } from '../packImages'
 import type { ProfilesState } from '../hooks/useProfiles'
 import type { PackElement, PackInfo, PackVanilla } from '../../../shared/types'
 
@@ -13,11 +13,20 @@ interface Props {
   onError: (message: string) => void
 }
 
-type Tab = 'crosshair' | 'hotbar' | 'totem'
+type Tab = 'crosshair' | 'hotbar' | 'health' | 'totem'
+
+/** Éléments de chaque onglet (pastille « modifié ») */
+const TAB_ELEMENTS: Record<Tab, PackElement[]> = {
+  crosshair: ['crosshair'],
+  hotbar: ['hotbar', 'hotbar_selection'],
+  health: ['heart_full', 'heart_half', 'armor_full', 'armor_half', 'food_full', 'food_half'],
+  totem: ['totem']
+}
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'crosshair', label: '🎯 Viseur' },
   { id: 'hotbar', label: '🧰 Hotbar' },
+  { id: 'health', label: '❤️ Vie' },
   { id: 'totem', label: '🗿 Totem' }
 ]
 
@@ -26,7 +35,7 @@ export default function PackEditor({ pack, profiles, onBack, onChanged, onError 
   const [tab, setTab] = useState<Tab>('crosshair')
   const [target, setTarget] = useState(profiles.selected?.id ?? profiles.profiles[0]?.id ?? '')
   const [vanilla, setVanilla] = useState<PackVanilla | null>(null)
-  const [base, setBase] = useState<Partial<Record<PackElement, string>>>({})
+  const [base, setBase] = useState<BaseImages>({})
   const [installing, setInstalling] = useState(false)
   const [done, setDone] = useState<string | null>(null)
   const saveTimers = useRef<Partial<Record<PackElement, ReturnType<typeof setTimeout>>>>({})
@@ -96,7 +105,7 @@ export default function PackEditor({ pack, profiles, onBack, onChanged, onError 
 
       <div className="pack-editor__body">
         <div className="pack-editor__preview card">
-          <HudPreview crosshair={image('crosshair')} hotbar={image('hotbar')} selection={image('hotbar_selection')} />
+          <HudPreview image={image} base={base} />
           {tab === 'totem' && (
             <div className="totem-preview">
               {image('totem') ? <img src={image('totem')} alt="" className="pixel" /> : <span className="muted">Pas de totem dans cette version</span>}
@@ -132,7 +141,7 @@ export default function PackEditor({ pack, profiles, onBack, onChanged, onError 
             {TABS.map((t) => (
               <button key={t.id} className={tab === t.id ? 'active' : ''} onClick={() => setTab(t.id)}>
                 {t.label}
-                {(t.id === 'hotbar' ? pack.images.hotbar || pack.images.hotbar_selection : pack.images[t.id]) && <span className="dot" />}
+                {TAB_ELEMENTS[t.id].some((el) => pack.images[el]) && <span className="dot" />}
               </button>
             ))}
           </div>
@@ -146,6 +155,7 @@ export default function PackEditor({ pack, profiles, onBack, onChanged, onError 
               onChange={(el, v) => update(el, v)}
             />
           )}
+          {tab === 'health' && <HealthTool base={base} pack={pack} image={image} onChange={update} />}
           {tab === 'totem' && (
             <TotemTool value={image('totem')} custom={!!pack.images.totem} available={!vanilla || !!vanilla.totemPath} onChange={(v) => update('totem', v)} />
           )}
@@ -155,90 +165,105 @@ export default function PackEditor({ pack, profiles, onBack, onChanged, onError 
   )
 }
 
-/** Petit décor de jeu : hotbar en bas, viseur au centre (inversé selon le fond, comme en jeu) */
-function HudPreview({ crosshair, hotbar, selection }: { crosshair?: string; hotbar?: string; selection?: string }) {
+/**
+ * Petit décor de jeu à l'échelle ×2 : hotbar en bas, cœurs et armure à gauche au-dessus, faim à droite
+ * (9 pleins + 1 moitié, comme en jeu), viseur au centre ×3, inversé selon le fond comme dans Minecraft.
+ */
+function HudPreview({ image, base }: { image: (el: PackElement) => string | undefined; base: BaseImages }) {
+  const row = (full: PackElement, half: PackElement, empty: string, right: boolean) =>
+    Array.from({ length: 10 }, (_, i) => {
+      const img = i === 9 ? image(half) : image(full)
+      return (
+        <span key={i} className="hud-preview__icon" style={right ? { right: i * 16 } : { left: i * 16 }}>
+          {base[empty] && <img className="pixel" src={base[empty]} alt="" />}
+          {img && <img className="pixel" src={img} alt="" />}
+        </span>
+      )
+    })
+  const crosshair = image('crosshair')
   return (
     <div className="hud-preview">
       {crosshair && <img className="hud-preview__crosshair pixel" src={crosshair} alt="" />}
       <div className="hud-preview__hotbar">
-        {hotbar && <img className="pixel" src={hotbar} alt="" />}
-        {selection && <img className="hud-preview__selection pixel" src={selection} alt="" />}
+        <div className="hud-preview__row armor">{row('armor_full', 'armor_half', 'armor_empty', false)}</div>
+        <div className="hud-preview__row health">{row('heart_full', 'heart_half', 'heart_container', false)}</div>
+        <div className="hud-preview__row food">{row('food_full', 'food_half', 'food_empty', true)}</div>
+        {image('hotbar') && <img className="pixel" src={image('hotbar')} alt="" />}
+        {image('hotbar_selection') && <img className="hud-preview__selection pixel" src={image('hotbar_selection')} alt="" />}
       </div>
     </div>
   )
 }
 
-// ---------------------------------------------------------------- viseur
+// ---------------------------------------------------------------- éditeur de pixels (viseur, cœur)
 
-const CENTER = 7
 type Pixels = Uint8ClampedArray
-
-function presetPixels(kind: string): boolean[] {
-  const on = new Array(15 * 15).fill(false)
-  const set = (x: number, y: number) => x >= 0 && x < 15 && y >= 0 && y < 15 && (on[y * 15 + x] = true)
-  for (let y = 0; y < 15; y++) {
-    for (let x = 0; x < 15; x++) {
-      const dx = x - CENTER
-      const dy = y - CENTER
-      const d = Math.max(Math.abs(dx), Math.abs(dy))
-      if (kind === 'point' && d <= 1) set(x, y)
-      if (kind === 'cross' && ((dx === 0 && Math.abs(dy) >= 2 && Math.abs(dy) <= 5) || (dy === 0 && Math.abs(dx) >= 2 && Math.abs(dx) <= 5))) set(x, y)
-      if (kind === 'crossdot' && ((dx === 0 && Math.abs(dy) >= 3 && Math.abs(dy) <= 6) || (dy === 0 && Math.abs(dx) >= 3 && Math.abs(dx) <= 6) || d === 0)) set(x, y)
-      if (kind === 'plus' && ((dx === 0 && Math.abs(dy) <= 4) || (dy === 0 && Math.abs(dx) <= 4))) set(x, y)
-      if (kind === 'circle' && Math.abs(Math.hypot(dx, dy) - 4.5) < 0.6) set(x, y)
-      if (kind === 'square' && d === 4) set(x, y)
-      if (kind === 'x' && Math.abs(dx) === Math.abs(dy) && d >= 2 && d <= 5) set(x, y)
-    }
-  }
-  return on
-}
-
-const PRESETS: { id: string; label: string }[] = [
-  { id: 'point', label: 'Point' },
-  { id: 'cross', label: 'Croix fine' },
-  { id: 'crossdot', label: 'Croix + point' },
-  { id: 'plus', label: 'Plus' },
-  { id: 'circle', label: 'Cercle' },
-  { id: 'square', label: 'Carré' },
-  { id: 'x', label: 'X' }
-]
+/** quad : symétrie sur les deux axes (viseur) ; horizontal : gauche/droite (cœur) */
+type Mirror = 'quad' | 'horizontal'
 
 function hexToRgb(hex: string): [number, number, number] {
   const n = parseInt(hex.slice(1), 16)
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
 }
 
-function CrosshairTool({ value, custom, onChange }: { value?: string; custom: boolean; onChange: (v: string | null) => void }) {
-  const [pixels, setPixels] = useState<Pixels>(() => new Uint8ClampedArray(15 * 15 * 4))
-  const [color, setColor] = useState('#ffffff')
+/** Grille de pixels : clic gauche dessine, clic droit efface, avec symétrie ; « presets » = formes toutes faites */
+function PixelEditor({
+  size,
+  value,
+  custom,
+  onChange,
+  mirror: mirrorMode,
+  defaultColor,
+  cell,
+  presets,
+  extra
+}: {
+  size: number
+  value?: string
+  custom: boolean
+  onChange: (v: string | null) => void
+  mirror: Mirror
+  defaultColor: string
+  cell: number
+  presets?: { id: string; label: string; pixels: (x: number, y: number) => boolean }[]
+  extra?: React.ReactNode
+}) {
+  const [pixels, setPixels] = useState<Pixels>(() => new Uint8ClampedArray(size * size * 4))
+  const [color, setColor] = useState(defaultColor)
   const [mirror, setMirror] = useState(true)
   const painting = useRef<'paint' | 'erase' | null>(null)
   const latest = useRef(pixels)
+  const center = (size - 1) / 2
 
-  // Pixels de l'image actuelle (au chargement et quand on revient au viseur du jeu)
+  // Pixels de l'image actuelle (au chargement et quand on revient à l'image du jeu)
   useEffect(() => {
     if (!value) return
     loadImage(value).then((img) => {
-      const [, g] = canvas(15, 15)
+      const [, g] = canvas(size, size)
       g.drawImage(img, 0, 0)
-      const data = g.getImageData(0, 0, 15, 15).data
+      const data = g.getImageData(0, 0, size, size).data
       latest.current = data
       setPixels(data)
     })
   }, [value === undefined ? '' : custom ? 'custom' : value])
 
   const commit = (data: Pixels) => {
-    const [c, g] = canvas(15, 15)
-    g.putImageData(new ImageData(new Uint8ClampedArray(data), 15, 15), 0, 0)
+    const [c, g] = canvas(size, size)
+    g.putImageData(new ImageData(new Uint8ClampedArray(data), size, size), 0, 0)
     onChange(c.toDataURL('image/png'))
   }
 
   const paint = (x: number, y: number, mode: 'paint' | 'erase') => {
     const data = new Uint8ClampedArray(latest.current)
     const [r, g, b] = hexToRgb(color)
-    const points = mirror ? [[x, y], [14 - x, y], [x, 14 - y], [14 - x, 14 - y]] : [[x, y]]
+    const last = size - 1
+    const points = !mirror
+      ? [[x, y]]
+      : mirrorMode === 'quad'
+        ? [[x, y], [last - x, y], [x, last - y], [last - x, last - y]]
+        : [[x, y], [last - x, y]]
     for (const [px, py] of points) {
-      const i = (py * 15 + px) * 4
+      const i = (py * size + px) * 4
       if (mode === 'paint') data.set([r, g, b, 255], i)
       else data.set([0, 0, 0, 0], i)
     }
@@ -246,11 +271,10 @@ function CrosshairTool({ value, custom, onChange }: { value?: string; custom: bo
     setPixels(data)
   }
 
-  const applyPreset = (kind: string) => {
-    const on = presetPixels(kind)
+  const applyPreset = (fn: (x: number, y: number) => boolean) => {
     const [r, g, b] = hexToRgb(color)
-    const data = new Uint8ClampedArray(15 * 15 * 4)
-    on.forEach((v, i) => v && data.set([r, g, b, 255], i * 4))
+    const data = new Uint8ClampedArray(size * size * 4)
+    for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) if (fn(x, y)) data.set([r, g, b, 255], (y * size + x) * 4)
     latest.current = data
     setPixels(data)
     commit(data)
@@ -263,15 +287,21 @@ function CrosshairTool({ value, custom, onChange }: { value?: string; custom: bo
 
   return (
     <div className="tool">
-      <div className="pixel-grid" onMouseLeave={end} onMouseUp={end} onContextMenu={(e) => e.preventDefault()}>
-        {Array.from({ length: 225 }, (_, i) => {
-          const x = i % 15
-          const y = Math.floor(i / 15)
+      <div
+        className="pixel-grid"
+        style={{ gridTemplateColumns: `repeat(${size}, ${cell}px)`, gridTemplateRows: `repeat(${size}, ${cell}px)`, backgroundSize: `${cell}px ${cell}px`, backgroundPosition: `0 0, ${cell / 2}px ${cell / 2}px` }}
+        onMouseLeave={end}
+        onMouseUp={end}
+        onContextMenu={(e) => e.preventDefault()}
+      >
+        {Array.from({ length: size * size }, (_, i) => {
+          const x = i % size
+          const y = Math.floor(i / size)
           const a = pixels[i * 4 + 3]
           return (
             <div
               key={i}
-              className={`pixel-grid__cell ${x === CENTER && y === CENTER ? 'center' : ''}`}
+              className={`pixel-grid__cell ${x === center && y === center ? 'center' : ''}`}
               style={a ? { background: `rgba(${pixels[i * 4]}, ${pixels[i * 4 + 1]}, ${pixels[i * 4 + 2]}, ${a / 255})` } : undefined}
               onMouseDown={(e) => {
                 painting.current = e.button === 2 ? 'erase' : 'paint'
@@ -294,20 +324,61 @@ function CrosshairTool({ value, custom, onChange }: { value?: string; custom: bo
         </label>
       </div>
       <div className="tool__presets">
-        {PRESETS.map((p) => (
-          <button key={p.id} onClick={() => applyPreset(p.id)}>
+        {presets?.map((p) => (
+          <button key={p.id} onClick={() => applyPreset(p.pixels)}>
             {p.label}
           </button>
         ))}
-        <button onClick={() => applyPreset('none')}>Vide</button>
+        <button onClick={() => applyPreset(() => false)}>Vide</button>
         <button disabled={!custom} onClick={() => onChange(null)}>
           Celui du jeu
         </button>
       </div>
-      <small className="muted">
-        En jeu, le viseur s'inverse selon le décor derrière lui (comme celui de Minecraft) : le blanc donne le résultat le plus net.
-      </small>
+      {extra}
     </div>
+  )
+}
+
+// ---------------------------------------------------------------- viseur
+
+const C = 7
+const ring = (dx: number, dy: number) => Math.max(Math.abs(dx), Math.abs(dy))
+const CROSSHAIRS: { id: string; label: string; pixels: (x: number, y: number) => boolean }[] = [
+  { id: 'point', label: 'Point', pixels: (x, y) => ring(x - C, y - C) <= 1 },
+  {
+    id: 'cross',
+    label: 'Croix fine',
+    pixels: (x, y) => (x === C && Math.abs(y - C) >= 2 && Math.abs(y - C) <= 5) || (y === C && Math.abs(x - C) >= 2 && Math.abs(x - C) <= 5)
+  },
+  {
+    id: 'crossdot',
+    label: 'Croix + point',
+    pixels: (x, y) =>
+      (x === C && y === C) || (x === C && Math.abs(y - C) >= 3 && Math.abs(y - C) <= 6) || (y === C && Math.abs(x - C) >= 3 && Math.abs(x - C) <= 6)
+  },
+  { id: 'plus', label: 'Plus', pixels: (x, y) => (x === C && Math.abs(y - C) <= 4) || (y === C && Math.abs(x - C) <= 4) },
+  { id: 'circle', label: 'Cercle', pixels: (x, y) => Math.abs(Math.hypot(x - C, y - C) - 4.5) < 0.6 },
+  { id: 'square', label: 'Carré', pixels: (x, y) => ring(x - C, y - C) === 4 },
+  { id: 'x', label: 'X', pixels: (x, y) => Math.abs(x - C) === Math.abs(y - C) && ring(x - C, y - C) >= 2 && ring(x - C, y - C) <= 5 }
+]
+
+function CrosshairTool({ value, custom, onChange }: { value?: string; custom: boolean; onChange: (v: string | null) => void }) {
+  return (
+    <PixelEditor
+      size={15}
+      cell={20}
+      value={value}
+      custom={custom}
+      onChange={onChange}
+      mirror="quad"
+      defaultColor="#ffffff"
+      presets={CROSSHAIRS}
+      extra={
+        <small className="muted">
+          En jeu, le viseur s'inverse selon le décor derrière lui (comme celui de Minecraft) : le blanc donne le résultat le plus net.
+        </small>
+      }
+    />
   )
 }
 
@@ -407,6 +478,115 @@ function HotbarTool({
         </button>
       </div>
       <input ref={file} type="file" accept="image/png" hidden onChange={(e) => imported(e.target.files?.[0]).finally(() => (e.target.value = ''))} />
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------- vie, armure, faim
+
+/** Moitié gauche d'une icône 9×9 (le cœur à moitié du jeu garde les 5 colonnes de gauche) */
+async function leftHalf(src: string): Promise<string> {
+  const img = await loadImage(src)
+  const [c, g] = canvas(9, 9)
+  g.drawImage(img, 0, 0, 5, 9, 0, 0, 5, 9)
+  return c.toDataURL('image/png')
+}
+
+const HEART_SHAPE = ['.##...##.', '####.####', '#########', '#########', '.#######.', '..#####..', '...###...', '....#....', '.........']
+
+const HEARTS: { id: string; label: string; pixels: (x: number, y: number) => boolean }[] = [
+  { id: 'heart', label: 'Cœur', pixels: (x, y) => HEART_SHAPE[y][x] === '#' },
+  { id: 'diamond', label: 'Losange', pixels: (x, y) => Math.abs(x - 4) + Math.abs(y - 4) <= 4 },
+  { id: 'square', label: 'Carré', pixels: (x, y) => x >= 1 && x <= 7 && y >= 1 && y <= 7 }
+]
+
+type Group = { id: 'heart' | 'armor' | 'food'; label: string; full: PackElement; half: PackElement }
+
+const GROUPS: Group[] = [
+  { id: 'heart', label: 'Cœurs', full: 'heart_full', half: 'heart_half' },
+  { id: 'armor', label: 'Armure', full: 'armor_full', half: 'armor_half' },
+  { id: 'food', label: 'Faim', full: 'food_full', half: 'food_half' }
+]
+
+function HealthTool({
+  base,
+  pack,
+  image,
+  onChange
+}: {
+  base: BaseImages
+  pack: PackInfo
+  image: (el: PackElement) => string | undefined
+  onChange: (el: PackElement, v: string | null) => void
+}) {
+  const [colors, setColors] = useState({ heart: '#ff4fa3', armor: '#5cc8e0', food: '#ffb347' })
+  const [strength, setStrength] = useState(80)
+  const [drawing, setDrawing] = useState(false)
+
+  const tintGroup = async (g: Group) => {
+    const color = colors[g.id]
+    const full = base[g.full]
+    const half = base[g.half]
+    if (full) onChange(g.full, await tint(full, color, strength / 100))
+    if (half) onChange(g.half, await tint(half, color, strength / 100))
+  }
+
+  return (
+    <div className="tool">
+      <div className="slider-line">
+        <span>Intensité de la teinte</span>
+        <input type="range" className="slider" min={10} max={100} value={strength} onChange={(e) => setStrength(Number(e.target.value))} />
+        <strong>{strength} %</strong>
+      </div>
+      {GROUPS.map((g) => (
+        <div key={g.id} className="health-row">
+          <div className="health-row__icons">
+            {image(g.full) && <img className="pixel" src={image(g.full)} alt="" />}
+            {image(g.half) && <img className="pixel" src={image(g.half)} alt="" />}
+          </div>
+          <strong>{g.label}</strong>
+          <label className="color-field">
+            <input type="color" value={colors[g.id]} onChange={(e) => setColors({ ...colors, [g.id]: e.target.value })} />
+          </label>
+          <div className="tool__presets">
+            <button className="primary" onClick={() => tintGroup(g)}>
+              Teinter
+            </button>
+            <button
+              disabled={!pack.images[g.full] && !pack.images[g.half]}
+              onClick={() => {
+                onChange(g.full, null)
+                onChange(g.half, null)
+              }}
+            >
+              Celle du jeu
+            </button>
+          </div>
+        </div>
+      ))}
+
+      <h4>Dessiner ton cœur</h4>
+      {!drawing ? (
+        <div className="tool__presets">
+          <button onClick={() => setDrawing(true)}>Ouvrir l’éditeur de pixels</button>
+        </div>
+      ) : (
+        <PixelEditor
+          size={9}
+          cell={26}
+          value={image('heart_full')}
+          custom={!!pack.images.heart_full}
+          mirror="horizontal"
+          defaultColor="#ff4fa3"
+          presets={HEARTS}
+          onChange={async (v) => {
+            onChange('heart_full', v)
+            // La moitié suit le cœur plein : ses 5 colonnes de gauche
+            onChange('heart_half', v ? await leftHalf(v) : null)
+          }}
+          extra={<small className="muted">Le cœur à moitié est fait automatiquement avec la moitié gauche.</small>}
+        />
+      )}
     </div>
   )
 }

@@ -607,7 +607,8 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .pack-editor__install { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-weight: 700; color: var(--sea-deep); }
 .pack-editor__install .select { flex: 1; min-width: 200px; }
 .success { color: var(--success); font-weight: 600; }
-.pack-editor__tools .tabs button { white-space: nowrap; padding-left: 12px; padding-right: 12px; }
+.pack-editor__tools .tabs { flex-wrap: wrap; }
+.pack-editor__tools .tabs button { white-space: nowrap; padding-left: 10px; padding-right: 10px; }
 .tabs .dot { display: inline-block; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%; background: var(--lagoon); vertical-align: middle; }
 
 /* Aperçu : décor de jeu, hotbar ×2, viseur ×3 inversé selon le fond comme en jeu */
@@ -621,8 +622,19 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 }
 .hud-preview__crosshair { position: absolute; left: 50%; top: 45%; width: 45px; height: 45px; transform: translate(-50%, -50%); mix-blend-mode: difference; }
 .hud-preview__hotbar { position: absolute; left: 50%; bottom: 10px; width: 364px; height: 44px; transform: translateX(-50%); }
-.hud-preview__hotbar > img:first-child { width: 364px; height: 44px; }
-.hud-preview__selection { position: absolute; left: 78px; top: -2px; width: 48px; height: 48px; }
+.hud-preview__hotbar > img { width: 364px; height: 44px; }
+.hud-preview__hotbar > img.hud-preview__selection { width: 48px; height: 48px; }
+/* Rangées d'icônes ×2 : cœurs 34 px au-dessus de la hotbar, armure 20 px plus haut, faim alignée à droite */
+.hud-preview__row { position: absolute; left: 0; right: 0; height: 18px; }
+.hud-preview__row.health, .hud-preview__row.food { top: -34px; }
+.hud-preview__row.armor { top: -54px; }
+.hud-preview__icon { position: absolute; top: 0; width: 18px; height: 18px; }
+.hud-preview__icon img { position: absolute; inset: 0; width: 18px; height: 18px; }
+.health-row { display: grid; grid-template-columns: 70px 70px 44px 1fr; align-items: center; gap: 10px; }
+.health-row__icons { display: flex; gap: 6px; }
+.health-row__icons img { width: 27px; height: 27px; }
+.tool .slider-line > span { font-weight: 600; font-size: 14px; white-space: nowrap; }
+.hud-preview__selection { position: absolute; left: 78px; top: -2px; }
 .totem-preview, .totem-tool { display: grid; place-items: center; padding: 10px; }
 .totem-preview img, .totem-tool img { width: 112px; height: 112px; }
 
