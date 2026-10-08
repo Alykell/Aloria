@@ -11,6 +11,7 @@ import { useAccounts } from './hooks/useAccounts'
 import { useSettings } from './hooks/useSettings'
 import { useGame } from './hooks/useGame'
 import { useProfiles } from './hooks/useProfiles'
+import { DISCORD_INVITE } from '../../shared/links'
 import { useTheme } from './hooks/useTheme'
 
 export default function App() {
@@ -68,7 +69,12 @@ export default function App() {
           {page === 'library' && (
             <LibraryPage profiles={profiles} onError={setPageError} onOpenProfiles={() => setPage('profiles')} />
           )}
-          <footer className="version">v{version}</footer>
+          <footer className="version">
+            <a href={DISCORD_INVITE} target="_blank" rel="noreferrer" title="Annonces, aide et communauté">
+              Discord
+            </a>{' '}
+            · v{version}
+          </footer>
         </main>
       </div>
       {game.crash && <CrashDialog exit={game.crash} profileId={profiles.selected?.id ?? null} onClose={game.clearCrash} />}

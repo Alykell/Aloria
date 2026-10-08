@@ -3,7 +3,7 @@
 **Aloria** est un launcher Minecraft: Java Edition personnel, au style plage et océan.
 *Aloria is a personal Minecraft: Java Edition launcher with a light, ocean-themed look.*
 
-🌐 **Site / Website : [alykell.github.io/Aloria](https://alykell.github.io/Aloria/)**
+🌐 **Site / Website : [alykell.github.io/Aloria](https://alykell.github.io/Aloria/)** · 💬 **[Discord](https://discord.gg/V8HbUfJksC)** (annonces, aide, communauté)
 
 > Projet non officiel, non affilié à Mojang ou Microsoft.
 > *Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.*
