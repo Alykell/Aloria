@@ -10,8 +10,29 @@ on:
 permissions:
   contents: write
 
+# GitHub lance parfois deux fois le workflow pour un même tag : le second attend la fin du premier
+# (au lieu de remplacer ses fichiers en cours d'envoi), puis s'arrête si la version est déjà publiée
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      published: ${{ steps.release.outputs.published }}
+    steps:
+      - id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          draft=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2>/dev/null || echo absent)
+          [ "$draft" = "false" ] && echo "published=true" >> "$GITHUB_OUTPUT" || echo "published=false" >> "$GITHUB_OUTPUT"
+
   release:
+    needs: check
+    if: needs.check.outputs.published != 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
