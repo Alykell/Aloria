@@ -8,6 +8,8 @@ Données du jeu : `%APPDATA%\.aloria` (profils, instances, `shared/` = serveurs 
 - Changer `version` dans `package.json`, commit, `git tag vX.Y.Z`, push du tag → GitHub Actions
   (`.github/workflows/release.yml`) compile le mod pour chaque version, construit l'installeur, publie
   (brouillon créé avant l'envoi des fichiers, sinon doublons). `npm run dist` en local échoue (Windows bloque l'exe non signé).
+- Le commit de version s'écrit « vX.Y.Z : nouveauté, autre nouveauté » : la CI en tire l'annonce postée dans #annonces
+  du Discord d'Aloria (secret `DISCORD_WEBHOOK_URL` ; bot et webhook : `%USERPROFILE%\.aloria-discord-token\`).
 - Le launcher installé se met à jour seul. Windows (contrôle intelligent des applications) bloque l'installeur non signé :
   mise à jour **légère** d'abord (`src/main/lightUpdate.ts` : app.asar + jars de `aloria-light.json`, remplacés par
   Aloria.exe en mode Node), l'installeur complet (electron-updater) seulement si Electron change.

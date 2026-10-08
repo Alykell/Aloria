@@ -97,3 +97,32 @@ jobs:
         run: gh release edit "$GITHUB_REF_NAME" --draft=false --latest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Annonce dans #annonces du Discord d'Aloria (webhook dans les secrets du dépôt ; étape ignorée sans lui).
+      # Le texte vient du message du commit de version : « vX.Y.Z : nouveautés, séparées par des virgules ».
+      - name: Annoncer la mise à jour sur Discord
+        shell: bash
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          [ -z "$DISCORD_WEBHOOK_URL" ] && { echo "Pas de webhook Discord : annonce ignorée"; exit 0; }
+          git log -1 --format=%s > subject.txt
+          node -e '
+            const fs = require("fs")
+            const version = process.env.GITHUB_REF_NAME.replace(/^v/, "")
+            const subject = fs.readFileSync("subject.txt", "utf8").trim()
+            const news = subject.replace(/^v[\d.]+\s*:\s*/, "").split(/,\s*/).filter(Boolean)
+            const notifs = "1557731017861636116"
+            fs.writeFileSync("discord.json", JSON.stringify({
+              content: `<@&${notifs}>`,
+              allowed_mentions: { roles: [notifs] },
+              embeds: [{
+                title: `🚀 Aloria ${version}`,
+                url: `https://github.com/Alykell/Aloria/releases/tag/v${version}`,
+                color: 0x2bb5d8,
+                description: news.map((n) => `• ${n.charAt(0).toUpperCase()}${n.slice(1)}`).join("\n") +
+                  "\n\nLe launcher se met à jour tout seul. Nouveau ? [Télécharger Aloria](https://alykell.github.io/Aloria/)"
+              }]
+            }))
+          '
+          curl -sf -H "Content-Type: application/json" -d @discord.json "$DISCORD_WEBHOOK_URL"
