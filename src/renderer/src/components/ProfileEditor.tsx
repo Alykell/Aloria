@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useVersions } from '../hooks/useVersions'
 import { ALORIA_HUD_MC_LABEL, ALORIA_HUD_MC_VERSIONS } from '../../../shared/aloriaHud'
-import type { LoaderVersion, Profile, ProfileInput, SettingsPreset } from '../../../shared/types'
+import { forgeSupported, prefersForge } from '../../../shared/loaders'
+import type { Loader, LoaderVersion, Profile, ProfileInput, SettingsPreset } from '../../../shared/types'
 
 const ICONS = ['🏝️', '🌊', '🐚', '⚓', '🐬', '🐠', '🦀', '🌴', '⛵', '🏰', '⚔️', '🧪', '🌙', '🔥', '💎', '🌸']
 
@@ -15,6 +16,8 @@ interface Props {
   onDelete?: (deleteFiles: boolean) => Promise<void>
   onClose: () => void
 }
+
+const LOADER_LABELS: Record<Loader, string> = { fabric: 'Fabric', forge: 'Forge', vanilla: 'Vanilla' }
 
 const EMPTY: ProfileInput = {
   name: '',
@@ -41,15 +44,35 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
   const gameVersion =
     form.versionId === 'latest-release' ? latestRelease : form.versionId === 'latest-snapshot' ? latestSnapshot : form.versionId
 
-  // Versions de Fabric disponibles pour la version du jeu choisie
+  // Nouveau profil : le chargeur suit la version (Forge avant Sodium et Iris, Fabric après), tant qu'on n'en a pas choisi un
+  const [loaderChosen, setLoaderChosen] = useState(!!profile)
+  const forgeAvailable = !!gameVersion && forgeSupported(gameVersion)
   useEffect(() => {
-    if (form.loader !== 'fabric' || !gameVersion) return
+    if (loaderChosen || !gameVersion) return
+    set({ loader: prefersForge(gameVersion) ? 'forge' : 'fabric', loaderVersion: null })
+  }, [gameVersion, loaderChosen])
+  const chooseLoader = (loader: Loader) => {
+    setLoaderChosen(true)
+    set({ loader, loaderVersion: null })
+  }
+  // Forge n'est proposé que là où Aloria sait l'installer, et il y passe alors en premier
+  const loaderOrder: Loader[] = forgeAvailable
+    ? ['forge', 'fabric', 'vanilla']
+    : form.loader === 'forge'
+      ? ['fabric', 'forge', 'vanilla']
+      : ['fabric', 'vanilla']
+
+  // Versions du chargeur disponibles pour la version du jeu choisie
+  useEffect(() => {
+    if (form.loader === 'vanilla' || !gameVersion) return
     setLoaders(null)
-    window.aloria.game.fabricLoaders(gameVersion).then((res) => setLoaders(res.ok ? res.value : []))
+    const list = form.loader === 'forge' ? window.aloria.game.forgeLoaders(gameVersion) : window.aloria.game.fabricLoaders(gameVersion)
+    list.then((res) => setLoaders(res.ok ? res.value : []))
   }, [form.loader, gameVersion])
 
-  const fabricUnavailable = form.loader === 'fabric' && loaders !== null && loaders.length === 0
-  const canSave = form.name.trim().length > 0 && !fabricUnavailable && !saving
+  const loaderName = form.loader === 'forge' ? 'Forge' : 'Fabric'
+  const loaderUnavailable = form.loader !== 'vanilla' && loaders !== null && loaders.length === 0
+  const canSave = form.name.trim().length > 0 && !loaderUnavailable && !saving
 
   const save = async () => {
     setSaving(true)
@@ -101,12 +124,11 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
         <div className="field">
           <span>Mods</span>
           <div className="segmented">
-            <button className={form.loader === 'fabric' ? 'active' : ''} onClick={() => set({ loader: 'fabric' })}>
-              Fabric
-            </button>
-            <button className={form.loader === 'vanilla' ? 'active' : ''} onClick={() => set({ loader: 'vanilla', loaderVersion: null })}>
-              Vanilla
-            </button>
+            {loaderOrder.map((l) => (
+              <button key={l} className={form.loader === l ? 'active' : ''} onClick={() => chooseLoader(l)}>
+                {LOADER_LABELS[l]}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -129,20 +151,41 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
           </small>
         )}
 
-        {form.loader === 'fabric' && (
+        {form.loader === 'forge' && (
+          <small className="muted">
+            Forge, pour jouer avec OptiFine (shaders, zoom…) dans les versions d'avant Sodium et Iris. Aloria HUD n'existe pas
+            encore sous Forge. Forge vit des publicités de son site :{' '}
+            <a href="https://www.patreon.com/LexManos/" target="_blank" rel="noreferrer">
+              tu peux le soutenir ici
+            </a>
+            .
+          </small>
+        )}
+
+        {form.loader !== 'vanilla' && (
           <label className="field">
-            <span>Version de Fabric</span>
+            <span>Version de {loaderName}</span>
             {loaders === null ? (
               <small className="muted">Chargement…</small>
-            ) : fabricUnavailable ? (
-              <small className="warning">Fabric n'est pas disponible pour Minecraft {gameVersion}.</small>
+            ) : loaderUnavailable ? (
+              <small className="warning">
+                {loaderName} n'est pas disponible pour Minecraft {gameVersion}
+                {form.loader === 'forge' ? ' dans Aloria (géré jusqu’à la 1.12.2)' : ''}.
+              </small>
             ) : (
               <select value={form.loaderVersion ?? ''} onChange={(e) => set({ loaderVersion: e.target.value || null })}>
-                <option value="">Dernière stable ({(loaders.find((l) => l.stable) ?? loaders[0]).version})</option>
+                <option value="">
+                  {form.loader === 'forge' ? 'Recommandée' : 'Dernière stable'} (
+                  {(() => {
+                    const l = loaders.find((x) => x.stable) ?? loaders[0]
+                    return l.label ?? l.version
+                  })()}
+                  )
+                </option>
                 {loaders.map((l) => (
                   <option key={l.version} value={l.version}>
-                    {l.version}
-                    {l.stable ? '' : ' (bêta)'}
+                    {l.label ?? l.version}
+                    {form.loader === 'forge' ? (l.stable ? ' (recommandée)' : '') : l.stable ? '' : ' (bêta)'}
                   </option>
                 ))}
               </select>

@@ -404,6 +404,8 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .notice { background: var(--card); border-radius: var(--radius); padding: 24px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 .notice strong { font-family: 'Quicksand', sans-serif; font-size: 18px; color: var(--sea-deep); }
 .notice p { color: var(--text-soft); margin-bottom: 6px; }
+.notice.optifine { padding: 16px 20px; margin-bottom: 14px; }
+.notice.optifine strong { font-size: 16px; }
 
 /* Contenu installé */
 .installed { display: flex; flex-direction: column; gap: 18px; }

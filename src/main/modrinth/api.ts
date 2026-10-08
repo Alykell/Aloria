@@ -37,10 +37,9 @@ async function get<T>(path: string, params: Record<string, unknown> = {}): Promi
   return (await res.json()) as T
 }
 
-export async function search(q: SearchQuery, gameVersion: string): Promise<{ hits: SearchHit[]; total: number }> {
+export async function search(q: SearchQuery, gameVersion: string, loaders: string[]): Promise<{ hits: SearchHit[]; total: number }> {
   const facets: string[][] = [[`project_type:${q.type}`], [`versions:${gameVersion}`]]
-  if (q.type === 'mod') facets.push(['categories:fabric'])
-  if (q.type === 'shader') facets.push(['categories:iris'])
+  if (q.type !== 'resourcepack') facets.push(loaders.map((l) => `categories:${l}`))
 
   const res = await get<{
     total_hits: number

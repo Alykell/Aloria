@@ -1,10 +1,11 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { join } from 'node:path'
 import { addAccount, listAccounts, removeAccount, selectAccount } from './auth/accounts'
 import { toAuthError } from './auth/errors'
 import { getStatus, isGameRunning, listVersions, play } from './game/controller'
 import { fabricLoaders } from './game/fabric'
-import { installContent, listInstalled, openContentFolder, removeContent, searchContent, setContentEnabled } from './modrinth/content'
+import { forgeLoaders } from './game/forge'
+import { addOptiFine, installContent, listInstalled, openContentFolder, removeContent, searchContent, setContentEnabled } from './modrinth/content'
 import { createPreset, deletePreset, listPresets, renamePreset, updatePresetOptions } from './shared/presets'
 import { createProfile, deleteProfile, listProfiles, openProfileFolder, selectProfile, updateProfile } from './profiles'
 import { getSettings, systemRamMb, updateSettings } from './settings'
@@ -135,6 +136,7 @@ ipcMain.handle('profiles:select', (_e, id: string) => selectProfile(id))
 ipcMain.handle('profiles:delete', (_e, id: string, deleteFiles: boolean) => wrap(() => deleteProfile(id, deleteFiles)))
 ipcMain.handle('profiles:openFolder', (_e, id: string) => openProfileFolder(id))
 ipcMain.handle('fabric:loaders', (_e, gameVersion: string): Promise<Result<LoaderVersion[]>> => wrap(() => fabricLoaders(gameVersion)))
+ipcMain.handle('forge:loaders', (_e, gameVersion: string): Promise<Result<LoaderVersion[]>> => wrap(() => forgeLoaders(gameVersion)))
 
 ipcMain.handle('presets:list', () => listPresets())
 ipcMain.handle('presets:create', (_e, name: string, copyFrom: string | null) => createPreset(name, copyFrom))
@@ -152,6 +154,22 @@ ipcMain.handle('library:toggle', (_e, profileId: string, type: ContentType, file
 )
 ipcMain.handle('library:remove', (_e, profileId: string, type: ContentType, fileName: string) =>
   wrap(() => removeContent(profileId, type, fileName))
+)
+// OptiFine téléchargé par le joueur : il choisit le fichier, on le range dans le profil (false si annulé)
+ipcMain.handle('library:addOptiFine', (e, profileId: string) =>
+  wrap(async () => {
+    const win = BrowserWindow.fromWebContents(e.sender)
+    const options = {
+      title: 'Choisis le fichier OptiFine téléchargé',
+      defaultPath: app.getPath('downloads'),
+      filters: [{ name: 'OptiFine', extensions: ['jar'] }],
+      properties: ['openFile' as const]
+    }
+    const res = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
+    if (res.canceled || res.filePaths.length === 0) return false
+    await addOptiFine(profileId, res.filePaths[0])
+    return true
+  })
 )
 ipcMain.handle('library:openFolder', async (_e, profileId: string, type: ContentType) => {
   await shell.openPath(await openContentFolder(profileId, type))
@@ -241,6 +259,29 @@ async function captureScreens(win: BrowserWindow, dir: string): Promise<void> {
       }
     }
   }
+  // Création d'un profil en 1.8.9 (Forge proposé en premier), puis bibliothèque d'un profil Forge (OptiFine)
+  const select = (selector: string, value: string) =>
+    win.webContents.executeJavaScript(
+      `(() => { const s = document.querySelector(${JSON.stringify(selector)}); if (!s) return;
+        Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(s, ${JSON.stringify(value)});
+        s.dispatchEvent(new Event('change', { bubbles: true })) })()`
+    )
+  await click('Profils')
+  await wait(600)
+  await click('Nouveau profil')
+  await wait(800)
+  await select('.editor select', '1.8.9')
+  await wait(2500)
+  await writeFile(join(dir, 'nuit-profil-1.8.9.png'), (await win.webContents.capturePage()).toPNG())
+  await win.webContents.executeJavaScript(`document.querySelector('.overlay')?.click()`)
+  await wait(400)
+  await click('Bibliothèque')
+  await wait(800)
+  await select('.library__profile select', 'selftest189forge')
+  await wait(600)
+  await click('Mods')
+  await wait(2500)
+  await writeFile(join(dir, 'nuit-bibliotheque-forge.png'), (await win.webContents.capturePage()).toPNG())
   // On remet le réglage par défaut
   await click('Paramètres')
   await wait(300)

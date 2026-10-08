@@ -21,5 +21,5 @@ export function useVersions(showSnapshots: boolean) {
 export function describeProfile(p: Pick<Profile, 'versionId' | 'loader'>): string {
   const version =
     p.versionId === 'latest-release' ? 'Dernière version' : p.versionId === 'latest-snapshot' ? 'Dernier snapshot' : p.versionId
-  return p.loader === 'fabric' ? `Fabric · ${version}` : version
+  return p.loader === 'fabric' ? `Fabric · ${version}` : p.loader === 'forge' ? `Forge · ${version}` : version
 }

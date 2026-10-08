@@ -47,10 +47,12 @@ export interface GameExit {
   crashLog: string | null
 }
 
-export type Loader = 'vanilla' | 'fabric'
+export type Loader = 'vanilla' | 'fabric' | 'forge'
 
 export interface LoaderVersion {
   version: string
+  /** Nom affiché, s'il diffère de version (Forge : « 11.15.1.2318 » pour « 1.8.9-11.15.1.2318-1.8.9 ») */
+  label?: string
   stable: boolean
 }
 

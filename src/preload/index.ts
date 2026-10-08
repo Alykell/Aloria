@@ -72,13 +72,15 @@ const api = {
       ipcRenderer.invoke('library:toggle', profileId, type, fileName, enabled),
     remove: (profileId: string, type: ContentType, fileName: string): Promise<Result<void>> =>
       ipcRenderer.invoke('library:remove', profileId, type, fileName),
-    openFolder: (profileId: string, type: ContentType): Promise<void> => ipcRenderer.invoke('library:openFolder', profileId, type)
+    openFolder: (profileId: string, type: ContentType): Promise<void> => ipcRenderer.invoke('library:openFolder', profileId, type),
+    addOptiFine: (profileId: string): Promise<Result<boolean>> => ipcRenderer.invoke('library:addOptiFine', profileId)
   },
   game: {
     versions: (snapshots: boolean): Promise<Result<VersionEntry[]>> => ipcRenderer.invoke('game:versions', snapshots),
     status: (): Promise<GameStatus> => ipcRenderer.invoke('game:status'),
     play: (profileId: string): Promise<Result<null>> => ipcRenderer.invoke('game:play', profileId),
     fabricLoaders: (gameVersion: string): Promise<Result<LoaderVersion[]>> => ipcRenderer.invoke('fabric:loaders', gameVersion),
+    forgeLoaders: (gameVersion: string): Promise<Result<LoaderVersion[]>> => ipcRenderer.invoke('forge:loaders', gameVersion),
     onStatus: (cb: (s: GameStatus) => void) => subscribe('game:status', cb),
     onExit: (cb: (e: GameExit) => void) => subscribe('game:exit', cb)
   }

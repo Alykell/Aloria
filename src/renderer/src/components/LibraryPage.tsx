@@ -42,7 +42,16 @@ export default function LibraryPage({ profiles, onError, onOpenProfiles }: Props
   const requestId = useRef(0)
 
   const profile = profiles.profiles.find((p) => p.id === profileId) ?? profiles.selected
-  const needsFabric = (tab === 'mod' || tab === 'shader') && profile?.loader !== 'fabric'
+  const needsLoader = (tab === 'mod' || tab === 'shader') && profile?.loader === 'vanilla'
+  // Profils Forge : OptiFine (shaders, zoom…) s'ajoute à la main, il n'est pas sur Modrinth
+  const showOptiFine = (tab === 'mod' || tab === 'shader') && profile?.loader === 'forge'
+  const optiFine = installed.find((i) => i.type === 'mod' && /optifine/i.test(i.fileName))
+  const addOptiFine = async () => {
+    if (!profile) return
+    const res = await window.aloria.library.addOptiFine(profile.id)
+    if (!res.ok) onError(res.error)
+    else if (res.value) refreshInstalled()
+  }
 
   useEffect(() => {
     if (!profileId && profiles.selected) setProfileId(profiles.selected.id)
@@ -125,14 +134,14 @@ export default function LibraryPage({ profiles, onError, onOpenProfiles }: Props
 
       {tab === 'installed' ? (
         <InstalledList profileId={profile.id} items={installed} onChanged={refreshInstalled} onError={onError} />
-      ) : needsFabric ? (
+      ) : needsLoader ? (
         <div className="notice">
-          <strong>{tab === 'shader' ? 'Les shaders ont besoin de Fabric' : 'Les mods ont besoin de Fabric'}</strong>
+          <strong>{tab === 'shader' ? 'Les shaders ont besoin de Fabric ou de Forge' : 'Les mods ont besoin de Fabric ou de Forge'}</strong>
           <p>
             Le profil « {profile.name} » est en vanilla.{' '}
             {tab === 'shader'
-              ? 'Pour les shaders, Aloria installe le mod Iris, qui fonctionne avec Fabric.'
-              : 'Choisis un profil Fabric en haut, ou crées-en un.'}
+              ? 'Pour les shaders, Aloria installe le mod Iris avec Fabric ; sous Forge, ils passent par OptiFine.'
+              : 'Choisis un profil Fabric ou Forge en haut, ou crées-en un.'}
           </p>
           <button className="primary" onClick={onOpenProfiles}>
             Gérer les profils
@@ -140,6 +149,35 @@ export default function LibraryPage({ profiles, onError, onOpenProfiles }: Props
         </div>
       ) : (
         <>
+          {showOptiFine && (
+            <div className="notice optifine">
+              {optiFine ? (
+                <>
+                  <strong>✔ OptiFine est installé</strong>
+                  <p>
+                    {optiFine.fileName}
+                    {tab === 'shader' ? ' : les shaders se choisissent en jeu dans Options → Paramètres graphiques → Shaders.' : ''}
+                  </p>
+                  <button onClick={addOptiFine}>Changer de version</button>
+                </>
+              ) : (
+                <>
+                  <strong>OptiFine{tab === 'shader' ? ', pour les shaders' : ''}</strong>
+                  <p>
+                    OptiFine n'est pas sur Modrinth : sa licence interdit de le redistribuer. Télécharge la version pour Minecraft {gameVersion || '…'}{' '}
+                    sur{' '}
+                    <a href="https://optifine.net/downloads" target="_blank" rel="noreferrer">
+                      optifine.net
+                    </a>{' '}
+                    (bouton « Download », puis encore « Download » après la pub), puis ajoute le fichier ici.
+                  </p>
+                  <button className="primary" onClick={addOptiFine}>
+                    Ajouter OptiFine
+                  </button>
+                </>
+              )}
+            </div>
+          )}
           <div className="search-bar">
             <input
               type="search"

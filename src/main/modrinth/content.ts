@@ -1,14 +1,19 @@
 import { existsSync } from 'node:fs'
-import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { copyFile, mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { basename, join } from 'node:path'
 import { downloadAll } from '../game/download'
 import { resolveVersionId } from '../game/versions'
 import { gameDirOf, getProfile } from '../profiles'
 import { getProject, getVersion, listVersions, search, type ModrinthVersion } from './api'
-import type { ContentType, InstalledContent, Profile, SearchHit, SearchQuery } from '../../shared/types'
+import type { ContentType, InstalledContent, Loader, Profile, SearchHit, SearchQuery } from '../../shared/types'
 
 const FOLDERS: Record<ContentType, string> = { mod: 'mods', resourcepack: 'resourcepacks', shader: 'shaderpacks' }
-const LOADERS: Record<ContentType, string[]> = { mod: ['fabric'], resourcepack: ['minecraft'], shader: ['iris'] }
+/** Chargeur Modrinth du contenu : mods du chargeur du profil, shaders pour Iris (Fabric) ou OptiFine (Forge) */
+export function modrinthLoaders(type: ContentType, loader: Loader): string[] {
+  if (type === 'resourcepack') return ['minecraft']
+  if (type === 'shader') return loader === 'forge' ? ['optifine'] : ['iris']
+  return [loader === 'forge' ? 'forge' : 'fabric']
+}
 const EXTENSIONS: Record<ContentType, string[]> = { mod: ['.jar'], resourcepack: ['.zip'], shader: ['.zip'] }
 const IRIS_PROJECT = 'YL57xq9U'
 const DISABLED = '.disabled'
@@ -43,18 +48,18 @@ async function writeIndex(gameDir: string, index: Index): Promise<void> {
   await writeFile(indexPath(gameDir), JSON.stringify(index, null, 2))
 }
 
-function requireFabric(ctx: Context, type: ContentType): void {
-  if (ctx.profile.loader === 'fabric') return
+function requireModLoader(ctx: Context, type: ContentType): void {
+  if (ctx.profile.loader !== 'vanilla') return
   throw new Error(
     type === 'shader'
-      ? 'Les shaders ont besoin du mod Iris : choisis un profil Fabric.'
-      : 'Les mods ont besoin de Fabric : choisis ou crée un profil Fabric.'
+      ? 'Les shaders ont besoin du mod Iris (Fabric) ou d’OptiFine (Forge) : choisis un profil Fabric ou Forge.'
+      : 'Les mods ont besoin de Fabric ou de Forge : choisis ou crée un profil Fabric ou Forge.'
   )
 }
 
 export async function searchContent(q: SearchQuery): Promise<{ hits: SearchHit[]; total: number; gameVersion: string }> {
-  const { gameVersion } = await context(q.profileId)
-  return { ...(await search(q, gameVersion)), gameVersion }
+  const { gameVersion, profile } = await context(q.profileId)
+  return { ...(await search(q, gameVersion, modrinthLoaders(q.type, profile.loader))), gameVersion }
 }
 
 export async function listInstalled(profileId: string): Promise<InstalledContent[]> {
@@ -81,10 +86,12 @@ export async function listInstalled(profileId: string): Promise<InstalledContent
 }
 
 /** Choisit la meilleure version d'un projet pour le profil (release de préférence). */
-async function pickVersion(projectId: string, type: ContentType, gameVersion: string, title: string): Promise<ModrinthVersion> {
-  let versions = await listVersions(projectId, LOADERS[type], [gameVersion])
+async function pickVersion(projectId: string, type: ContentType, ctx: Context, title: string): Promise<ModrinthVersion> {
+  const { gameVersion } = ctx
+  const loaders = modrinthLoaders(type, ctx.profile.loader)
+  let versions = await listVersions(projectId, loaders, [gameVersion])
   // Resource packs et shaders fonctionnent souvent sur des versions non déclarées
-  if (versions.length === 0 && type !== 'mod') versions = await listVersions(projectId, LOADERS[type], undefined)
+  if (versions.length === 0 && type !== 'mod') versions = await listVersions(projectId, loaders, undefined)
   if (versions.length === 0) throw new Error(`« ${title} » n'est pas disponible pour Minecraft ${gameVersion}.`)
   return versions.find((v) => v.version_type === 'release') ?? versions[0]
 }
@@ -114,7 +121,7 @@ async function installOne(
 
   let version = pinnedVersionId ? await getVersion(pinnedVersionId) : null
   if (!version || !version.game_versions.includes(ctx.gameVersion)) {
-    version = await pickVersion(projectId, type, ctx.gameVersion, project.title)
+    version = await pickVersion(projectId, type, ctx, project.title)
   }
 
   const file = version.files.find((f) => f.primary) ?? version.files[0]
@@ -146,14 +153,14 @@ async function installOne(
 
 export async function installContent(profileId: string, projectId: string, type: ContentType): Promise<void> {
   const ctx = await context(profileId)
-  if (type !== 'resourcepack') requireFabric(ctx, type)
+  if (type !== 'resourcepack') requireModLoader(ctx, type)
 
   const index = await readIndex(ctx.gameDir)
   const visited = new Set<string>()
   try {
     await installOne(ctx, index, projectId, type, false, null, visited)
-    // Les shaders ont besoin d'Iris (qui amène Sodium)
-    if (type === 'shader') await installOne(ctx, index, IRIS_PROJECT, 'mod', true, null, visited)
+    // Les shaders ont besoin d'Iris (qui amène Sodium) ; sous Forge, c'est OptiFine, ajouté à la main
+    if (type === 'shader' && ctx.profile.loader === 'fabric') await installOne(ctx, index, IRIS_PROJECT, 'mod', true, null, visited)
   } finally {
     // On garde la trace de ce qui a pu être installé, même en cas d'erreur en cours de route
     await writeIndex(ctx.gameDir, index)
@@ -174,6 +181,32 @@ export async function removeContent(profileId: string, type: ContentType, fileNa
   const index = await readIndex(gameDir)
   delete index[fileName]
   await writeIndex(gameDir, index)
+}
+
+/** OptiFine n'est pas sur Modrinth (sa licence interdit de le redistribuer) : le joueur le télécharge, puis on le range */
+export const isOptiFine = (fileName: string) => /optifine/i.test(fileName) && fileName.toLowerCase().endsWith('.jar')
+
+/** Ajoute le jar d'OptiFine choisi par le joueur dans les mods d'un profil Forge */
+export async function addOptiFine(profileId: string, file: string): Promise<void> {
+  const ctx = await context(profileId)
+  if (ctx.profile.loader !== 'forge') throw new Error('OptiFine s’ajoute à un profil Forge.')
+  const name = basename(file)
+  if (!isOptiFine(name)) throw new Error(`« ${name} » n'est pas un fichier OptiFine (OptiFine_….jar).`)
+  // « OptiFine_1.8.9_HD_U_M5.jar » : la version du jeu est dans le nom
+  if (!name.includes(`_${ctx.gameVersion}_`)) {
+    throw new Error(`« ${name} » n'est pas pour Minecraft ${ctx.gameVersion} : prends la version d'OptiFine pour ${ctx.gameVersion}.`)
+  }
+  const dir = join(ctx.gameDir, FOLDERS.mod)
+  await mkdir(dir, { recursive: true })
+  // Une seule version d'OptiFine à la fois
+  for (const entry of await readdir(dir)) {
+    if (isOptiFine(entry.replace(/\.disabled$/, '')) && entry !== name) await rm(join(dir, entry), { force: true })
+  }
+  await copyFile(file, join(dir, name))
+  const index = await readIndex(ctx.gameDir)
+  for (const key of Object.keys(index)) if (isOptiFine(key) && key !== name) delete index[key]
+  index[name] = { type: 'mod', title: 'OptiFine', versionNumber: name.replace(/^OptiFine_/i, '').replace(/\.jar$/i, '') }
+  await writeIndex(ctx.gameDir, index)
 }
 
 export async function openContentFolder(profileId: string, type: ContentType): Promise<string> {
