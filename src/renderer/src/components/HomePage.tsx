@@ -10,16 +10,24 @@ interface Props {
   accounts: AccountsState
   profiles: ProfilesState
   game: ReturnType<typeof useGame>
+  onSkin: () => void
 }
 
-export default function HomePage({ accounts, profiles, game }: Props) {
+export default function HomePage({ accounts, profiles, game, onSkin }: Props) {
   const canPlay = !!accounts.active
   const selected = profiles.selected
 
   return (
     <section className="hero">
       <div className="hero__row">
-        {accounts.active && <SkinViewer uuid={accounts.active.uuid} />}
+        {accounts.active && (
+          <div className="hero__skin">
+            <SkinViewer uuid={accounts.active.uuid} />
+            <button className="skin-change" onClick={onSkin}>
+              🎽 Changer de skin
+            </button>
+          </div>
+        )}
         <div className="hero__main">
           <h1>{accounts.active ? `Salut ${accounts.active.name} !` : 'Bienvenue sur Aloria'}</h1>
           <p>Ton launcher Minecraft, entre ciel et océan.</p>

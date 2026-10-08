@@ -3,7 +3,7 @@ import type { AccountsState } from '../hooks/useAccounts'
 
 const head = (uuid: string) => `https://mc-heads.net/avatar/${uuid}/64`
 
-export default function AccountPanel({ state }: { state: AccountsState }) {
+export default function AccountPanel({ state, onSkin }: { state: AccountsState; onSkin: () => void }) {
   const { accounts, active, busy, add, select, remove } = state
   const [open, setOpen] = useState(false)
 
@@ -36,6 +36,15 @@ export default function AccountPanel({ state }: { state: AccountsState }) {
                 {a.name}
               </button>
             ))}
+          <button
+            className="account__action"
+            onClick={() => {
+              setOpen(false)
+              onSkin()
+            }}
+          >
+            🎽 Changer de skin
+          </button>
           <button
             className="account__action"
             onClick={() => {

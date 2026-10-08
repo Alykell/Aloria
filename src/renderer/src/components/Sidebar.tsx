@@ -17,9 +17,10 @@ interface Props {
   page: Page
   onChange: (p: Page) => void
   accounts: AccountsState
+  onSkin: () => void
 }
 
-export default function Sidebar({ page, onChange, accounts }: Props) {
+export default function Sidebar({ page, onChange, accounts, onSkin }: Props) {
   return (
     <nav className="sidebar">
       <div className="sidebar__logo">
@@ -38,7 +39,7 @@ export default function Sidebar({ page, onChange, accounts }: Props) {
       ))}
       <div className="sidebar__spacer" />
       <UpdateBanner />
-      <AccountPanel state={accounts} />
+      <AccountPanel state={accounts} onSkin={onSkin} />
     </nav>
   )
 }

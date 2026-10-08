@@ -664,3 +664,40 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 }
 .pixel-grid__cell { box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.06); cursor: crosshair; }
 .pixel-grid__cell.center { box-shadow: inset 0 0 0 1px rgba(92, 200, 224, 0.55); }
+
+/* Mon skin */
+.hero__skin { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.skin-change { padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--sea-deep); background: var(--card); opacity: 0.85; }
+.skin-change:hover { opacity: 1; background: var(--foam); }
+.skin-dialog { width: min(820px, 94vw); max-height: 92vh; overflow-y: auto; }
+.skin-dialog__body { display: grid; grid-template-columns: 240px 1fr; gap: 24px; }
+.skin-dialog__preview { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.skin-dialog__preview .skin-viewer::after { bottom: 14px; }
+.skin-dialog__actions { display: flex; gap: 8px; }
+.skin-dialog__side { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.skin-dialog__side h4 { font-family: 'Quicksand', sans-serif; color: var(--sea-deep); margin-top: 6px; }
+.skin-dialog__buttons { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.skin-dialog__buttons a { font-size: 13px; color: var(--sea-deep); }
+.skin-dialog__footer { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+.skin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
+.skin-grid__item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px 6px;
+  border-radius: 12px;
+  border: 2px solid transparent;
+  background: var(--foam);
+  cursor: pointer;
+}
+.skin-grid__item:hover { border-color: var(--line); }
+.skin-grid__item.active { border-color: var(--sea); background: var(--surface); }
+.skin-grid__item img { width: 40px; height: 40px; border-radius: 4px; }
+.skin-grid.capes .skin-grid__item img { width: 25px; height: 40px; }
+.skin-grid__item small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--text-soft); }
+.skin-grid__none { width: 40px; height: 40px; display: grid; place-items: center; font-size: 22px; color: var(--text-soft); }
+.skin-grid__delete { position: absolute; top: 2px; right: 4px; font-size: 11px; color: var(--text-soft); opacity: 0; }
+.skin-grid__item:hover .skin-grid__delete { opacity: 1; }
+.skin-grid__delete:hover { color: var(--danger); }

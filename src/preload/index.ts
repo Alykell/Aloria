@@ -11,10 +11,12 @@ import type {
   LoaderVersion,
   Profile,
   ProfileInput,
+  CapeInfo,
   PackElement,
   PackInfo,
   PackVanilla,
   PlayerSkin,
+  SavedSkin,
   PublicAccount,
   Result,
   Settings,
@@ -79,6 +81,15 @@ const api = {
       ipcRenderer.invoke('library:remove', profileId, type, fileName),
     openFolder: (profileId: string, type: ContentType): Promise<void> => ipcRenderer.invoke('library:openFolder', profileId, type),
     addOptiFine: (profileId: string): Promise<Result<boolean>> => ipcRenderer.invoke('library:addOptiFine', profileId)
+  },
+  skins: {
+    upload: (texture: string, slim: boolean, name: string): Promise<Result<PlayerSkin | null>> =>
+      ipcRenderer.invoke('skins:upload', texture, slim, name),
+    reset: (): Promise<Result<PlayerSkin | null>> => ipcRenderer.invoke('skins:reset'),
+    capes: (): Promise<Result<CapeInfo[]>> => ipcRenderer.invoke('skins:capes'),
+    setCape: (capeId: string | null): Promise<Result<PlayerSkin | null>> => ipcRenderer.invoke('skins:setCape', capeId),
+    saved: (): Promise<Result<SavedSkin[]>> => ipcRenderer.invoke('skins:saved'),
+    removeSaved: (id: string): Promise<Result<void>> => ipcRenderer.invoke('skins:removeSaved', id)
   },
   packs: {
     list: (): Promise<Result<PackInfo[]>> => ipcRenderer.invoke('packs:list'),

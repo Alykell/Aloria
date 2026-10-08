@@ -2,7 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { join } from 'node:path'
 import { addAccount, listAccounts, removeAccount, selectAccount } from './auth/accounts'
 import { toAuthError } from './auth/errors'
-import { getSkin } from './auth/skin'
+import { getSkin, listCapes, listSavedSkins, removeSavedSkin, resetSkin, setCape, uploadSkin } from './auth/skin'
 import { createPack, deletePack, installPack, listPacks, packVanilla, renamePack, savePackImage } from './packs'
 import { getStatus, isGameRunning, listVersions, play } from './game/controller'
 import { fabricLoaders } from './game/fabric'
@@ -184,6 +184,19 @@ ipcMain.handle('library:openFolder', async (_e, profileId: string, type: Content
   await shell.openPath(await openContentFolder(profileId, type))
 })
 
+// Skin du compte actif : envoi, retour au skin par défaut, cape, bibliothèque de skins enregistrés
+const activeUuid = () => {
+  const uuid = listAccounts().active
+  if (!uuid) throw new Error('Connecte-toi avec ton compte Microsoft pour changer de skin.')
+  return uuid
+}
+ipcMain.handle('skins:upload', (_e, texture: string, slim: boolean, name: string) => wrap(() => uploadSkin(activeUuid(), texture, slim, name)))
+ipcMain.handle('skins:reset', () => wrap(() => resetSkin(activeUuid())))
+ipcMain.handle('skins:capes', () => wrap(() => listCapes(activeUuid())))
+ipcMain.handle('skins:setCape', (_e, capeId: string | null) => wrap(() => setCape(activeUuid(), capeId)))
+ipcMain.handle('skins:saved', () => wrap(() => listSavedSkins()))
+ipcMain.handle('skins:removeSaved', (_e, id: string) => wrap(() => removeSavedSkin(id)))
+
 // Créations : packs de ressources faits dans Aloria
 ipcMain.handle('packs:list', () => wrap(() => listPacks()))
 ipcMain.handle('packs:create', (_e, name: string) => wrap(() => createPack(name)))
@@ -276,6 +289,16 @@ async function captureScreens(win: BrowserWindow, dir: string): Promise<void> {
         await win.webContents.executeJavaScript('document.querySelector(".content").scrollTop = 0')
       }
     }
+  }
+  // Fenêtre « Mon skin » (avec un compte d'exemple, ALORIA_CAPTURE_ACCOUNT)
+  if (process.env.ALORIA_CAPTURE_ACCOUNT) {
+    await click('Accueil')
+    await wait(800)
+    await click('Changer de skin')
+    await wait(2500)
+    await writeFile(join(dir, 'nuit-skin.png'), (await win.webContents.capturePage()).toPNG())
+    await win.webContents.executeJavaScript(`document.querySelector('.overlay')?.click()`)
+    await wait(300)
   }
   // Création d'un profil en 1.8.9 (Forge proposé en premier), puis bibliothèque d'un profil Forge (OptiFine)
   // Menus Aloria (composant Select) : ouvre le menu nommé puis choisit l'option dont le texte correspond

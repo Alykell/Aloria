@@ -40,6 +40,23 @@ export interface PackVanilla {
   atlases: { icons?: string | null; widgets?: string | null }
 }
 
+/** Cape du compte (les capes s'obtiennent lors d'événements Minecraft, on choisit seulement laquelle porter) */
+export interface CapeInfo {
+  id: string
+  alias: string
+  texture: string
+  active: boolean
+}
+
+/** Skin enregistré dans Aloria, pour y revenir en un clic */
+export interface SavedSkin {
+  id: string
+  name: string
+  slim: boolean
+  texture: string
+  addedAt: number
+}
+
 /** Skin d'un joueur pour l'aperçu 3D : textures en data URL, modèle à bras fins ou non */
 export interface PlayerSkin {
   texture: string

@@ -13,12 +13,14 @@ import { useGame } from './hooks/useGame'
 import { useProfiles } from './hooks/useProfiles'
 import { DISCORD_INVITE } from '../../shared/links'
 import CreationsPage from './components/CreationsPage'
+import SkinDialog from './components/SkinDialog'
 import { useTheme } from './hooks/useTheme'
 
 export default function App() {
   const [page, setPage] = useState<Page>('home')
   const [version, setVersion] = useState('')
   const [pageError, setPageError] = useState<string | null>(null)
+  const [skinOpen, setSkinOpen] = useState(false)
   const accounts = useAccounts()
   const settings = useSettings()
   const profiles = useProfiles()
@@ -51,7 +53,7 @@ export default function App() {
       <div className="backdrop" style={{ backgroundImage: `url(${backdrop})` }} />
       <TitleBar />
       <div className="app__body">
-        <Sidebar page={page} onChange={setPage} accounts={accounts} />
+        <Sidebar page={page} onChange={setPage} accounts={accounts} onSkin={() => setSkinOpen(true)} />
         <main className="content">
           {error && (
             <div className="toast" role="alert">
@@ -61,7 +63,7 @@ export default function App() {
               </button>
             </div>
           )}
-          {page === 'home' && <HomePage accounts={accounts} profiles={profiles} game={game} />}
+          {page === 'home' && <HomePage accounts={accounts} profiles={profiles} game={game} onSkin={() => setSkinOpen(true)} />}
           {page === 'profiles' && (
             <ProfilesPage profiles={profiles} settings={settings} onPlay={playFromProfiles} onError={setPageError} />
           )}
@@ -79,6 +81,7 @@ export default function App() {
           </footer>
         </main>
       </div>
+      {skinOpen && accounts.active && <SkinDialog uuid={accounts.active.uuid} onClose={() => setSkinOpen(false)} onError={setPageError} />}
       {game.crash && <CrashDialog exit={game.crash} profileId={profiles.selected?.id ?? null} onClose={game.clearCrash} />}
     </div>
   )
