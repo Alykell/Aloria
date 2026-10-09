@@ -451,5 +451,7 @@ export const en: Record<keyof typeof fr, string> = {
   'err.presetMissing': 'Settings set not found.',
   // Xbox
   'auth.banned': 'This account is banned from Xbox Live.',
-  'auth.country': 'Xbox Live isn\'t available in your country.'
+  'auth.country': 'Xbox Live isn\'t available in your country.',
+  // Missing mod
+  'err.hudJarMissing': 'The Aloria HUD mod for Minecraft {version} wasn\'t found (mod folder: gradlew build).'
 }

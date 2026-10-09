@@ -4,6 +4,7 @@ import fr.alykell.aloria.hud.Draw;
 import fr.alykell.aloria.hud.Fonts;
 import fr.alykell.aloria.hud.Gfx;
 import fr.alykell.aloria.hud.Theme;
+import fr.alykell.aloria.hud.Tr;
 import fr.alykell.aloria.hud.config.ModuleSettings;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -27,7 +28,7 @@ public final class EffectsModule extends HudModule {
 	private static final int ROW = 22;
 
 	public EffectsModule() {
-		super("effects", "Effets");
+		super("effects");
 	}
 
 	@Override
@@ -37,7 +38,7 @@ public final class EffectsModule extends HudModule {
 
 	@Override
 	public String hint() {
-		return "Visible quand un effet est actif";
+		return Tr.tr("hint.effects");
 	}
 
 	@Override

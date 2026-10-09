@@ -334,7 +334,7 @@ public final class SelfTest {
 			return clickAt(mc, c[0], c[1]);
 		});
 		add("opacité appliquée", 2, () -> check("le curseur d'opacité fonctionne (" + settings("fps").opacity + "%)", Math.abs(settings("fps").opacity - 50) <= 5));
-		add("retour à la grille", 2, () -> click(mc, "btn:← Retour"));
+		add("retour à la grille", 2, () -> click(mc, "btn:" + Tr.tr("menu.back")));
 		add("onglet Général", 2, () -> click(mc, "tab:general"));
 		add("police des menus", 3, () -> click(mc, "menufont:next"));
 		add("capture onglet Général", 5, () -> {
@@ -346,13 +346,13 @@ public final class SelfTest {
 		add("police à tous", 2, () -> {
 			// FPS a un style indépendant : sa police ne doit pas changer
 			settings("fps").font = "poppins";
-			return click(mc, "btn:Appliquer cette police à tous les modules");
+			return click(mc, "btn:" + Tr.tr("general.applyFont"));
 		});
 		add("police à tous appliquée", 2, () -> check("« Appliquer la police à tous » ignore les modules au style indépendant",
 			settings("cps").font.equals("inter") && settings("fps").font.equals("poppins")));
 		add("police des menus (retour)", 2, () -> click(mc, "menufont:prev"));
 		add("onglet Tous (fin)", 2, () -> click(mc, "tab:all"));
-		add("ouvrir la disposition", 3, () -> click(mc, "btn:✥ Disposition"));
+		add("ouvrir la disposition", 3, () -> click(mc, "btn:" + Tr.tr("menu.layout")));
 		add("écran de disposition", 5, () -> {
 			check("le bouton Disposition ouvre l'éditeur", mc.gui.screen() instanceof HudLayoutScreen);
 			return screenshot(mc, "06-disposition");
@@ -385,7 +385,7 @@ public final class SelfTest {
 			check("le glisser-déposer déplace le module (x=" + s.x + ", y=" + s.y + ")", s.x < 0.5f && s.y > 0.05f);
 			return screenshot(mc, "07-apres-glisser");
 		});
-		add("terminer la disposition", 2, () -> click(mc, "btn:Terminé"));
+		add("terminer la disposition", 2, () -> click(mc, "btn:" + Tr.tr("layout.done")));
 		add("retour au menu", 3, () -> check("Terminé ramène au menu des modules", mc.gui.screen() instanceof HudMenuScreen));
 		add("fermer", 2, () -> click(mc, "btn:✕"));
 		add("HUD final", 10, () -> {
@@ -588,7 +588,7 @@ public final class SelfTest {
 			mc.gui.setScreen(new HudMenuScreen(null));
 			return true;
 		});
-		add("bouton Visuel", 3, () -> click(mc, "btn:☀ Visuel"));
+		add("bouton Visuel", 3, () -> click(mc, "btn:" + Tr.tr("menu.visual")));
 		add("écran Visuel", 3, () -> {
 			check("le bouton Visuel ouvre l'écran Visuel", mc.gui.screen() instanceof fr.alykell.aloria.hud.screen.VisualScreen);
 			// Épée en main, bouclier dans l'autre : on voit les deux réglages
@@ -619,7 +619,7 @@ public final class SelfTest {
 		add("onglet Totem", 2, () -> click(mc, "vtab:totem"));
 		add("totem plus petit", 2, () -> {
 			visual().totemScale = 0.4f;
-			return click(mc, "btn:Voir l'animation");
+			return click(mc, "btn:" + Tr.tr("visual.preview"));
 		});
 		add("capture totem", 12, () -> screenshot(mc, "15-totem-reduit"));
 		add("onglet Luminosité", 25, () -> {

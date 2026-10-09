@@ -49,7 +49,7 @@ export async function syncAloriaHud(profile: Profile, gameVersion: string, gameD
   }
 
   const jar = await bundledJar(gameVersion, forge)
-  if (!jar) return `Le mod Aloria HUD pour Minecraft ${gameVersion} est introuvable (dossier mod : gradlew build).`
+  if (!jar) return tm('err.hudJarMissing', { version: gameVersion })
 
   await mkdir(join(gameDir, 'mods'), { recursive: true })
   await copyFile(jar, target)

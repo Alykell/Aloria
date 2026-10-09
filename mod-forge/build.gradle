@@ -77,6 +77,21 @@ processResources {
 	}
 }
 
+// Traductions : les fichiers .lang de la 1.8.9 reçoivent celles du mod moderne (mêmes clés, une seule source)
+def modernLang = file('../mod/src/main/resources/assets/aloriahud/lang')
+processResources {
+	inputs.dir(modernLang)
+	doLast {
+		[en_US: 'en_us', fr_FR: 'fr_fr'].each { legacy, modern ->
+			def entries = new groovy.json.JsonSlurper().parse(new File(modernLang, "${modern}.json"), 'UTF-8')
+				.findAll { k, v -> k.startsWith('aloriahud.') }
+			def out = new File(destinationDir, "assets/aloriahud/lang/${legacy}.lang")
+			def start = out.exists() && !out.getText('UTF-8').endsWith('\n') ? '\n' : ''
+			out.append(start + entries.collect { k, v -> "${k}=${v}" }.join('\n') + '\n', 'UTF-8')
+		}
+	}
+}
+
 tasks.withType(JavaCompile).configureEach {
 	it.options.encoding = 'UTF-8'
 	it.options.release = 8

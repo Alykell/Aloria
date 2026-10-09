@@ -9,6 +9,9 @@ Données du jeu : `%APPDATA%\.aloria` (profils, instances, `shared/` = serveurs 
   de `src/renderer/src/i18n.ts` ; processus principal (erreurs, statut, Discord) : `tm()` de `src/main/i18n.ts`.
 - `Settings.language` absent = premier lancement (choix de la langue, celle de Windows présélectionnée) ; un `settings.json` déjà
   là sans langue = français (joueurs d'avant). Le premier choix règle aussi `lang` de « Mes réglages » s'il n'en a pas.
+- Mods : langue **du jeu**. Textes dans `mod/src/main/resources/assets/aloriahud/lang/{en_us,fr_fr}.json` (clés `aloriahud.*`),
+  lus par `Tr.tr("clé sans préfixe", args)` (`%s`, `%%`) ; le nom d'un module est `module.<id>`. `mod-legacy` et `mod-forge` en
+  font leurs `.lang` à la construction (une seule source). `checkModuleIds` vérifie les identifiants et leurs noms dans les deux langues.
 - Captures en anglais : `ALORIA_CAPTURE_LANG=en` (remet la langue et le thème d'avant à la fin : `.aloria` n'est pas isolé par `ALORIA_USER_DATA`).
 
 ## Publication

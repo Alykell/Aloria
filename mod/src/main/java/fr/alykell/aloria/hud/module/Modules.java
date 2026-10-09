@@ -1,6 +1,7 @@
 package fr.alykell.aloria.hud.module;
 
 import fr.alykell.aloria.hud.Stats;
+import fr.alykell.aloria.hud.Tr;
 import fr.alykell.aloria.hud.config.ModuleSettings;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -34,7 +35,7 @@ public final class Modules {
 
 	static final class Fps extends TextModule {
 		Fps() {
-			super("fps", "FPS");
+			super("fps");
 		}
 
 		@Override
@@ -50,7 +51,7 @@ public final class Modules {
 
 	static final class Cps extends TextModule {
 		Cps() {
-			super("cps", "CPS");
+			super("cps");
 		}
 
 		@Override
@@ -71,7 +72,7 @@ public final class Modules {
 
 	static final class Coordinates extends TextModule {
 		Coordinates() {
-			super("coords", "Coordonnées");
+			super("coords");
 		}
 
 		@Override
@@ -81,10 +82,10 @@ public final class Modules {
 
 		private static String facing(Direction direction) {
 			return switch (direction) {
-				case NORTH -> "Nord (-Z)";
-				case SOUTH -> "Sud (+Z)";
-				case EAST -> "Est (+X)";
-				case WEST -> "Ouest (-X)";
+				case NORTH -> Tr.tr("coords.north");
+				case SOUTH -> Tr.tr("coords.south");
+				case EAST -> Tr.tr("coords.east");
+				case WEST -> Tr.tr("coords.west");
 				default -> direction.getName();
 			};
 		}
@@ -93,20 +94,20 @@ public final class Modules {
 		protected List<Line> lines(Minecraft mc, boolean preview) {
 			LocalPlayer p = mc.player;
 			if (p == null) {
-				return List.of(new Line("X", "128.5"), new Line("Y", "64"), new Line("Z", "-256.5"), new Line("Vers", "Nord (-Z)"));
+				return List.of(new Line("X", "128.5"), new Line("Y", "64"), new Line("Z", "-256.5"), new Line(Tr.tr("coords.facing"), Tr.tr("coords.north")));
 			}
 			return List.of(
 				new Line("X", String.format(Locale.ROOT, "%.1f", p.getX())),
 				new Line("Y", String.valueOf(p.blockPosition().getY())),
 				new Line("Z", String.format(Locale.ROOT, "%.1f", p.getZ())),
-				new Line("Vers", facing(p.getDirection()))
+				new Line(Tr.tr("coords.facing"), facing(p.getDirection()))
 			);
 		}
 	}
 
 	static final class Speed extends TextModule {
 		Speed() {
-			super("speed", "Vitesse");
+			super("speed");
 		}
 
 		@Override
@@ -116,14 +117,14 @@ public final class Modules {
 
 		@Override
 		protected List<Line> lines(Minecraft mc, boolean preview) {
-			return List.of(new Line("Vitesse", String.format(Locale.ROOT, "%.2f b/s", Stats.speed())));
+			return List.of(new Line(Tr.tr("module.speed"), Tr.tr("speed.value", String.format(Locale.ROOT, "%.2f", Stats.speed()))));
 		}
 	}
 
 	/** Distance du dernier coup porté (ex. « 3.20 blocs ») */
 	static final class Reach extends TextModule {
 		Reach() {
-			super("reach", "Reach");
+			super("reach");
 		}
 
 		@Override
@@ -140,7 +141,7 @@ public final class Modules {
 		protected List<Line> lines(Minecraft mc, boolean preview) {
 			double reach = Stats.reach();
 			if (reach < 0 && preview) reach = 3.2;
-			return List.of(new Line("Reach", reach < 0 ? "—" : String.format(Locale.ROOT, "%.2f blocs", reach)));
+			return List.of(new Line(Tr.tr("module.reach"), reach < 0 ? "—" : Tr.tr("reach.value", String.format(Locale.ROOT, "%.2f", reach))));
 		}
 	}
 
@@ -148,7 +149,7 @@ public final class Modules {
 		private static final DateTimeFormatter FORMAT = DateTimeFormatter.ofPattern("HH:mm");
 
 		Clock() {
-			super("clock", "Horloge");
+			super("clock");
 		}
 
 		@Override

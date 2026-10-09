@@ -16,7 +16,7 @@ public final class ArmorModule extends HudModule {
 	private static final int PAD = 3;
 
 	public ArmorModule() {
-		super("armor", "Armure");
+		super("armor");
 	}
 
 	@Override

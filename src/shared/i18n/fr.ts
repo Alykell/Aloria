@@ -449,5 +449,7 @@ export const fr = {
   'err.presetMissing': 'Jeu de réglages introuvable.',
   // Xbox
   'auth.banned': 'Ce compte est banni du Xbox Live.',
-  'auth.country': 'Le Xbox Live n\'est pas disponible dans ton pays.'
+  'auth.country': 'Le Xbox Live n\'est pas disponible dans ton pays.',
+  // Mod introuvable
+  'err.hudJarMissing': 'Le mod Aloria HUD pour Minecraft {version} est introuvable (dossier mod : gradlew build).'
 }

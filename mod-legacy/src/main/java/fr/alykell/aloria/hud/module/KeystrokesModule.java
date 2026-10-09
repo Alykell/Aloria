@@ -18,7 +18,7 @@ public final class KeystrokesModule extends HudModule {
 	private static final int SPACE_H = 12;
 
 	public KeystrokesModule() {
-		super("keystrokes", "Touches");
+		super("keystrokes");
 	}
 
 	@Override

@@ -1,25 +1,25 @@
 package fr.alykell.aloria.hud.module;
 
 import fr.alykell.aloria.hud.G;
+import fr.alykell.aloria.hud.Tr;
 import fr.alykell.aloria.hud.config.ModuleSettings;
 import net.minecraft.client.MinecraftClient;
 
 /** Un élément du HUD : il connaît sa taille et sait se dessiner en (0, 0). */
 public abstract class HudModule {
 	private final String id;
-	private final String name;
 
-	protected HudModule(String id, String name) {
+	protected HudModule(String id) {
 		this.id = id;
-		this.name = name;
 	}
 
 	public String id() {
 		return id;
 	}
 
+	/** Nom affiché, dans la langue du jeu (clé module.<id>) */
 	public String name() {
-		return name;
+		return Tr.tr("module." + id);
 	}
 
 	/** Onglet du menu : « info » ou « pvp » */

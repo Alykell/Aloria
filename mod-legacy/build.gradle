@@ -22,23 +22,22 @@ def sharedConfig = tasks.register('sharedConfig', Sync) {
 }
 sourceSets.main.java.srcDir(sharedConfig)
 
-// Mêmes modules que le mod moderne (identifiant et nom) : l'identifiant est la clé des réglages dans le JSON commun
+// Mêmes modules que le mod moderne (l'identifiant est la clé des réglages dans le JSON commun), chacun nommé dans les deux langues
 def checkModuleIds = tasks.register('checkModuleIds') {
 	def modern = fileTree('../mod/src/main/java/fr/alykell/aloria/hud/module')
 	def legacy = fileTree('src/main/java/fr/alykell/aloria/hud/module')
-	inputs.files(modern, legacy)
+	def lang = fileTree('../mod/src/main/resources/assets/aloriahud/lang') { include '*.json' }
+	inputs.files(modern, legacy, lang)
 	doLast {
-		def ids = { files ->
-			def found = new TreeMap<String, String>()
-			files.each { f -> (f.getText('UTF-8') =~ /super\("([a-z_]+)", "([^"]*)"\)/).each { all, id, name -> found[id] = name } }
-			found
-		}
+		def ids = { files -> files.collectMany { f -> (f.getText('UTF-8') =~ /super\("([a-z_]+)"\)/).collect { it[1] } } as TreeSet }
 		def m = ids(modern.files), l = ids(legacy.files)
-		if (m != l) {
-			def diff = ((m.keySet() + l.keySet()) as TreeSet).findAll { m[it] != l[it] }
-				.collect { "  ${it} : moderne = ${m[it] ?: 'absent'}, 1.8.9 = ${l[it] ?: 'absent'}" }
-			throw new GradleException("Modules différents entre mod/ et mod-legacy/ :\n" + diff.join('\n'))
+		def problems = ((m + l) as TreeSet).findAll { !(it in m) || !(it in l) }
+			.collect { "  ${it} : ${it in m ? 'absent du mod 1.8.9' : 'absent du mod moderne'}" }
+		lang.files.each { f ->
+			def keys = new groovy.json.JsonSlurper().parse(f, 'UTF-8').keySet()
+			((m + l) as TreeSet).findAll { !keys.contains("aloriahud.module.${it}".toString()) }.each { problems << "  ${it} : pas de nom dans ${f.name}" }
 		}
+		if (problems) throw new GradleException("Modules différents entre mod/ et mod-legacy/ :\n" + problems.join('\n'))
 	}
 }
 tasks.named('compileJava') { dependsOn checkModuleIds }
@@ -54,6 +53,21 @@ processResources {
 	inputs.property "version", version
 	filesMatching("fabric.mod.json") {
 		expand "version": version
+	}
+}
+
+// Traductions : les fichiers .lang de la 1.8.9 reçoivent celles du mod moderne (mêmes clés, une seule source)
+def modernLang = file('../mod/src/main/resources/assets/aloriahud/lang')
+processResources {
+	inputs.dir(modernLang)
+	doLast {
+		[en_US: 'en_us', fr_FR: 'fr_fr'].each { legacy, modern ->
+			def entries = new groovy.json.JsonSlurper().parse(new File(modernLang, "${modern}.json"), 'UTF-8')
+				.findAll { k, v -> k.startsWith('aloriahud.') }
+			def out = new File(destinationDir, "assets/aloriahud/lang/${legacy}.lang")
+			def start = out.exists() && !out.getText('UTF-8').endsWith('\n') ? '\n' : ''
+			out.append(start + entries.collect { k, v -> "${k}=${v}" }.join('\n') + '\n', 'UTF-8')
+		}
 	}
 }
 

@@ -3,6 +3,7 @@ package fr.alykell.aloria.hud.module;
 import fr.alykell.aloria.hud.Draw;
 import fr.alykell.aloria.hud.Fonts;
 import fr.alykell.aloria.hud.Gfx;
+import fr.alykell.aloria.hud.Tr;
 import fr.alykell.aloria.hud.config.ModuleSettings;
 import fr.alykell.aloria.hud.mixin.CreeperAccessor;
 import net.minecraft.client.Camera;
@@ -42,7 +43,7 @@ public final class ExplosionModule extends HudModule {
 	private static final double RANGE = 48;
 
 	public ExplosionModule() {
-		super("explosions", "Chrono d'explosion");
+		super("explosions");
 	}
 
 	@Override
@@ -57,7 +58,7 @@ public final class ExplosionModule extends HudModule {
 
 	@Override
 	public String hint() {
-		return "Affiché au-dessus des TNT et des creepers";
+		return Tr.tr("hint.explosions");
 	}
 
 	/**

@@ -23,8 +23,8 @@ public abstract class TextModule extends HudModule {
 		}
 	}
 
-	protected TextModule(String id, String name) {
-		super(id, name);
+	protected TextModule(String id) {
+		super(id);
 	}
 
 	protected abstract List<Line> lines(MinecraftClient mc, boolean preview);

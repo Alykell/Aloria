@@ -5,6 +5,7 @@ import fr.alykell.aloria.hud.AloriaHud;
 import fr.alykell.aloria.hud.HudRenderer;
 import fr.alykell.aloria.hud.HudRenderer.Bounds;
 import fr.alykell.aloria.hud.Theme;
+import fr.alykell.aloria.hud.Tr;
 import fr.alykell.aloria.hud.config.ModuleSettings;
 import fr.alykell.aloria.hud.module.HudModule;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -33,7 +34,7 @@ public class HudLayoutScreen extends AloriaScreen {
 	private double dragOffsetY;
 
 	public HudLayoutScreen(HudMenuScreen menu) {
-		super(Component.literal("Disposition du HUD"), menu);
+		super(Component.literal(Tr.tr("layout.title")), menu);
 	}
 
 	private ModuleSettings settings(HudModule m) {
@@ -95,14 +96,14 @@ public class HudLayoutScreen extends AloriaScreen {
 		}
 
 		// Barre d'outils en bas au centre, au-dessus de la barre d'objets (les modules sont rarement là)
-		String hint = "Glisser : déplacer  ·  Molette : taille  ·  Clic droit : réglages";
+		String hint = Tr.tr("layout.hint");
 		int barW = w(hint) + 24 + 70;
 		int bx = (width - barW) / 2;
 		int by = height - 70;
 		round(g, bx, by, barW, 22, Theme.WINDOW);
 		roundOutline(g, bx, by, barW, 22, Theme.BORDER);
 		text(g, hint, bx + 10, by + 7, Theme.FOAM, false);
-		button(g, mouseX, mouseY, bx + barW - 68, by + 2, 64, 18, "Terminé", true, this::onClose);
+		button(g, mouseX, mouseY, bx + barW - 68, by + 2, 64, 18, Tr.tr("layout.done"), true, this::onClose);
 	}
 
 	@Override

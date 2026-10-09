@@ -2,6 +2,7 @@ package fr.alykell.aloria.hud.screen;
 
 import fr.alykell.aloria.hud.AloriaHud;
 import fr.alykell.aloria.hud.Theme;
+import fr.alykell.aloria.hud.Tr;
 import fr.alykell.aloria.hud.Visual;
 import fr.alykell.aloria.hud.config.VisualSettings;
 import fr.alykell.aloria.hud.config.VisualSettings.HandTransform;
@@ -20,7 +21,7 @@ import java.util.function.IntConsumer;
  */
 public class VisualScreen extends AloriaScreen {
 	private static final String[][] TABS = {
-		{"hands", "Mains"}, {"shield", "Bouclier"}, {"totem", "Totem"}, {"light", "Luminosité"}, {"fog", "Brouillard"}
+		{"hands", "visual.tab.hands"}, {"shield", "visual.tab.shield"}, {"totem", "visual.tab.totem"}, {"light", "visual.tab.light"}, {"fog", "visual.tab.fog"}
 	};
 	private static final int PAD = 8;
 	private static final int ROW_H = 15;
@@ -31,7 +32,7 @@ public class VisualScreen extends AloriaScreen {
 	private boolean offHand;
 
 	public VisualScreen(@Nullable Screen parent) {
-		super(Component.literal("Visuel"), parent);
+		super(Component.literal(Tr.tr("visual.title")), parent);
 	}
 
 	/** Pour l'auto-test */
@@ -74,11 +75,12 @@ public class VisualScreen extends AloriaScreen {
 		int tx = x + PAD;
 		int ty = y + PAD;
 		for (String[] t : TABS) {
-			int tw = w(t[1]) + 10;
+			String name = Tr.tr(t[1]);
+			int tw = w(name) + 10;
 			boolean active = tab.equals(t[0]);
 			boolean hover = hovered(mouseX, mouseY, tx, ty, tw, 16);
 			round(g, tx, ty, tw, 16, active ? Theme.SEA : hover ? Theme.CARD_HOVER : Theme.CARD);
-			centered(g, t[1], tx + tw / 2, ty + 4, active ? Theme.WHITE : Theme.FOAM);
+			centered(g, name, tx + tw / 2, ty + 4, active ? Theme.WHITE : Theme.FOAM);
 			String id = t[0];
 			onClick("vtab:" + id, tx, ty, tw, 16, () -> tab = id);
 			tx += tw + 3;
@@ -110,24 +112,24 @@ public class VisualScreen extends AloriaScreen {
 	}
 
 	private static String signed(float value) {
-		return value == 0 ? "Normal" : String.format(Locale.ROOT, "%+.2f", value);
+		return value == 0 ? Tr.tr("visual.normal") : String.format(Locale.ROOT, "%+.2f", value);
 	}
 
 	private static String times(float value) {
-		return value == 1f ? "Normal" : String.format(Locale.ROOT, "×%.2f", value);
+		return value == 1f ? Tr.tr("visual.normal") : String.format(Locale.ROOT, "×%.2f", value);
 	}
 
 	/** Les quatre curseurs d'un objet tenu, puis « Réinitialiser » */
 	private int transformRows(GuiGraphicsExtractor g, int mouseX, int mouseY, String id, HandTransform t, int x, int y, int w, Runnable reset) {
-		sliderRow(g, mouseX, mouseY, id + ":side", "Côté", x, y, w, t.side, -0.6f, 0.6f, 0.02f, signed(t.side), v -> t.side = v);
+		sliderRow(g, mouseX, mouseY, id + ":side", Tr.tr("visual.side"), x, y, w, t.side, -0.6f, 0.6f, 0.02f, signed(t.side), v -> t.side = v);
 		y += ROW_H;
-		sliderRow(g, mouseX, mouseY, id + ":height", "Hauteur", x, y, w, t.height, -0.6f, 0.6f, 0.02f, signed(t.height), v -> t.height = v);
+		sliderRow(g, mouseX, mouseY, id + ":height", Tr.tr("visual.height"), x, y, w, t.height, -0.6f, 0.6f, 0.02f, signed(t.height), v -> t.height = v);
 		y += ROW_H;
-		sliderRow(g, mouseX, mouseY, id + ":depth", "Profondeur", x, y, w, t.depth, -0.4f, 0.8f, 0.02f, signed(t.depth), v -> t.depth = v);
+		sliderRow(g, mouseX, mouseY, id + ":depth", Tr.tr("visual.depth"), x, y, w, t.depth, -0.4f, 0.8f, 0.02f, signed(t.depth), v -> t.depth = v);
 		y += ROW_H;
-		sliderRow(g, mouseX, mouseY, id + ":scale", "Taille", x, y, w, t.scale, 0.3f, 1.5f, 0.05f, times(t.scale), v -> t.scale = v);
+		sliderRow(g, mouseX, mouseY, id + ":scale", Tr.tr("edit.size"), x, y, w, t.scale, 0.3f, 1.5f, 0.05f, times(t.scale), v -> t.scale = v);
 		y += ROW_H;
-		String label = "Réinitialiser";
+		String label = Tr.tr("menu.reset");
 		buttonWithId(id + ":reset", g, mouseX, mouseY, x + PAD, y, w(label) + 16, 13, label, false, reset);
 		return y;
 	}
@@ -136,35 +138,36 @@ public class VisualScreen extends AloriaScreen {
 
 	private void drawHands(GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int y, int w) {
 		int half = (w - PAD * 2 - 4) / 2;
-		choice(g, mouseX, mouseY, "hand:main", "Main principale", x + PAD, y, half, !offHand, () -> offHand = false);
-		choice(g, mouseX, mouseY, "hand:off", "Main secondaire", x + PAD + half + 4, y, half, offHand, () -> offHand = true);
+		choice(g, mouseX, mouseY, "hand:main", Tr.tr("visual.mainHand"), x + PAD, y, half, !offHand, () -> offHand = false);
+		choice(g, mouseX, mouseY, "hand:off", Tr.tr("visual.offHand"), x + PAD + half + 4, y, half, offHand, () -> offHand = true);
 		y += ROW_H;
 		if (offHand) transformRows(g, mouseX, mouseY, "off", v().offHand, x, y, w, () -> v().offHand = new HandTransform());
 		else transformRows(g, mouseX, mouseY, "main", v().mainHand, x, y, w, () -> v().mainHand = new HandTransform());
 	}
 
 	private void drawShield(GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int y, int w) {
-		text(g, "Seulement pour le bouclier, dans une main comme dans l'autre.", x + PAD, y + 2, Theme.TEXT_SOFT, false);
+		text(g, Tr.tr("visual.shieldHint"), x + PAD, y + 2, Theme.TEXT_SOFT, false);
 		y += ROW_H;
 		transformRows(g, mouseX, mouseY, "shield", v().shield, x, y, w, () -> v().shield = new HandTransform());
 	}
 
 	private void drawTotem(GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int y, int w) {
-		text(g, "Taille de l'animation quand un totem te sauve.", x + PAD, y + 2, Theme.TEXT_SOFT, false);
+		text(g, Tr.tr("visual.totemHint"), x + PAD, y + 2, Theme.TEXT_SOFT, false);
 		y += ROW_H;
 		float scale = v().totemScale;
-		sliderRow(g, mouseX, mouseY, "totem", "Taille", x, y, w, scale, 0.1f, 1f, 0.05f, times(scale), s -> v().totemScale = s);
+		sliderRow(g, mouseX, mouseY, "totem", Tr.tr("edit.size"), x, y, w, scale, 0.1f, 1f, 0.05f, times(scale), s -> v().totemScale = s);
 		y += ROW_H;
-		button(g, mouseX, mouseY, x + PAD, y, w("Voir l'animation") + 16, 13, "Voir l'animation", true, Visual::previewTotem);
-		String reset = "Réinitialiser";
-		buttonWithId("totem:reset", g, mouseX, mouseY, x + PAD + w("Voir l'animation") + 22, y, w(reset) + 16, 13, reset, false, () -> v().totemScale = 1f);
+		String preview = Tr.tr("visual.preview");
+		button(g, mouseX, mouseY, x + PAD, y, w(preview) + 16, 13, preview, true, Visual::previewTotem);
+		String reset = Tr.tr("menu.reset");
+		buttonWithId("totem:reset", g, mouseX, mouseY, x + PAD + w(preview) + 22, y, w(reset) + 16, 13, reset, false, () -> v().totemScale = 1f);
 	}
 
 	private void drawLight(GuiGraphicsExtractor g, int x, int y, int w) {
-		text(g, "Luminosité max (comme avec Vision nocturne)", x + PAD, y + 2, Theme.FOAM, false);
+		text(g, Tr.tr("visual.fullbright"), x + PAD, y + 2, Theme.FOAM, false);
 		toggle("fullbright", g, x + w - PAD - 24, y + 1, v().fullbright, () -> v().fullbright = !v().fullbright);
 		y += ROW_H;
-		text(g, "Tout est éclairé, même les grottes et la nuit. Sans l'effet de potion.", x + PAD, y + 2, Theme.TEXT_SOFT, false);
+		text(g, Tr.tr("visual.fullbrightHint"), x + PAD, y + 2, Theme.TEXT_SOFT, false);
 	}
 
 	private void drawFog(GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int y, int w) {
@@ -174,15 +177,15 @@ public class VisualScreen extends AloriaScreen {
 		y += ROW_H;
 		fogRow(g, mouseX, mouseY, "fog:end", "End", x, y, w, v().fogEnd, p -> v().fogEnd = p);
 		y += ROW_H;
-		fogRow(g, mouseX, mouseY, "fog:water", "Sous l'eau", x, y, w, v().fogWater, p -> v().fogWater = p);
+		fogRow(g, mouseX, mouseY, "fog:water", Tr.tr("visual.fogWater"), x, y, w, v().fogWater, p -> v().fogWater = p);
 		y += ROW_H;
-		fogRow(g, mouseX, mouseY, "fog:lava", "Dans la lave", x, y, w, v().fogLava, p -> v().fogLava = p);
+		fogRow(g, mouseX, mouseY, "fog:lava", Tr.tr("visual.fogLava"), x, y, w, v().fogLava, p -> v().fogLava = p);
 		y += ROW_H;
-		fogRow(g, mouseX, mouseY, "fog:snow", "Neige poudreuse", x, y, w, v().fogSnow, p -> v().fogSnow = p);
+		fogRow(g, mouseX, mouseY, "fog:snow", Tr.tr("visual.fogSnow"), x, y, w, v().fogSnow, p -> v().fogSnow = p);
 	}
 
 	private void fogRow(GuiGraphicsExtractor g, int mouseX, int mouseY, String id, String label, int x, int y, int w, int value, IntConsumer set) {
-		String display = value >= 100 ? "Normal" : value <= 0 ? "Aucun" : value + " %";
+		String display = value >= 100 ? Tr.tr("visual.normal") : value <= 0 ? Tr.tr("visual.none") : Tr.tr("visual.percent", value);
 		sliderRow(g, mouseX, mouseY, id, label, x, y, w, value, 0, 100, 5, display, f -> set.accept(Math.round(f)));
 	}
 

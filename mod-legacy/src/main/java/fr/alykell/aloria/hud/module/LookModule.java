@@ -3,8 +3,10 @@ package fr.alykell.aloria.hud.module;
 import fr.alykell.aloria.hud.Draw;
 import fr.alykell.aloria.hud.G;
 import fr.alykell.aloria.hud.Theme;
+import fr.alykell.aloria.hud.Tr;
 import fr.alykell.aloria.hud.config.ModuleSettings;
 import fr.alykell.aloria.hud.mixin.InteractionManagerAccessor;
+import net.minecraft.client.resource.language.I18n;
 //#if FORGE
 //#else
 import net.fabricmc.loader.api.FabricLoader;
@@ -56,7 +58,7 @@ public final class LookModule extends HudModule {
 	private static final int RED = 0xFFFF6B6B;
 
 	public LookModule() {
-		super("look", "Bloc visé");
+		super("look");
 	}
 
 	@Override
@@ -71,7 +73,7 @@ public final class LookModule extends HudModule {
 
 	@Override
 	public String hint() {
-		return "Visible quand tu regardes un bloc ou une créature";
+		return Tr.tr("hint.look");
 	}
 
 	@Override
@@ -108,7 +110,7 @@ public final class LookModule extends HudModule {
 			else if (hit.type == BlockHitResult.Type.ENTITY && hit.entity != null) t = entity(hit.entity);
 		}
 		if (t == null && preview) {
-			t = new Target(new ItemStack(Item.fromBlock(Blocks.GRASS)), "Bloc d'herbe", "Minecraft", "✔ Récoltable", GREEN, -1);
+			t = new Target(new ItemStack(Item.fromBlock(Blocks.GRASS)), I18n.translate("tile.grass.name"), "Minecraft", Tr.tr("look.harvestable"), GREEN, -1);
 		}
 		return t;
 	}
@@ -126,13 +128,13 @@ public final class LookModule extends HudModule {
 		float progress = mc.interactionManager != null && mc.interactionManager.isBreakingBlock()
 			? ((InteractionManagerAccessor) mc.interactionManager).getCurrentBreakingProgress() : 0;
 		if (progress > 0) {
-			return new Target(icon, name, source, String.format(Locale.ROOT, "Minage %d %%", Math.round(progress * 100)), YELLOW, progress);
+			return new Target(icon, name, source, Tr.tr("look.mining", Math.round(progress * 100)), YELLOW, progress);
 		}
-		if (block.getStrength(mc.world, pos) < 0) return new Target(icon, name, source, "Incassable", RED, -1);
+		if (block.getStrength(mc.world, pos) < 0) return new Target(icon, name, source, Tr.tr("look.unbreakable"), RED, -1);
 		// Yarn 1.8.9 : doesBlockMovement() vaut en réalité « pas besoin d'outil »
 		if (!block.getMaterial().doesBlockMovement()) {
 			boolean ok = mc.player.isUsingEffectiveTool(block);
-			return new Target(icon, name, source, ok ? "✔ Récoltable" : "✘ Mauvais outil", ok ? GREEN : RED, -1);
+			return new Target(icon, name, source, ok ? Tr.tr("look.harvestable") : Tr.tr("look.wrongTool"), ok ? GREEN : RED, -1);
 		}
 		return new Target(icon, name, source, null, 0, -1);
 	}

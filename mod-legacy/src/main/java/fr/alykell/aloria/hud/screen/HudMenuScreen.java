@@ -6,6 +6,7 @@ import fr.alykell.aloria.hud.Draw;
 import fr.alykell.aloria.hud.G;
 import fr.alykell.aloria.hud.LegacyOptions;
 import fr.alykell.aloria.hud.Theme;
+import fr.alykell.aloria.hud.Tr;
 import fr.alykell.aloria.hud.config.GlobalSettings;
 import fr.alykell.aloria.hud.config.ModuleSettings;
 import fr.alykell.aloria.hud.module.HudModule;
@@ -17,7 +18,7 @@ import java.util.List;
 
 /** Menu des modules, façon Lunar : une carte par module avec aperçu, réglages et activation. */
 public class HudMenuScreen extends AloriaScreen {
-	private static final String[][] TABS = {{"all", "Tous"}, {"info", "Infos"}, {"pvp", "PvP"}, {"general", "Général"}};
+	private static final String[][] TABS = {{"all", "menu.tab.all"}, {"info", "menu.tab.info"}, {"pvp", "menu.tab.pvp"}, {"general", "menu.tab.general"}};
 	private static final int COLUMNS = 4;
 	private static final int GAP = 8;
 	private static final int PAD = 12;
@@ -130,7 +131,7 @@ public class HudMenuScreen extends AloriaScreen {
 
 		text(g, bold("✦ ALORIA HUD"), x + 2, y - 22, Theme.WHITE, true);
 		button(g, mx, my, x + w - 22, y - 26, 22, 18, "✕", false, this::closeAll);
-		button(g, mx, my, x + w - 126, y - 26, 100, 18, "✥ Disposition", true, () -> client.setScreen(new HudLayoutScreen(this)));
+		button(g, mx, my, x + w - 126, y - 26, 100, 18, Tr.tr("menu.layout"), true, () -> client.setScreen(new HudLayoutScreen(this)));
 
 		round(g, x, y, w, h, Theme.WINDOW);
 		roundOutline(g, x, y, w, h, Theme.BORDER);
@@ -149,11 +150,12 @@ public class HudMenuScreen extends AloriaScreen {
 	private void drawTabs(G g, int mouseX, int mouseY, int x, int y) {
 		int tx = x + PAD;
 		for (String[] t : TABS) {
-			int tw = w(t[1]) + 22;
+			String name = Tr.tr(t[1]);
+			int tw = w(name) + 22;
 			boolean active = tab.equals(t[0]);
 			boolean hover = hovered(mouseX, mouseY, tx, y + PAD, tw, 18);
 			round(g, tx, y + PAD, tw, 18, active ? Theme.SEA : hover ? Theme.CARD_HOVER : Theme.CARD);
-			centered(g, t[1], tx + tw / 2, y + PAD + 5, active ? Theme.WHITE : Theme.FOAM);
+			centered(g, name, tx + tw / 2, y + PAD + 5, active ? Theme.WHITE : Theme.FOAM);
 			final String id = t[0];
 			onClick("tab:" + id, tx, y + PAD, tw, 18, () -> {
 				tab = id;
@@ -214,7 +216,7 @@ public class HudMenuScreen extends AloriaScreen {
 		boolean toggleHover = inView && hovered(mouseX, mouseY, tx, by, tw, 18);
 		int bg = s.enabled ? (toggleHover ? Theme.LAGOON : Theme.SEA) : (toggleHover ? 0xC01E4053 : 0xA017323F);
 		round(g, tx, by, tw, 18, bg);
-		String label = s.enabled ? "Activé" : "Désactivé";
+		String label = Tr.tr(s.enabled ? "menu.enabled" : "menu.disabled");
 		if (w(label) > tw - 6) label = s.enabled ? "On" : "Off";
 		centered(g, label, tx + tw / 2, by + 5, s.enabled ? Theme.WHITE : Theme.TEXT_SOFT);
 		onClick("toggle:" + module.id(), tx, by, tw, 18, () -> s.enabled = !s.enabled);
@@ -239,37 +241,38 @@ public class HudMenuScreen extends AloriaScreen {
 		int ox = x + PAD + 4;
 		int oy = y + PAD + 18 + 18;
 
-		text(g, bold("Tous les modules"), ox, oy, Theme.WHITE, false);
+		text(g, bold(Tr.tr("general.allModules")), ox, oy, Theme.WHITE, false);
 		oy += 16;
-		String same = "Même couleur de texte pour tous";
+		String same = Tr.tr("general.sameColor");
 		toggle("sameTextColor", g, ox, oy + 2, global.sameTextColor, () -> global.sameTextColor = !global.sameTextColor);
 		text(g, same, ox + 32, oy + 4, Theme.FOAM, false);
 		swatch(g, mouseX, mouseY, "pick:global-text", ox + 40 + w(same), oy, global.textColor,
-			() -> openPicker(new Picker("Couleur commune du texte", () -> global.textColor, c -> global.textColor = c, false)));
+			() -> openPicker(new Picker(Tr.tr("picker.sharedText"), () -> global.textColor, c -> global.textColor = c, false)));
 		oy += 20;
-		text(g, "Les modules réglés sur « Ignorer » (⚙) gardent leurs réglages.", ox, oy, Theme.TEXT_SOFT, false);
+		text(g, Tr.tr("general.ownHintShort"), ox, oy, Theme.TEXT_SOFT, false);
 		oy += 16;
 
 		// Réglages des versions récentes, ajoutés à la 1.8.9 (synchronisés avec le launcher via options.txt)
-		text(g, bold("Jeu"), ox, oy, Theme.WHITE, false);
+		text(g, bold(Tr.tr("general.game")), ox, oy, Theme.WHITE, false);
 		oy += 14;
 		// Interrupteurs alignés en colonnes (marge large : la police mesure un peu court certains signes)
-		int labels = Math.max(w("Entrée brute (souris)"), w("Accroupi en bascule")) + 20;
+		String rawInput = Tr.tr("game.rawInput"), toggleSprint = Tr.tr("game.toggleSprint"), toggleCrouch = Tr.tr("game.toggleCrouch");
+		int labels = Math.max(w(rawInput), w(toggleCrouch)) + 20;
 		int col2 = ox + labels + 40;
-		int labels2 = w("Course en bascule") + 20;
-		gameToggle(g, "rawMouseInput", "Entrée brute (souris)", ox, labels, oy, LegacyOptions.rawMouseInput, () -> LegacyOptions.rawMouseInput = !LegacyOptions.rawMouseInput);
-		gameToggle(g, "toggleSprint", "Course en bascule", col2, labels2, oy, LegacyOptions.toggleSprint, () -> LegacyOptions.toggleSprint = !LegacyOptions.toggleSprint);
+		int labels2 = w(toggleSprint) + 20;
+		gameToggle(g, "rawMouseInput", rawInput, ox, labels, oy, LegacyOptions.rawMouseInput, () -> LegacyOptions.rawMouseInput = !LegacyOptions.rawMouseInput);
+		gameToggle(g, "toggleSprint", toggleSprint, col2, labels2, oy, LegacyOptions.toggleSprint, () -> LegacyOptions.toggleSprint = !LegacyOptions.toggleSprint);
 		oy += 16;
-		gameToggle(g, "toggleCrouch", "Accroupi en bascule", ox, labels, oy, LegacyOptions.toggleCrouch, () -> LegacyOptions.toggleCrouch = !LegacyOptions.toggleCrouch);
+		gameToggle(g, "toggleCrouch", toggleCrouch, ox, labels, oy, LegacyOptions.toggleCrouch, () -> LegacyOptions.toggleCrouch = !LegacyOptions.toggleCrouch);
 		oy += 16;
-		text(g, "FOV dynamique", ox, oy + 2, Theme.FOAM, false);
+		text(g, Tr.tr("game.fovEffects"), ox, oy + 2, Theme.FOAM, false);
 		int sx = ox + labels;
 		slider(g, mouseX, mouseY, "fovEffectScale", sx, oy, 120, LegacyOptions.fovEffectScale, t -> {
 			LegacyOptions.fovEffectScale = Math.round(t * 20) / 20f;
 			optionsChanged = true;
 		});
 		int percent = Math.round(LegacyOptions.fovEffectScale * 100);
-		text(g, percent == 0 ? "Désactivé" : percent + " %", sx + 128, oy + 2, Theme.LAGOON, false);
+		text(g, percent == 0 ? Tr.tr("menu.disabled") : Tr.tr("visual.percent", percent), sx + 128, oy + 2, Theme.LAGOON, false);
 	}
 
 	/** Les réglages du jeu sont écrits dans options.txt à la fermeture du menu */
@@ -287,14 +290,15 @@ public class HudMenuScreen extends AloriaScreen {
 
 	private void drawSettings(G g, int mouseX, int mouseY, int x, int y, int w, int h, final HudModule module) {
 		final ModuleSettings s = settings(module);
-		button(g, mouseX, mouseY, x + PAD, y + PAD, 70, 18, "← Retour", false, () -> editing = null);
+		button(g, mouseX, mouseY, x + PAD, y + PAD, 70, 18, Tr.tr("menu.back"), false, () -> editing = null);
 		text(g, bold(module.name()), x + PAD + 80, y + PAD + 5, Theme.WHITE, false);
 		toggle("enabled", g, x + w - PAD - 24, y + PAD + 3, s.enabled, () -> s.enabled = !s.enabled);
-		String state = s.enabled ? "Activé" : "Désactivé";
+		String state = Tr.tr(s.enabled ? "menu.enabled" : "menu.disabled");
 		int stateX = x + w - PAD - 30 - w(state);
 		text(g, state, stateX, y + PAD + 5, Theme.TEXT_SOFT, false);
-		int resetW = w("Réinitialiser") + 14;
-		button(g, mouseX, mouseY, stateX - 10 - resetW, y + PAD, resetW, 18, "Réinitialiser", false, () -> AloriaHud.config().reset(module));
+		String reset = Tr.tr("menu.reset");
+		int resetW = w(reset) + 14;
+		button(g, mouseX, mouseY, stateX - 10 - resetW, y + PAD, resetW, 18, reset, false, () -> AloriaHud.config().reset(module));
 
 		int top = y + PAD + 30;
 		int bottom = y + h - PAD;
@@ -315,56 +319,57 @@ public class HudMenuScreen extends AloriaScreen {
 		g.enableScissor(ox - 2, top, ox + ow + 2, bottom);
 		clip(top, bottom);
 
-		label(g, "Taille", ox, oy);
+		label(g, Tr.tr("edit.size"), ox, oy);
 		slider(g, mouseX, mouseY, "slider", cx, oy, cw - 32, (s.scale - 0.5f) / 2.5f,
 			t -> s.scale = Math.round((0.5 + t * 2.5) * 10) / 10f);
 		text(g, String.format("%.1fx", s.scale), ox + ow - 26, oy + 2, Theme.LAGOON, false);
 		oy += ROW_H;
 
-		label(g, "Texte", ox, oy);
+		label(g, Tr.tr("edit.text"), ox, oy);
 		final GlobalSettings global = AloriaHud.config().global();
 		if (global.sameTextColor && !s.ownStyle) {
 			int swatchEnd = swatch(g, mouseX, mouseY, "pick:text", cx, oy - 2, global.textColor,
-				() -> openPicker(new Picker("Couleur commune du texte", () -> global.textColor, c -> global.textColor = c, false)));
-			text(g, "commune", swatchEnd + 5, oy + 2, Theme.TEXT_SOFT, false);
+				() -> openPicker(new Picker(Tr.tr("picker.sharedText"), () -> global.textColor, c -> global.textColor = c, false)));
+			text(g, Tr.tr("edit.shared"), swatchEnd + 5, oy + 2, Theme.TEXT_SOFT, false);
 		} else {
 			swatch(g, mouseX, mouseY, "pick:text", cx, oy - 2, s.color,
-				() -> openPicker(new Picker("Couleur du texte", () -> s.color, c -> s.color = c, false)));
+				() -> openPicker(new Picker(Tr.tr("picker.text"), () -> s.color, c -> s.color = c, false)));
 		}
 		toggle("shadow", g, ox + ow - 24, oy, s.shadow, () -> s.shadow = !s.shadow);
-		text(g, "Ombre", ox + ow - 30 - w("Ombre"), oy + 2, Theme.TEXT_SOFT, false);
+		String shadow = Tr.tr("edit.shadow");
+		text(g, shadow, ox + ow - 30 - w(shadow), oy + 2, Theme.TEXT_SOFT, false);
 		oy += ROW_H;
 
-		label(g, "Fond", ox, oy);
+		label(g, Tr.tr("edit.background"), ox, oy);
 		swatch(g, mouseX, mouseY, "pick:bg", cx, oy - 2, 0xFF000000 | s.bgColor,
-			() -> openPicker(new Picker("Couleur du fond", () -> 0xFF000000 | s.bgColor, c -> s.bgColor = c & 0xFFFFFF, false)));
+			() -> openPicker(new Picker(Tr.tr("picker.background"), () -> 0xFF000000 | s.bgColor, c -> s.bgColor = c & 0xFFFFFF, false)));
 		toggle("background", g, ox + ow - 24, oy, s.background, () -> s.background = !s.background);
 		oy += ROW_H;
 
-		label(g, "Opacité", ox, oy);
+		label(g, Tr.tr("edit.opacity"), ox, oy);
 		slider(g, mouseX, mouseY, "opacity", cx, oy, cw - 32, s.opacity / 100f, t -> s.opacity = Math.round(t * 20) * 5);
 		text(g, s.opacity + "%", ox + ow - 26, oy + 2, Theme.LAGOON, false);
 		oy += ROW_H;
 
-		label(g, "Bordure", ox, oy);
+		label(g, Tr.tr("edit.border"), ox, oy);
 		swatch(g, mouseX, mouseY, "pick:border", cx, oy - 2, s.borderColor,
-			() -> openPicker(new Picker("Couleur de la bordure", () -> s.borderColor, c -> s.borderColor = c, true)));
+			() -> openPicker(new Picker(Tr.tr("picker.border"), () -> s.borderColor, c -> s.borderColor = c, true)));
 		buttonWithId("border:-", g, mouseX, mouseY, ox + ow - 62, oy - 2, 16, 16, "-", false, () -> s.borderWidth = Math.max(0, s.borderWidth - 1));
 		centered(g, s.borderWidth + " px", ox + ow - 31, oy + 2, Theme.LAGOON);
 		buttonWithId("border:+", g, mouseX, mouseY, ox + ow - 16, oy - 2, 16, 16, "+", false, () -> s.borderWidth = Math.min(3, s.borderWidth + 1));
 		oy += ROW_H;
 
-		label(g, "Cacher quand le chat est ouvert", ox, oy);
+		label(g, Tr.tr("edit.hideInChat"), ox, oy);
 		toggle("hideInChat", g, ox + ow - 24, oy, s.hideInChat, () -> s.hideInChat = !s.hideInChat);
 		oy += ROW_H;
 
-		label(g, "Ignorer « tous les modules »", ox, oy);
+		label(g, Tr.tr("edit.ownStyle"), ox, oy);
 		toggle("ownStyle", g, ox + ow - 24, oy, s.ownStyle, () -> s.ownStyle = !s.ownStyle);
 		oy += ROW_H;
 
 		boolean justApplied = System.currentTimeMillis() - appliedAt < 2000;
 		buttonWithId("apply-all", g, mouseX, mouseY, ox, oy - 2, ow, 16,
-			justApplied ? "✓ Appliqué aux autres modules" : "Appliquer fond, opacité et bordure à tous", false, () -> {
+			Tr.tr(justApplied ? "edit.applied" : "edit.applyAll"), false, () -> {
 				for (HudModule m : AloriaHud.modules()) {
 					ModuleSettings o = settings(m);
 					if (m != module && o.ownStyle) continue;
@@ -489,10 +494,11 @@ public class HudMenuScreen extends AloriaScreen {
 			});
 		}
 
-		text(g, "Récentes", sx, by + 3, Theme.TEXT_SOFT, false);
-		int rcx = sx + w("Récentes") + 8;
+		String recentLabel = Tr.tr("picker.recent");
+		text(g, recentLabel, sx, by + 3, Theme.TEXT_SOFT, false);
+		int rcx = sx + w(recentLabel) + 8;
 		List<Integer> recent = AloriaHud.config().global().recentColors;
-		if (recent == null || recent.isEmpty()) text(g, "aucune pour l'instant", rcx, by + 3, 0x80FFFFFF, false);
+		if (recent == null || recent.isEmpty()) text(g, Tr.tr("picker.none"), rcx, by + 3, 0x80FFFFFF, false);
 		else {
 			for (int i = 0; i < recent.size(); i++) {
 				final int c = recent.get(i);

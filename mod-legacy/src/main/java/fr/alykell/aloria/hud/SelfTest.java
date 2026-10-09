@@ -155,8 +155,8 @@ public final class SelfTest {
 		add("capture du sélecteur", 3, () -> screenshot(mc, "04-selecteur"));
 		add("valider", 2, () -> click(mc, "btn:OK"));
 		add("capture des réglages", 3, () -> screenshot(mc, "05-reglages"));
-		add("retour", 2, () -> click(mc, "btn:← Retour"));
-		add("disposition", 2, () -> click(mc, "btn:✥ Disposition"));
+		add("retour", 2, () -> click(mc, "btn:" + Tr.tr("menu.back")));
+		add("disposition", 2, () -> click(mc, "btn:" + Tr.tr("menu.layout")));
 		add("glisser FPS", 3, () -> {
 			if (!(mc.currentScreen instanceof HudLayoutScreen)) return check("le bouton Disposition ouvre l'éditeur", false);
 			HudLayoutScreen layout = (HudLayoutScreen) mc.currentScreen;

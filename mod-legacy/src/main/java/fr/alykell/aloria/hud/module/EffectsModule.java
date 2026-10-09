@@ -3,6 +3,7 @@ package fr.alykell.aloria.hud.module;
 import fr.alykell.aloria.hud.Draw;
 import fr.alykell.aloria.hud.G;
 import fr.alykell.aloria.hud.Theme;
+import fr.alykell.aloria.hud.Tr;
 import fr.alykell.aloria.hud.config.ModuleSettings;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.resource.language.I18n;
@@ -34,7 +35,7 @@ public final class EffectsModule extends HudModule {
 	}
 
 	public EffectsModule() {
-		super("effects", "Effets");
+		super("effects");
 	}
 
 	@Override
@@ -44,7 +45,7 @@ public final class EffectsModule extends HudModule {
 
 	@Override
 	public String hint() {
-		return "Visible quand un effet est actif";
+		return Tr.tr("hint.effects");
 	}
 
 	@Override
