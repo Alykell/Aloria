@@ -4,24 +4,30 @@ import { describeProfile } from '../hooks/useVersions'
 import type { ProfilesState } from '../hooks/useProfiles'
 import type { ContentType, InstalledContent, SearchHit, SearchSort } from '../../../shared/types'
 import Select from './Select'
+import { compactNumber, t } from '../i18n'
+import type { MessageKey } from '../../../shared/i18n'
 
 type Tab = ContentType | 'installed'
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'mod', label: 'Mods' },
-  { id: 'resourcepack', label: 'Resource packs' },
-  { id: 'shader', label: 'Shaders' },
-  { id: 'installed', label: 'Installés' }
+const TABS: { id: Tab; label: MessageKey }[] = [
+  { id: 'mod', label: 'library.tabMods' },
+  { id: 'resourcepack', label: 'library.tabResourcepacks' },
+  { id: 'shader', label: 'library.tabShaders' },
+  { id: 'installed', label: 'library.tabInstalled' }
 ]
 
-const SORTS: { id: SearchSort; label: string }[] = [
-  { id: 'relevance', label: 'Pertinence' },
-  { id: 'downloads', label: 'Téléchargements' },
-  { id: 'updated', label: 'Mis à jour récemment' },
-  { id: 'newest', label: 'Nouveautés' }
-]
+const SEARCH_PLACEHOLDERS: Record<ContentType, MessageKey> = {
+  mod: 'library.searchMods',
+  resourcepack: 'library.searchResourcepacks',
+  shader: 'library.searchShaders'
+}
 
-const compact = new Intl.NumberFormat('fr-FR', { notation: 'compact', maximumFractionDigits: 1 })
+const SORTS: { id: SearchSort; label: MessageKey }[] = [
+  { id: 'relevance', label: 'library.sortRelevance' },
+  { id: 'downloads', label: 'library.sortDownloads' },
+  { id: 'updated', label: 'library.sortUpdated' },
+  { id: 'newest', label: 'library.sortNewest' }
+]
 
 interface Props {
   profiles: ProfilesState
@@ -111,9 +117,9 @@ export default function LibraryPage({ profiles, onError, onOpenProfiles }: Props
   return (
     <section className="page wide library">
       <div className="library__header">
-        <h2>Bibliothèque</h2>
+        <h2>{t('library.title')}</h2>
         <div className="library__profile">
-          <span>Profil</span>
+          <span>{t('library.profile')}</span>
           <Select
             name="library-profile"
             value={profile.id}
@@ -124,10 +130,10 @@ export default function LibraryPage({ profiles, onError, onOpenProfiles }: Props
       </div>
 
       <div className="tabs">
-        {TABS.map((t) => (
-          <button key={t.id} className={tab === t.id ? 'active' : ''} onClick={() => setTab(t.id)}>
-            {t.label}
-            {t.id === 'installed' && installed.length > 0 && <span className="badge">{installed.length}</span>}
+        {TABS.map((it) => (
+          <button key={it.id} className={tab === it.id ? 'active' : ''} onClick={() => setTab(it.id)}>
+            {t(it.label)}
+            {it.id === 'installed' && installed.length > 0 && <span className="badge">{installed.length}</span>}
           </button>
         ))}
       </div>
@@ -136,15 +142,12 @@ export default function LibraryPage({ profiles, onError, onOpenProfiles }: Props
         <InstalledList profileId={profile.id} items={installed} onChanged={refreshInstalled} onError={onError} />
       ) : needsLoader ? (
         <div className="notice">
-          <strong>{tab === 'shader' ? 'Les shaders ont besoin de Fabric ou de Forge' : 'Les mods ont besoin de Fabric ou de Forge'}</strong>
+          <strong>{t(tab === 'shader' ? 'library.shadersNeedLoader' : 'library.modsNeedLoader')}</strong>
           <p>
-            Le profil « {profile.name} » est en vanilla.{' '}
-            {tab === 'shader'
-              ? 'Pour les shaders, Aloria installe le mod Iris avec Fabric ; sous Forge, ils passent par OptiFine.'
-              : 'Choisis un profil Fabric ou Forge en haut, ou crées-en un.'}
+            {t('library.vanillaProfile', { name: profile.name })} {t(tab === 'shader' ? 'library.shadersHow' : 'library.modsHow')}
           </p>
           <button className="primary" onClick={onOpenProfiles}>
-            Gérer les profils
+            {t('library.manageProfiles')}
           </button>
         </div>
       ) : (
@@ -153,26 +156,25 @@ export default function LibraryPage({ profiles, onError, onOpenProfiles }: Props
             <div className="notice optifine">
               {optiFine ? (
                 <>
-                  <strong>✔ OptiFine est installé</strong>
+                  <strong>{t('library.optifineInstalled')}</strong>
                   <p>
                     {optiFine.fileName}
-                    {tab === 'shader' ? ' : les shaders se choisissent en jeu dans Options → Paramètres graphiques → Shaders.' : ''}
+                    {tab === 'shader' ? t('library.optifineShaders') : ''}
                   </p>
-                  <button onClick={addOptiFine}>Changer de version</button>
+                  <button onClick={addOptiFine}>{t('library.changeVersion')}</button>
                 </>
               ) : (
                 <>
-                  <strong>OptiFine{tab === 'shader' ? ', pour les shaders' : ''}</strong>
+                  <strong>OptiFine{tab === 'shader' ? t('library.optifineForShaders') : ''}</strong>
                   <p>
-                    OptiFine n'est pas sur Modrinth : sa licence interdit de le redistribuer. Télécharge la version pour Minecraft {gameVersion || '…'}{' '}
-                    sur{' '}
+                    {t('library.optifineWhy', { version: gameVersion || '…' })}{' '}
                     <a href="https://optifine.net/downloads" target="_blank" rel="noreferrer">
                       optifine.net
                     </a>{' '}
-                    (bouton « Download », puis encore « Download » après la pub), puis ajoute le fichier ici.
+                    {t('library.optifineSteps')}
                   </p>
                   <button className="primary" onClick={addOptiFine}>
-                    Ajouter OptiFine
+                    {t('library.addOptifine')}
                   </button>
                 </>
               )}
@@ -181,16 +183,16 @@ export default function LibraryPage({ profiles, onError, onOpenProfiles }: Props
           <div className="search-bar">
             <input
               type="search"
-              placeholder={`Rechercher des ${TABS.find((t) => t.id === tab)!.label.toLowerCase()}…`}
+              placeholder={t(SEARCH_PLACEHOLDERS[tab])}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
-            <Select value={sort} onChange={setSort} options={SORTS.map((s) => ({ value: s.id, label: s.label }))} />
+            <Select value={sort} onChange={setSort} options={SORTS.map((s) => ({ value: s.id, label: t(s.label) }))} />
           </div>
           {gameVersion && (
             <small className="muted">
-              {compact.format(total)} résultats compatibles avec Minecraft {gameVersion}
-              {tab === 'shader' && ' · Iris et Sodium seront installés automatiquement'}
+              {t('library.results', { n: compactNumber(total), version: gameVersion })}
+              {tab === 'shader' && t('library.shadersAuto')}
             </small>
           )}
 
@@ -206,11 +208,11 @@ export default function LibraryPage({ profiles, onError, onOpenProfiles }: Props
                       <a href={`https://modrinth.com/${tab}/${hit.slug}`} target="_blank" rel="noreferrer">
                         {hit.title}
                       </a>
-                      <span className="muted"> par {hit.author}</span>
+                      <span className="muted">{t('library.by', { author: hit.author })}</span>
                     </div>
                     <p>{hit.description}</p>
                     <div className="result__meta">
-                      <span>⬇ {compact.format(hit.downloads)}</span>
+                      <span>⬇ {compactNumber(hit.downloads)}</span>
                       {hit.categories.slice(0, 3).map((c) => (
                         <span key={c} className="chip">
                           {c}
@@ -223,18 +225,18 @@ export default function LibraryPage({ profiles, onError, onOpenProfiles }: Props
                     disabled={busy || isInstalled}
                     onClick={() => install(hit)}
                   >
-                    {busy ? 'Installation…' : isInstalled ? 'Installé ✓' : 'Installer'}
+                    {busy ? t('library.installing') : isInstalled ? t('library.installed') : t('library.install')}
                   </button>
                 </article>
               )
             })}
           </div>
 
-          {loading && <p className="muted center">Chargement…</p>}
-          {!loading && hits.length === 0 && <p className="muted center">Aucun résultat.</p>}
+          {loading && <p className="muted center">{t('common.loading')}</p>}
+          {!loading && hits.length === 0 && <p className="muted center">{t('library.noResults')}</p>}
           {!loading && hits.length < total && (
             <button className="secondary more" onClick={() => runSearch(hits.length)}>
-              Voir plus
+              {t('library.more')}
             </button>
           )}
         </>

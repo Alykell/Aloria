@@ -7,6 +7,7 @@ import { prepareJava } from './java'
 import { paths } from './paths'
 import { OS_NAME, rulesAllow } from './rules'
 import type { Library, VersionJson } from './versions'
+import { tm } from '../i18n'
 
 const LIBRARIES_URL = 'https://libraries.minecraft.net/'
 const RESOURCES_URL = 'https://resources.download.minecraft.net/'
@@ -139,7 +140,7 @@ export async function installVersion(
 
   const clientId = version.inheritsFrom ?? version.id
   const client = version.downloads?.client
-  if (!client) throw new Error(`La version ${version.id} n'a pas de jar client.`)
+  if (!client) throw new Error(tm('err.noClientJar', { version: version.id }))
   const clientPath = paths.versionJar(clientId)
 
   const tasks: DownloadTask[] = [

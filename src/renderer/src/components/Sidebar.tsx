@@ -1,16 +1,18 @@
 import AccountPanel from './AccountPanel'
 import UpdateBanner from './UpdateBanner'
 import type { AccountsState } from '../hooks/useAccounts'
+import { t } from '../i18n'
+import type { MessageKey } from '../../../shared/i18n'
 
 export type Page = 'home' | 'library' | 'creations' | 'profiles' | 'gamesettings' | 'settings'
 
-const ITEMS: { id: Page; label: string; icon: string }[] = [
-  { id: 'home', label: 'Accueil', icon: '🏝️' },
-  { id: 'library', label: 'Bibliothèque', icon: '🐚' },
-  { id: 'creations', label: 'Créations', icon: '🎨' },
-  { id: 'profiles', label: 'Profils', icon: '⚓' },
-  { id: 'gamesettings', label: 'Réglages du jeu', icon: '🎮' },
-  { id: 'settings', label: 'Paramètres', icon: '⚙️' }
+const ITEMS: { id: Page; label: MessageKey; icon: string }[] = [
+  { id: 'home', label: 'nav.home', icon: '🏝️' },
+  { id: 'library', label: 'nav.library', icon: '🐚' },
+  { id: 'creations', label: 'nav.creations', icon: '🎨' },
+  { id: 'profiles', label: 'nav.profiles', icon: '⚓' },
+  { id: 'gamesettings', label: 'nav.gamesettings', icon: '🎮' },
+  { id: 'settings', label: 'nav.settings', icon: '⚙️' }
 ]
 
 interface Props {
@@ -34,7 +36,7 @@ export default function Sidebar({ page, onChange, accounts, onSkin }: Props) {
           onClick={() => onChange(it.id)}
         >
           <span className="icon">{it.icon}</span>
-          {it.label}
+          {t(it.label)}
         </button>
       ))}
       <div className="sidebar__spacer" />

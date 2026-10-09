@@ -8,6 +8,7 @@ import { sharedDir } from '../shared/presets'
 import { paths } from './paths'
 import { hudAvailable, hudVersionsLabel } from '../../shared/aloriaHud'
 import type { Profile } from '../../shared/types'
+import { tm } from '../i18n'
 
 const FABRIC_API = 'P7dR8mSH'
 const JAR_NAME = 'aloria-hud.jar'
@@ -44,7 +45,7 @@ export async function syncAloriaHud(profile: Profile, gameVersion: string, gameD
 
   if (!wanted) {
     await rm(target, { force: true })
-    return hudEnabled(profile) ? `Aloria HUD n'existe que pour Minecraft ${hudVersionsLabel(profile.loader)}${forge ? ' sous Forge' : ''}.` : null
+    return hudEnabled(profile) ? tm('err.hudMissing', { versions: hudVersionsLabel(profile.loader, tm('common.and')), forge: forge ? tm('editor.hudMissingForge') : '' }) : null
   }
 
   const jar = await bundledJar(gameVersion, forge)

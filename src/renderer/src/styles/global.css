@@ -351,6 +351,9 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .overlay { position: fixed; inset: 0; background: var(--overlay); display: grid; place-items: center; z-index: 20; }
 .dialog { width: min(720px, 90vw); background: var(--surface); color: var(--text); border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 12px; }
 .dialog h3 { font-family: 'Quicksand', sans-serif; color: var(--sea-deep); }
+.dialog.language-picker { width: min(380px, 90vw); align-items: center; text-align: center; }
+.language-picker .segmented { align-self: center; }
+.language-picker .dialog__actions { align-self: stretch; justify-content: center; }
 .dialog pre {
   max-height: 300px;
   overflow: auto;

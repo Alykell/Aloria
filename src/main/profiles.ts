@@ -5,6 +5,7 @@ import { mkdir } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { paths } from './game/paths'
 import type { Profile, ProfileInput } from '../shared/types'
+import { tm } from './i18n'
 
 interface Store {
   selectedId: string
@@ -59,7 +60,7 @@ export function listProfiles(): Store {
 
 export function getProfile(id: string): Profile {
   const profile = load().profiles.find((p) => p.id === id)
-  if (!profile) throw new Error('Profil introuvable.')
+  if (!profile) throw new Error(tm('err.profileMissing'))
   return profile
 }
 
@@ -75,7 +76,7 @@ export function createProfile(input: ProfileInput): Profile {
 export function updateProfile(id: string, patch: Partial<ProfileInput>): Profile {
   const store = load()
   const profile = store.profiles.find((p) => p.id === id)
-  if (!profile) throw new Error('Profil introuvable.')
+  if (!profile) throw new Error(tm('err.profileMissing'))
   Object.assign(profile, patch)
   save(store)
   return profile
@@ -101,7 +102,7 @@ export function markPlayed(id: string): void {
 /** Supprime le profil ; son dossier (mondes, mods…) part dans la corbeille si demandé. */
 export async function deleteProfile(id: string, deleteFiles: boolean): Promise<void> {
   const store = load()
-  if (store.profiles.length <= 1) throw new Error('Il faut garder au moins un profil.')
+  if (store.profiles.length <= 1) throw new Error(tm('err.lastProfile'))
   store.profiles = store.profiles.filter((p) => p.id !== id)
   if (store.selectedId === id) store.selectedId = store.profiles[0].id
   save(store)

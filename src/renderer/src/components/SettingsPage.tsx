@@ -1,22 +1,24 @@
 import type { SettingsState } from '../hooks/useSettings'
 import type { AfterLaunch, DiscordGameName, ThemeChoice } from '../../../shared/types'
+import { LANG_NAMES, LANGS, type MessageKey } from '../../../shared/i18n'
+import { gb, t } from '../i18n'
 
-const THEMES: { id: ThemeChoice; label: string }[] = [
-  { id: 'day', label: '☀️ Jour' },
-  { id: 'night', label: '🌙 Nuit' },
-  { id: 'auto', label: 'Auto' }
+const THEMES: { id: ThemeChoice; label: MessageKey }[] = [
+  { id: 'day', label: 'settings.themeDay' },
+  { id: 'night', label: 'settings.themeNight' },
+  { id: 'auto', label: 'settings.themeAuto' }
 ]
 
-const AFTER_LAUNCH: { id: AfterLaunch; label: string }[] = [
-  { id: 'keep', label: 'Rester ouvert' },
-  { id: 'minimize', label: 'Se réduire' },
-  { id: 'close', label: 'Se fermer' }
+const AFTER_LAUNCH: { id: AfterLaunch; label: MessageKey }[] = [
+  { id: 'keep', label: 'settings.afterKeep' },
+  { id: 'minimize', label: 'settings.afterMinimize' },
+  { id: 'close', label: 'settings.afterClose' }
 ]
 
-const DISCORD_DETAILS: { key: 'discordShowProfile' | 'discordShowVersion' | 'discordShowServer'; label: string }[] = [
-  { key: 'discordShowServer', label: 'Montrer le serveur (ex. « Sur donutsmp.net ») ou « En solo »' },
-  { key: 'discordShowProfile', label: 'Montrer le nom du profil' },
-  { key: 'discordShowVersion', label: 'Montrer la version (ex. « Fabric 26.2 »)' }
+const DISCORD_DETAILS: { key: 'discordShowProfile' | 'discordShowVersion' | 'discordShowServer'; label: MessageKey }[] = [
+  { key: 'discordShowServer', label: 'settings.discordServer' },
+  { key: 'discordShowProfile', label: 'settings.discordProfile' },
+  { key: 'discordShowVersion', label: 'settings.discordVersion' }
 ]
 
 const DISCORD_NAMES: { id: DiscordGameName; label: string }[] = [
@@ -31,18 +33,18 @@ export default function SettingsPage({ state: { settings, systemRamMb, update } 
 
   return (
     <section className="page">
-      <h2>Paramètres</h2>
+      <h2>{t('settings.title')}</h2>
 
       <div className="card">
         <div className="card__row">
           <div>
-            <strong>Apparence</strong>
-            <p>Plage de jour, plage de nuit, ou automatique selon l'heure (nuit de 20 h à 7 h).</p>
+            <strong>{t('settings.language')}</strong>
+            <p>{t('settings.languageHint')}</p>
           </div>
           <div className="segmented">
-            {THEMES.map((t) => (
-              <button key={t.id} className={settings.theme === t.id ? 'active' : ''} onClick={() => update({ theme: t.id })}>
-                {t.label}
+            {LANGS.map((l) => (
+              <button key={l} className={settings.language === l ? 'active' : ''} onClick={() => update({ language: l })}>
+                {LANG_NAMES[l]}
               </button>
             ))}
           </div>
@@ -52,13 +54,29 @@ export default function SettingsPage({ state: { settings, systemRamMb, update } 
       <div className="card">
         <div className="card__row">
           <div>
-            <strong>Au lancement du jeu, le launcher doit…</strong>
-            <p>Fermé ou non, tes réglages et ta liste de serveurs sont bien récupérés à la fin de la partie.</p>
+            <strong>{t('settings.theme')}</strong>
+            <p>{t('settings.themeHint')}</p>
+          </div>
+          <div className="segmented">
+            {THEMES.map((it) => (
+              <button key={it.id} className={settings.theme === it.id ? 'active' : ''} onClick={() => update({ theme: it.id })}>
+                {t(it.label)}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card__row">
+          <div>
+            <strong>{t('settings.afterLaunch')}</strong>
+            <p>{t('settings.afterLaunchHint')}</p>
           </div>
           <div className="segmented">
             {AFTER_LAUNCH.map((a) => (
               <button key={a.id} className={settings.afterLaunch === a.id ? 'active' : ''} onClick={() => update({ afterLaunch: a.id })}>
-                {a.label}
+                {t(a.label)}
               </button>
             ))}
           </div>
@@ -68,15 +86,15 @@ export default function SettingsPage({ state: { settings, systemRamMb, update } 
       <div className="card">
         <label className="card__row toggle">
           <div>
-            <strong>Statut Discord</strong>
-            <p>Affiche « Joue à Aloria Client » (ou « Joue à Minecraft » en partie) sur ton profil Discord, avec le temps de jeu.</p>
+            <strong>{t('settings.discord')}</strong>
+            <p>{t('settings.discordHint')}</p>
           </div>
           <input type="checkbox" checked={settings.discordPresence} onChange={(e) => update({ discordPresence: e.target.checked })} />
         </label>
         {settings.discordPresence && (
           <div className="sub-options">
             <div className="discord-name">
-              <span>Pendant une partie, afficher « Joue à… »</span>
+              <span>{t('settings.discordName')}</span>
               <div className="segmented">
                 {DISCORD_NAMES.map((n) => (
                   <button key={n.id} className={settings.discordGameName === n.id ? 'active' : ''} onClick={() => update({ discordGameName: n.id })}>
@@ -88,7 +106,7 @@ export default function SettingsPage({ state: { settings, systemRamMb, update } 
             {DISCORD_DETAILS.map((d) => (
               <label key={d.key} className="toggle-line">
                 <input type="checkbox" checked={settings[d.key]} onChange={(e) => update({ [d.key]: e.target.checked })} />
-                <span>{d.label}</span>
+                <span>{t(d.label)}</span>
               </label>
             ))}
           </div>
@@ -98,11 +116,8 @@ export default function SettingsPage({ state: { settings, systemRamMb, update } 
       <div className="card">
         <div className="card__row">
           <div>
-            <strong>Mémoire par défaut</strong>
-            <p>
-              {(settings.ramMb / 1024).toFixed(1)} Go sur {(systemRamMb / 1024).toFixed(0)} Go disponibles, utilisée par les profils sans réglage propre. 4 Go suffisent
-              en vanilla, prévois-en 6 à 8 avec beaucoup de mods ou des shaders.
-            </p>
+            <strong>{t('settings.ram')}</strong>
+            <p>{t('settings.ramHint', { ram: gb(settings.ramMb), total: gb(systemRamMb, 0) })}</p>
           </div>
         </div>
         <input
@@ -119,8 +134,8 @@ export default function SettingsPage({ state: { settings, systemRamMb, update } 
       <div className="card">
         <label className="card__row toggle">
           <div>
-            <strong>Afficher les snapshots</strong>
-            <p>Les versions de test de Mojang, souvent instables.</p>
+            <strong>{t('settings.snapshots')}</strong>
+            <p>{t('settings.snapshotsHint')}</p>
           </div>
           <input
             type="checkbox"

@@ -15,6 +15,8 @@ import { DISCORD_INVITE } from '../../shared/links'
 import CreationsPage from './components/CreationsPage'
 import SkinDialog from './components/SkinDialog'
 import { useTheme } from './hooks/useTheme'
+import LanguagePicker from './components/LanguagePicker'
+import { setLang, t } from './i18n'
 
 export default function App() {
   const [page, setPage] = useState<Page>('home')
@@ -26,6 +28,8 @@ export default function App() {
   const profiles = useProfiles()
   const game = useGame()
   const { backdrop } = useTheme(settings.settings?.theme)
+  const lang = settings.settings?.language
+  if (lang) setLang(lang)
 
   useEffect(() => {
     window.aloria.getVersion().then(setVersion)
@@ -49,7 +53,8 @@ export default function App() {
   }
 
   return (
-    <div className="app">
+    // Changer de langue remonte l'interface, pour que tous les textes suivent
+    <div className="app" key={lang ?? 'none'}>
       <div className="backdrop" style={{ backgroundImage: `url(${backdrop})` }} />
       <TitleBar />
       <div className="app__body">
@@ -58,7 +63,7 @@ export default function App() {
           {error && (
             <div className="toast" role="alert">
               <span>{error}</span>
-              <button aria-label="Fermer" onClick={clearError}>
+              <button aria-label={t('common.close')} onClick={clearError}>
                 &#10005;
               </button>
             </div>
@@ -74,7 +79,7 @@ export default function App() {
             <LibraryPage profiles={profiles} onError={setPageError} onOpenProfiles={() => setPage('profiles')} />
           )}
           <footer className="version">
-            <a href={DISCORD_INVITE} target="_blank" rel="noreferrer" title="Annonces, aide et communauté">
+            <a href={DISCORD_INVITE} target="_blank" rel="noreferrer" title={t('common.discordTitle')}>
               Discord
             </a>{' '}
             · v{version}
@@ -83,6 +88,7 @@ export default function App() {
       </div>
       {skinOpen && accounts.active && <SkinDialog uuid={accounts.active.uuid} onClose={() => setSkinOpen(false)} onError={setPageError} />}
       {game.crash && <CrashDialog exit={game.crash} profileId={profiles.selected?.id ?? null} onClose={game.clearCrash} />}
+      {settings.settings && !lang && <LanguagePicker onChoose={(language) => settings.update({ language })} />}
     </div>
   )
 }

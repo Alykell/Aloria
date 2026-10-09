@@ -19,7 +19,9 @@ const DEFAULTS: Settings = {
 export function getSettings(): Settings {
   if (!existsSync(paths.settings)) return { ...DEFAULTS }
   try {
-    return { ...DEFAULTS, ...(JSON.parse(readFileSync(paths.settings, 'utf8').replace(/^﻿/, '')) as Partial<Settings>) }
+    const saved = JSON.parse(readFileSync(paths.settings, 'utf8').replace(/^﻿/, '')) as Partial<Settings>
+    // Installé avant le choix de la langue : le launcher était en français
+    return { ...DEFAULTS, language: 'fr', ...saved }
   } catch {
     return { ...DEFAULTS }
   }

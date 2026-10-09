@@ -2,6 +2,7 @@ import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fetchJson, type DownloadTask } from './download'
 import { paths } from './paths'
+import { tm } from '../i18n'
 
 // Index officiel des Java fournis par Mojang (le même que celui du launcher officiel)
 const RUNTIMES_URL =
@@ -32,7 +33,7 @@ function javaExecutable(home: string): string {
 export async function prepareJava(component: string): Promise<{ tasks: DownloadTask[]; executable: string }> {
   const index = await fetchJson<RuntimeIndex>(RUNTIMES_URL)
   const entry = index[platformKey()]?.[component]?.[0]
-  if (!entry) throw new Error(`Java « ${component} » n'est pas disponible pour ce système.`)
+  if (!entry) throw new Error(tm('err.javaMissing', { component }))
 
   const manifest = await fetchJson<RuntimeManifest>(entry.manifest.url)
   const home = join(paths.runtime, component)

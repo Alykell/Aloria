@@ -1,6 +1,7 @@
 import { Client } from '@xhayper/discord-rpc'
 import { DISCORD_CLIENT_ID, DISCORD_MINECRAFT_ID } from './config'
 import { getSettings } from './settings'
+import { tm } from './i18n'
 
 /**
  * Statut Discord (« Rich Presence ») : « Joue à Aloria Client », avec le profil, la version
@@ -27,10 +28,10 @@ function wantedId(): string {
 }
 
 function activity(): { details: string; state?: string; startTimestamp: number } {
-  if (!game) return { details: 'Dans le launcher', startTimestamp: launcherSince }
+  if (!game) return { details: tm('discord.inLauncher'), startTimestamp: launcherSince }
   const s = getSettings()
-  let details = 'En jeu'
-  if (s.discordShowServer && game.server) details = game.server === 'solo' ? 'En solo' : `Sur ${game.server}`
+  let details = tm('discord.inGame')
+  if (s.discordShowServer && game.server) details = game.server === 'solo' ? tm('discord.singleplayer') : tm('discord.onServer', { server: game.server })
   const parts = [s.discordShowProfile ? game.profile : null, s.discordShowVersion ? game.version : null].filter(Boolean)
   return { details, state: parts.length ? parts.join(' · ') : undefined, startTimestamp: game.since }
 }

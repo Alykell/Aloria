@@ -8,7 +8,8 @@ import { getStatus, isGameRunning, listVersions, play } from './game/controller'
 import { fabricLoaders } from './game/fabric'
 import { forgeLoaders } from './game/forge'
 import { addOptiFine, installContent, listInstalled, openContentFolder, removeContent, searchContent, setContentEnabled } from './modrinth/content'
-import { createPreset, deletePreset, listPresets, renamePreset, updatePresetOptions } from './shared/presets'
+import { createPreset, deletePreset, getPreset, listPresets, MAIN_PRESET, renamePreset, updatePresetOptions } from './shared/presets'
+import { gameLangOf, translate, type Lang, type MessageKey } from '../shared/i18n'
 import { createProfile, deleteProfile, listProfiles, openProfileFolder, selectProfile, updateProfile } from './profiles'
 import { getSettings, systemRamMb, updateSettings } from './settings'
 import { getUpdateStatus, initUpdater, installUpdate } from './updater'
@@ -27,6 +28,7 @@ import type {
   Settings,
   VersionEntry
 } from '../shared/types'
+import { tm } from './i18n'
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -106,7 +108,9 @@ ipcMain.handle('accounts:skin', (_e, uuid: string) => getSkin(uuid).catch(() => 
 ipcMain.handle('settings:get', () => ({ settings: getSettings(), systemRamMb: systemRamMb() }))
 ipcMain.handle('settings:update', (_e, patch: Partial<Settings>) => {
   const next = updateSettings(patch)
-  if (Object.keys(patch).some((k) => k.startsWith('discord'))) refreshDiscord()
+  // Premier choix de la langue : le jeu la reprend, sauf si « Mes réglages » a déjà la sienne
+  if (patch.language && !getPreset(MAIN_PRESET)?.options.lang) updatePresetOptions(MAIN_PRESET, { lang: gameLangOf(patch.language) })
+  if (Object.keys(patch).some((k) => k.startsWith('discord') || k === 'language')) refreshDiscord()
   return next
 })
 ipcMain.handle('game:versions', async (_e, snapshots: boolean): Promise<Result<VersionEntry[]>> => {
@@ -169,7 +173,7 @@ ipcMain.handle('library:addOptiFine', (e, profileId: string) =>
   wrap(async () => {
     const win = BrowserWindow.fromWebContents(e.sender)
     const options = {
-      title: 'Choisis le fichier OptiFine téléchargé',
+      title: tm('dialog.optifine'),
       defaultPath: app.getPath('downloads'),
       filters: [{ name: 'OptiFine', extensions: ['jar'] }],
       properties: ['openFile' as const]
@@ -187,7 +191,7 @@ ipcMain.handle('library:openFolder', async (_e, profileId: string, type: Content
 // Skin du compte actif : envoi, retour au skin par défaut, cape, bibliothèque de skins enregistrés
 const activeUuid = () => {
   const uuid = listAccounts().active
-  if (!uuid) throw new Error('Connecte-toi avec ton compte Microsoft pour changer de skin.')
+  if (!uuid) throw new Error(tm('err.loginForSkin'))
   return uuid
 }
 ipcMain.handle('skins:upload', (_e, texture: string, slim: boolean, name: string) => wrap(() => uploadSkin(activeUuid(), texture, slim, name)))
@@ -264,6 +268,13 @@ app.on('window-all-closed', () => {
 })
 
 async function captureScreens(win: BrowserWindow, dir: string): Promise<void> {
+  // Langue des captures (ALORIA_CAPTURE_LANG=en) ; sans choix, le français, pour que l'écran du premier lancement ne bloque pas.
+  // La langue d'avant est remise à la fin (les réglages sont ceux du vrai launcher)
+  const previousLang = getSettings().language
+  const previousTheme = getSettings().theme
+  const lang: Lang = process.env.ALORIA_CAPTURE_LANG === 'en' ? 'en' : (previousLang ?? 'fr')
+  if (previousLang !== lang) updateSettings({ language: lang })
+  const L = (key: MessageKey) => translate(lang, key)
   const { mkdir, writeFile } = await import('node:fs/promises')
   await mkdir(dir, { recursive: true })
   const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -280,14 +291,14 @@ async function captureScreens(win: BrowserWindow, dir: string): Promise<void> {
   }
   await new Promise<void>((resolve) => win.webContents.once('did-finish-load', () => resolve()))
   await wait(2500)
-  for (const [theme, label] of [['jour', '☀️ Jour'], ['nuit', '🌙 Nuit']]) {
-    await click('Paramètres')
+  for (const [theme, label] of [['jour', L('settings.themeDay')], ['nuit', L('settings.themeNight')]]) {
+    await click(L('nav.settings'))
     await wait(400)
     await click(label)
     await wait(1200)
-    for (const page of ['Réglages du jeu', 'Paramètres', 'Accueil']) {
-      await click(page)
-      await wait(page === 'Bibliothèque' ? 2500 : 800)
+    for (const [page, key] of [['Réglages du jeu', 'nav.gamesettings'], ['Paramètres', 'nav.settings'], ['Accueil', 'nav.home']] as const) {
+      await click(L(key))
+      await wait(800)
       const image = await snap()
       await writeFile(join(dir, `${theme}-${page}.png`), image.toPNG())
       if (page === 'Réglages du jeu') {
@@ -300,9 +311,9 @@ async function captureScreens(win: BrowserWindow, dir: string): Promise<void> {
   }
   // Fenêtre « Mon skin » (avec un compte d'exemple, ALORIA_CAPTURE_ACCOUNT)
   if (process.env.ALORIA_CAPTURE_ACCOUNT) {
-    await click('Accueil')
+    await click(L('nav.home'))
     await wait(800)
-    await click('Changer de skin')
+    await click(L('home.changeSkin'))
     await wait(2500)
     await writeFile(join(dir, 'nuit-skin.png'), (await snap()).toPNG())
     await win.webContents.executeJavaScript(`document.querySelector('.overlay')?.click()`)
@@ -318,20 +329,20 @@ async function captureScreens(win: BrowserWindow, dir: string): Promise<void> {
         ;(items.find((li) => li.textContent.trim() === ${JSON.stringify(text)}) ?? items.find((li) => li.textContent.includes(${JSON.stringify(text)})))?.click() })()`
     )
   }
-  await click('Profils')
+  await click(L('nav.profiles'))
   await wait(600)
-  await click('Nouveau profil')
+  await click(L('profiles.new'))
   await wait(800)
   await select('game-version', '1.8.9')
   await wait(2500)
   await writeFile(join(dir, 'nuit-profil-1.8.9.png'), (await snap()).toPNG())
   await win.webContents.executeJavaScript(`document.querySelector('.overlay')?.click()`)
   await wait(400)
-  await click('Bibliothèque')
+  await click(L('nav.library'))
   await wait(800)
   await select('library-profile', 'Auto-test 1.8.9 Forge')
   await wait(600)
-  await click('Mods')
+  await click(L('library.tabMods'))
   await wait(2500)
   await writeFile(join(dir, 'nuit-bibliotheque-forge.png'), (await snap()).toPNG())
   // Menu déroulant ouvert (aspect de la liste)
@@ -341,9 +352,9 @@ async function captureScreens(win: BrowserWindow, dir: string): Promise<void> {
   await win.webContents.executeJavaScript(`document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))`)
   // Créations (si ALORIA_CAPTURE_PACK est défini) : un pack de test installé dans les profils d'auto-test 26.3 et 1.8.9
   if (process.env.ALORIA_CAPTURE_PACK) {
-    await click('Créations')
+    await click(L('nav.creations'))
     await wait(800)
-    await click('Créer un pack')
+    await click(L('creations.create'))
     await wait(400)
     await win.webContents.executeJavaScript(`(() => { const i = document.querySelector('.dialog input');
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, ${JSON.stringify(process.env.ALORIA_CAPTURE_PACK)});
@@ -353,51 +364,49 @@ async function captureScreens(win: BrowserWindow, dir: string): Promise<void> {
     await wait(3000)
     await click('×2')
     await wait(2500)
-    await click('Croix + point')
+    await click(L('pe.shape.crossdot'))
     await wait(500)
-    await click('Hotbar')
+    await click(L('pe.tab.hotbar'))
     await wait(400)
-    await click('Appliquer la teinte')
+    await click(L('pe.applyTint'))
     await wait(1500)
-    await click('Vie')
+    await click(L('pe.tab.health'))
     await wait(400)
-    await click('Teinter')
+    await click(L('pe.tint'))
     await wait(1500)
-    await click('Colorer')
+    await click(L('pe.colorize'))
     await wait(1500)
-    await click('XP')
+    await click(L('pe.tab.xp'))
     await wait(400)
-    await click('Teinter')
+    await click(L('pe.tint'))
     await wait(1500)
     await writeFile(join(dir, 'nuit-createur-xp.png'), (await snap()).toPNG())
-    await click('Hotbar')
+    await click(L('pe.tab.hotbar'))
     await wait(300)
-    await click('Dessiner une case')
+    await click(L('pe.mode.slot'))
     await wait(800)
     await writeFile(join(dir, 'nuit-createur-case.png'), (await snap()).toPNG())
-    await click('Totem')
+    await click(L('pe.tab.totem'))
     await wait(800)
     await writeFile(join(dir, 'nuit-createur-totem.png'), (await snap()).toPNG())
-    await click('Vie')
+    await click(L('pe.tab.health'))
     await wait(300)
-    await click('Ouvrir l’éditeur de pixels')
+    await click(L('pe.openPixelEditor'))
     await wait(300)
-    await click('Armure')
+    await click(L('pe.group.armor'))
     await wait(800)
     await writeFile(join(dir, 'nuit-createur-armure.png'), (await snap()).toPNG())
     await writeFile(join(dir, 'nuit-createur.png'), (await snap()).toPNG())
     for (const profile of ['Auto-test (dev)', 'Auto-test 1.8.9 Fabric']) {
       await select('pack-target', profile)
       await wait(4000)
-      await click('Installer')
+      await click(L('library.install'))
       await wait(3000)
     }
     await writeFile(join(dir, 'nuit-createur-installe.png'), (await snap()).toPNG())
   }
-  // On remet le réglage par défaut
-  await click('Paramètres')
-  await wait(300)
-  await click('Auto')
-  await wait(500)
+  // On remet le thème et la langue d'avant
+  updateSettings({ theme: previousTheme })
+  if (previousLang !== lang) updateSettings({ language: previousLang })
   app.quit()
 }

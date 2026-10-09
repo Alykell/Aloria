@@ -4,13 +4,14 @@ import { describeProfile } from '../hooks/useVersions'
 import type { ProfilesState } from '../hooks/useProfiles'
 import type { SettingsState } from '../hooks/useSettings'
 import type { Profile } from '../../../shared/types'
+import { t } from '../i18n'
 
 function lastPlayed(ts: number | null): string {
-  if (!ts) return 'Jamais lancé'
+  if (!ts) return t('profiles.neverPlayed')
   const days = Math.floor((Date.now() - ts) / 86_400_000)
-  if (days === 0) return "Joué aujourd'hui"
-  if (days === 1) return 'Joué hier'
-  return `Joué il y a ${days} jours`
+  if (days === 0) return t('profiles.playedToday')
+  if (days === 1) return t('profiles.playedYesterday')
+  return t('profiles.playedDaysAgo', { n: days })
 }
 
 interface Props {
@@ -29,8 +30,8 @@ export default function ProfilesPage({ profiles, settings, onPlay, onError }: Pr
 
   return (
     <section className="page wide">
-      <h2>Profils</h2>
-      <p className="muted">Chaque profil a sa version, ses mods et son propre dossier (mondes, options, captures).</p>
+      <h2>{t('profiles.title')}</h2>
+      <p className="muted">{t('profiles.intro')}</p>
 
       <div className="profile-grid">
         {profiles.profiles.map((p) => (
@@ -52,11 +53,11 @@ export default function ProfilesPage({ profiles, settings, onPlay, onError }: Pr
                   onPlay(p.id)
                 }}
               >
-                Jouer
+                {t('common.play')}
               </button>
               <button
                 className="secondary"
-                aria-label="Modifier"
+                aria-label={t('profiles.edit')}
                 onClick={(e) => {
                   e.stopPropagation()
                   setEditing(p)
@@ -69,7 +70,7 @@ export default function ProfilesPage({ profiles, settings, onPlay, onError }: Pr
         ))}
         <button className="profile-card new" onClick={() => setEditing(null)}>
           <span className="profile-card__icon">＋</span>
-          <strong>Nouveau profil</strong>
+          <strong>{t('profiles.new')}</strong>
         </button>
       </div>
 

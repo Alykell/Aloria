@@ -4,6 +4,7 @@ import { hudAvailable, hudVersionsLabel } from '../../../shared/aloriaHud'
 import { forgeSupported, prefersForge } from '../../../shared/loaders'
 import type { Loader, LoaderVersion, Profile, ProfileInput, SettingsPreset } from '../../../shared/types'
 import Select from './Select'
+import { gb, presetName, t } from '../i18n'
 
 const ICONS = ['🏝️', '🌊', '🐚', '⚓', '🐬', '🐠', '🦀', '🌴', '⛵', '🏰', '⚔️', '🧪', '🌙', '🔥', '💎', '🌸']
 
@@ -89,10 +90,10 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
   return (
     <div className="overlay" onClick={onClose}>
       <div className="dialog editor" onClick={(e) => e.stopPropagation()}>
-        <h3>{profile ? 'Modifier le profil' : 'Nouveau profil'}</h3>
+        <h3>{profile ? t('editor.editTitle') : t('profiles.new')}</h3>
 
         <div className="field">
-          <span>Icône</span>
+          <span>{t('editor.icon')}</span>
           <div className="icon-picker">
             {ICONS.map((icon) => (
               <button key={icon} className={form.icon === icon ? 'active' : ''} onClick={() => set({ icon })}>
@@ -103,32 +104,32 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
         </div>
 
         <label className="field">
-          <span>Nom</span>
+          <span>{t('editor.name')}</span>
           <input
             autoFocus
             value={form.name}
             maxLength={32}
-            placeholder="Ex. Survie entre amis"
+            placeholder={t('editor.namePlaceholder')}
             onChange={(e) => set({ name: e.target.value })}
           />
         </label>
 
         <div className="field">
-          <span>Version du jeu</span>
+          <span>{t('editor.version')}</span>
           <Select
             name="game-version"
             value={form.versionId}
             onChange={(v) => set({ versionId: v, loaderVersion: null })}
             options={[
-              { value: 'latest-release', label: `Dernière version${latestRelease ? ` (${latestRelease})` : ''}` },
-              ...(showSnapshots ? [{ value: 'latest-snapshot', label: `Dernier snapshot${latestSnapshot ? ` (${latestSnapshot})` : ''}` }] : []),
-              ...versions.map((v) => ({ value: v.id, label: `${v.id}${v.type === 'snapshot' ? ' (snapshot)' : ''}` }))
+              { value: 'latest-release', label: `${t('profiles.latestRelease')}${latestRelease ? ` (${latestRelease})` : ''}` },
+              ...(showSnapshots ? [{ value: 'latest-snapshot', label: `${t('profiles.latestSnapshot')}${latestSnapshot ? ` (${latestSnapshot})` : ''}` }] : []),
+              ...versions.map((v) => ({ value: v.id, label: `${v.id}${v.type === 'snapshot' ? t('editor.snapshotTag') : ''}` }))
             ]}
           />
         </div>
 
         <div className="field">
-          <span>Mods</span>
+          <span>{t('editor.mods')}</span>
           <div className="segmented">
             {loaderOrder.map((l) => (
               <button key={l} className={form.loader === l ? 'active' : ''} onClick={() => chooseLoader(l)}>
@@ -146,24 +147,26 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
               onChange={(ev) => set({ aloriaHud: ev.target.checked })}
             />
             <span>
-              ✦ Aloria HUD <small className="muted">· FPS, CPS, touches, armure… (Échap ou Maj droite en jeu)</small>
+              ✦ Aloria HUD <small className="muted">{t('editor.hudHint')}</small>
             </span>
           </label>
         )}
 
         {form.loader !== 'vanilla' && form.aloriaHud !== false && gameVersion && !hudAvailable(form.loader, gameVersion) && (
           <small className="warning">
-            Aloria HUD n'existe que pour Minecraft {hudVersionsLabel(form.loader)}
-            {form.loader === 'forge' ? ' sous Forge' : ''} : il ne sera pas chargé en {gameVersion}.
+            {t('editor.hudMissing', {
+              versions: hudVersionsLabel(form.loader, t('common.and')),
+              forge: form.loader === 'forge' ? t('editor.hudMissingForge') : '',
+              version: gameVersion
+            })}
           </small>
         )}
 
         {form.loader === 'forge' && (
           <small className="muted">
-            Forge, pour jouer avec OptiFine (shaders, zoom…) dans les versions d'avant Sodium et Iris. Forge vit des publicités
-            de son site :{' '}
+            {t('editor.forgeHint')}{' '}
             <a href="https://www.patreon.com/LexManos/" target="_blank" rel="noreferrer">
-              tu peux le soutenir ici
+              {t('editor.forgeSupport')}
             </a>
             .
           </small>
@@ -171,13 +174,16 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
 
         {form.loader !== 'vanilla' && (
           <div className="field">
-            <span>Version de {loaderName}</span>
+            <span>{t('editor.loaderVersion', { loader: loaderName })}</span>
             {loaders === null ? (
-              <small className="muted">Chargement…</small>
+              <small className="muted">{t('common.loading')}</small>
             ) : loaderUnavailable ? (
               <small className="warning">
-                {loaderName} n'est pas disponible pour Minecraft {gameVersion}
-                {form.loader === 'forge' ? ' dans Aloria (géré jusqu’à la 1.12.2)' : ''}.
+                {t('editor.loaderUnavailable', {
+                  loader: loaderName,
+                  version: gameVersion ?? '',
+                  forge: form.loader === 'forge' ? t('editor.loaderUnavailableForge') : ''
+                })}
               </small>
             ) : (
               <Select
@@ -186,14 +192,16 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
                 options={[
                   {
                     value: '',
-                    label: `${form.loader === 'forge' ? 'Recommandée' : 'Dernière stable'} (${(() => {
-                      const l = loaders.find((x) => x.stable) ?? loaders[0]
-                      return l.label ?? l.version
-                    })()})`
+                    label: t(form.loader === 'forge' ? 'editor.recommended' : 'editor.latestStable', {
+                      version: (() => {
+                        const l = loaders.find((x) => x.stable) ?? loaders[0]
+                        return l.label ?? l.version
+                      })()
+                    })
                   },
                   ...loaders.map((l) => ({
                     value: l.version,
-                    label: `${l.label ?? l.version}${form.loader === 'forge' ? (l.stable ? ' (recommandée)' : '') : l.stable ? '' : ' (bêta)'}`
+                    label: `${l.label ?? l.version}${form.loader === 'forge' ? (l.stable ? t('editor.recommendedTag') : '') : l.stable ? '' : t('editor.betaTag')}`
                   }))
                 ]}
               />
@@ -208,7 +216,10 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
               checked={form.ramMb !== null}
               onChange={(e) => set({ ramMb: e.target.checked ? defaultRamMb : null })}
             />
-            <span>Mémoire personnalisée{form.ramMb === null ? ` (par défaut : ${(defaultRamMb / 1024).toFixed(1)} Go)` : ''}</span>
+            <span>
+              {t('editor.customRam')}
+              {form.ramMb === null ? t('editor.customRamDefault', { ram: gb(defaultRamMb) }) : ''}
+            </span>
           </label>
           {form.ramMb !== null && (
             <div className="slider-line">
@@ -221,24 +232,24 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
                 value={Math.min(form.ramMb, maxRamMb)}
                 onChange={(e) => set({ ramMb: Number(e.target.value) })}
               />
-              <strong>{(form.ramMb / 1024).toFixed(1)} Go</strong>
+              <strong>{gb(form.ramMb)}</strong>
             </div>
           )}
         </div>
 
         <div className="field">
-          <span>Réglages du jeu</span>
+          <span>{t('editor.gameSettings')}</span>
           <Select
             value={form.settingsPreset === null ? '' : (form.settingsPreset ?? 'main')}
             onChange={(v) => set({ settingsPreset: v === '' ? null : v })}
-            options={[...presets.map((p) => ({ value: p.id, label: p.name })), { value: '', label: 'Propres à ce profil (non partagés)' }]}
+            options={[...presets.map((p) => ({ value: p.id, label: presetName(p) })), { value: '', label: t('editor.ownSettings') }]}
           />
         </div>
 
         <label className="toggle-line">
           <input type="checkbox" checked={form.shareServers !== false} onChange={(e) => set({ shareServers: e.target.checked })} />
           <span>
-            Liste des serveurs commune <small className="muted">· la même dans tous les profils</small>
+            {t('editor.sharedServers')} <small className="muted">{t('editor.sharedServersHint')}</small>
           </span>
         </label>
 
@@ -248,34 +259,34 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
               {confirmDelete ? (
                 <>
                   <button className="danger-btn" onClick={() => onDelete(true)}>
-                    Supprimer avec ses fichiers
+                    {t('editor.deleteWithFiles')}
                   </button>
                   <button className="secondary" onClick={() => onDelete(false)}>
-                    Garder les fichiers
+                    {t('editor.keepFiles')}
                   </button>
                 </>
               ) : (
                 <button className="link-danger" onClick={() => setConfirmDelete(true)}>
-                  Supprimer le profil
+                  {t('editor.deleteProfile')}
                 </button>
               )}
             </div>
           )}
           {profile && (
             <button className="secondary" onClick={() => window.aloria.profiles.openFolder(profile.id)}>
-              Ouvrir le dossier
+              {t('common.openFolder')}
             </button>
           )}
           <button className="secondary" onClick={onClose}>
-            Annuler
+            {t('common.cancel')}
           </button>
           <button className="primary" disabled={!canSave} onClick={save}>
-            {profile ? 'Enregistrer' : 'Créer'}
+            {profile ? t('common.save') : t('common.create')}
           </button>
         </div>
         {confirmDelete && (
           <small className="muted">
-            « Avec ses fichiers » envoie le dossier du profil (mondes, mods, captures) dans la corbeille.
+            {t('editor.deleteHint')}
           </small>
         )}
       </div>

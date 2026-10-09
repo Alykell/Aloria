@@ -8,6 +8,7 @@ import { paths } from './game/paths'
 import { loadVersion, resolveVersionId } from './game/versions'
 import { gameDirOf, getProfile } from './profiles'
 import type { PackElement, PackInfo, PackLayout, PackVanilla } from '../shared/types'
+import { tm } from './i18n'
 
 /**
  * Packs de ressources créés dans Aloria (« Créations ») : quelques éléments simples (viseur, hotbar, totem) gardés
@@ -105,7 +106,7 @@ export async function deletePack(id: string): Promise<void> {
 
 /** Image d'un élément (data URL PNG), ou null pour revenir à celle du jeu */
 export async function savePackImage(id: string, element: PackElement, image: string | null): Promise<void> {
-  if (!ELEMENTS.includes(element)) throw new Error(`Élément inconnu : ${element}`)
+  if (!ELEMENTS.includes(element)) throw new Error(tm('err.unknownElement', { element }))
   const file = join(packDir(id), `${element}.png`)
   if (image) await writeFile(file, fromDataUrl(image))
   else await rm(file, { force: true })
@@ -120,7 +121,7 @@ async function clientJar(gameVersion: string): Promise<string> {
   if (existsSync(jar)) return jar
   const version = await loadVersion(gameVersion)
   const client = version.downloads?.client
-  if (!client) throw new Error(`Jeu introuvable pour Minecraft ${gameVersion}.`)
+  if (!client) throw new Error(tm('err.gameMissing', { version: gameVersion }))
   await downloadAll([{ url: client.url, path: jar, sha1: client.sha1, size: client.size }], () => {})
   return jar
 }
@@ -187,7 +188,7 @@ export async function installPack(packId: string, profileId: string, files: Reco
   const [major, minor] = packFormat(zip, gameVersion)
 
   const out = new AdmZip()
-  const description = `${pack.name} · fait avec Aloria`
+  const description = tm('packs.description', { name: pack.name })
   // Depuis la 1.21.9 (format 65), pack_format est remplacé par min_format / max_format
   const meta =
     major >= 65

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import SkinViewer, { announceSkin } from './SkinViewer'
 import { canvas, loadImage } from '../packImages'
 import type { CapeInfo, PlayerSkin, SavedSkin } from '../../../shared/types'
+import { t } from '../i18n'
 
 interface Props {
   uuid: string
@@ -101,7 +102,7 @@ export default function SkinDialog({ uuid, onClose, onError }: Props) {
     })
     const img = await loadImage(url).catch(() => null)
     if (!img || img.width !== 64 || (img.height !== 64 && img.height !== 32)) {
-      onError('Un skin Minecraft est une image PNG de 64 × 64 (ou 64 × 32 pour les anciens).')
+      onError(t('skin.badFile'))
       return
     }
     setPreview({ texture: url, slim: false, name: f.name.replace(/\.png$/i, '') })
@@ -111,17 +112,17 @@ export default function SkinDialog({ uuid, onClose, onError }: Props) {
   return (
     <div className="overlay" onClick={onClose}>
       <div className="dialog skin-dialog" onClick={(e) => e.stopPropagation()}>
-        <h3>Mon skin</h3>
+        <h3>{t('skin.title')}</h3>
         <div className="skin-dialog__body">
           <div className="skin-dialog__preview">
             <SkinViewer skin={shown} width={220} height={300} />
             {preview && (
               <div className="segmented">
                 <button className={!preview.slim ? 'active' : ''} onClick={() => setPreview({ ...preview, slim: false })}>
-                  Classique
+                  {t('skin.classic')}
                 </button>
                 <button className={preview.slim ? 'active' : ''} onClick={() => setPreview({ ...preview, slim: true })}>
-                  Bras fins
+                  {t('skin.slim')}
                 </button>
               </div>
             )}
@@ -131,17 +132,17 @@ export default function SkinDialog({ uuid, onClose, onError }: Props) {
                   className="primary"
                   disabled={busy}
                   onClick={() =>
-                    run(() => window.aloria.skins.upload(preview.texture, preview.slim, preview.name), 'Skin changé ! Il sera visible en jeu à ta prochaine connexion à un serveur.')
+                    run(() => window.aloria.skins.upload(preview.texture, preview.slim, preview.name), t('skin.changed'))
                   }
                 >
-                  {busy ? 'Envoi…' : 'Mettre ce skin'}
+                  {busy ? t('skin.sending') : t('skin.use')}
                 </button>
                 <button disabled={busy} onClick={() => setPreview(null)}>
-                  Annuler
+                  {t('common.cancel')}
                 </button>
               </div>
             ) : (
-              <small className="muted">{current ? (current.slim ? 'Ton skin actuel · bras fins' : 'Ton skin actuel · classique') : 'Chargement…'}</small>
+              <small className="muted">{current ? t(current.slim ? 'skin.currentSlim' : 'skin.currentClassic') : t('common.loading')}</small>
             )}
             {message && <small className="success">✓ {message}</small>}
           </div>
@@ -149,17 +150,17 @@ export default function SkinDialog({ uuid, onClose, onError }: Props) {
           <div className="skin-dialog__side">
             <div className="skin-dialog__buttons">
               <button className="primary" onClick={() => file.current?.click()}>
-                Importer un skin…
+                {t('skin.import')}
               </button>
               <a href="https://namemc.com/minecraft-skins" target="_blank" rel="noreferrer">
-                Trouver des skins sur NameMC
+                {t('skin.namemc')}
               </a>
             </div>
             <input ref={file} type="file" accept="image/png" hidden onChange={(e) => imported(e.target.files?.[0]).finally(() => (e.target.value = ''))} />
 
-            <h4>Mes skins</h4>
+            <h4>{t('skin.saved')}</h4>
             {saved.length === 0 ? (
-              <small className="muted">Les skins que tu mets depuis Aloria sont gardés ici, pour y revenir en un clic.</small>
+              <small className="muted">{t('skin.savedHint')}</small>
             ) : (
               <div className="skin-grid">
                 {saved.map((s) => (
@@ -173,7 +174,7 @@ export default function SkinDialog({ uuid, onClose, onError }: Props) {
                     <small>{s.name}</small>
                     <button
                       className="skin-grid__delete"
-                      title="Retirer de mes skins"
+                      title={t('skin.removeSaved')}
                       onClick={async (e) => {
                         e.stopPropagation()
                         await window.aloria.skins.removeSaved(s.id)
@@ -187,11 +188,11 @@ export default function SkinDialog({ uuid, onClose, onError }: Props) {
               </div>
             )}
 
-            <h4>Cape</h4>
+            <h4>{t('skin.cape')}</h4>
             {capes === null ? (
-              <small className="muted">Chargement…</small>
+              <small className="muted">{t('common.loading')}</small>
             ) : capes.length === 0 ? (
-              <small className="muted">Ton compte n'a pas de cape (elles s'obtiennent lors d'événements Minecraft).</small>
+              <small className="muted">{t('skin.noCape')}</small>
             ) : (
               <div className="skin-grid capes">
                 <div
@@ -202,11 +203,11 @@ export default function SkinDialog({ uuid, onClose, onError }: Props) {
                       const r = await window.aloria.skins.setCape(null)
                       if (r.ok) setCapes(capes.map((c) => ({ ...c, active: false })))
                       return r
-                    }, 'Cape retirée.')
+                    }, t('skin.capeRemoved'))
                   }
                 >
                   <span className="skin-grid__none">∅</span>
-                  <small>Aucune</small>
+                  <small>{t('keys.none')}</small>
                 </div>
                 {capes.map((c) => (
                   <div
@@ -219,7 +220,7 @@ export default function SkinDialog({ uuid, onClose, onError }: Props) {
                         const r = await window.aloria.skins.setCape(c.id)
                         if (r.ok) setCapes(capes.map((x) => ({ ...x, active: x.id === c.id })))
                         return r
-                      }, `Cape « ${c.alias} » portée.`)
+                      }, t('skin.capeWorn', { name: c.alias }))
                     }
                   >
                     <CapeThumb texture={c.texture} />
@@ -234,13 +235,12 @@ export default function SkinDialog({ uuid, onClose, onError }: Props) {
                 className="link-danger"
                 disabled={busy}
                 onClick={() => {
-                  if (confirm('Revenir au skin par défaut de Minecraft ? Ton skin actuel reste dans « Mes skins ».'))
-                    run(() => window.aloria.skins.reset(), 'Skin par défaut remis.')
+                  if (confirm(t('skin.confirmReset'))) run(() => window.aloria.skins.reset(), t('skin.resetDone'))
                 }}
               >
-                Skin par défaut
+                {t('skin.default')}
               </button>
-              <button onClick={onClose}>Fermer</button>
+              <button onClick={onClose}>{t('common.close')}</button>
             </div>
           </div>
         </div>

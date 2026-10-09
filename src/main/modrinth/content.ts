@@ -6,6 +6,7 @@ import { resolveVersionId } from '../game/versions'
 import { gameDirOf, getProfile } from '../profiles'
 import { getProject, getVersion, listVersions, search, type ModrinthVersion } from './api'
 import type { ContentType, InstalledContent, Loader, Profile, SearchHit, SearchQuery } from '../../shared/types'
+import { tm } from '../i18n'
 
 const FOLDERS: Record<ContentType, string> = { mod: 'mods', resourcepack: 'resourcepacks', shader: 'shaderpacks' }
 /** Chargeur Modrinth du contenu : mods du chargeur du profil, shaders pour Iris (Fabric) ou OptiFine (Forge) */
@@ -52,8 +53,8 @@ function requireModLoader(ctx: Context, type: ContentType): void {
   if (ctx.profile.loader !== 'vanilla') return
   throw new Error(
     type === 'shader'
-      ? 'Les shaders ont besoin du mod Iris (Fabric) ou d’OptiFine (Forge) : choisis un profil Fabric ou Forge.'
-      : 'Les mods ont besoin de Fabric ou de Forge : choisis ou crée un profil Fabric ou Forge.'
+      ? tm('err.shadersNeedLoader')
+      : tm('err.modsNeedLoader')
   )
 }
 
@@ -92,7 +93,7 @@ async function pickVersion(projectId: string, type: ContentType, ctx: Context, t
   let versions = await listVersions(projectId, loaders, [gameVersion])
   // Resource packs et shaders fonctionnent souvent sur des versions non déclarées
   if (versions.length === 0 && type !== 'mod') versions = await listVersions(projectId, loaders, undefined)
-  if (versions.length === 0) throw new Error(`« ${title} » n'est pas disponible pour Minecraft ${gameVersion}.`)
+  if (versions.length === 0) throw new Error(tm('err.contentUnavailable', { title, version: gameVersion }))
   return versions.find((v) => v.version_type === 'release') ?? versions[0]
 }
 
@@ -189,12 +190,12 @@ export const isOptiFine = (fileName: string) => /optifine/i.test(fileName) && fi
 /** Ajoute le jar d'OptiFine choisi par le joueur dans les mods d'un profil Forge */
 export async function addOptiFine(profileId: string, file: string): Promise<void> {
   const ctx = await context(profileId)
-  if (ctx.profile.loader !== 'forge') throw new Error('OptiFine s’ajoute à un profil Forge.')
+  if (ctx.profile.loader !== 'forge') throw new Error(tm('err.optifineForge'))
   const name = basename(file)
-  if (!isOptiFine(name)) throw new Error(`« ${name} » n'est pas un fichier OptiFine (OptiFine_….jar).`)
+  if (!isOptiFine(name)) throw new Error(tm('err.notOptifine', { name }))
   // « OptiFine_1.8.9_HD_U_M5.jar » : la version du jeu est dans le nom
   if (!name.includes(`_${ctx.gameVersion}_`)) {
-    throw new Error(`« ${name} » n'est pas pour Minecraft ${ctx.gameVersion} : prends la version d'OptiFine pour ${ctx.gameVersion}.`)
+    throw new Error(tm('err.optifineVersion', { name, version: ctx.gameVersion }))
   }
   const dir = join(ctx.gameDir, FOLDERS.mod)
   await mkdir(dir, { recursive: true })

@@ -4,6 +4,8 @@ import { describeProfile } from '../hooks/useVersions'
 import { canvas, crop, loadImage, packFiles, packIcon, resize, sizeOf, vanillaElements, type BaseImages } from '../packImages'
 import type { ProfilesState } from '../hooks/useProfiles'
 import type { PackElement, PackInfo, PackVanilla } from '../../../shared/types'
+import type { MessageKey } from '../../../shared/i18n'
+import { t } from '../i18n'
 
 interface Props {
   pack: PackInfo
@@ -24,18 +26,18 @@ const TAB_ELEMENTS: Record<Tab, PackElement[]> = {
   totem: ['totem']
 }
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'crosshair', label: '🎯 Viseur' },
-  { id: 'hotbar', label: '🧰 Hotbar' },
-  { id: 'health', label: '❤️ Vie' },
-  { id: 'xp', label: '✨ XP' },
-  { id: 'totem', label: '🗿 Totem' }
+const TABS: { id: Tab; label: MessageKey }[] = [
+  { id: 'crosshair', label: 'pe.tab.crosshair' },
+  { id: 'hotbar', label: 'pe.tab.hotbar' },
+  { id: 'health', label: 'pe.tab.health' },
+  { id: 'xp', label: 'pe.tab.xp' },
+  { id: 'totem', label: 'pe.tab.totem' }
 ]
 
-const SCALES = [
-  { value: 1, label: '×1', hint: 'comme le jeu' },
-  { value: 2, label: '×2', hint: 'cœur 18 × 18' },
-  { value: 4, label: '×4', hint: 'cœur 36 × 36' }
+const SCALES: { value: number; label: string; hint: MessageKey }[] = [
+  { value: 1, label: '×1', hint: 'pe.scale1' },
+  { value: 2, label: '×2', hint: 'pe.scale2' },
+  { value: 4, label: '×4', hint: 'pe.scale4' }
 ]
 
 /** Taille des cases de la grille de dessin : la grille fait environ 300 px quelle que soit la résolution */
@@ -102,7 +104,7 @@ export default function PackEditor({ pack, profiles, onBack, onChanged, onError 
   /** Nouvelle résolution : les images déjà faites sont redimensionnées (sans flou) */
   const changeScale = async (next: number) => {
     if (next === scale) return
-    if (next < scale && Object.keys(pack.images).length && !confirm('Réduire la résolution enlève des détails à tes images. Continuer ?')) return
+    if (next < scale && Object.keys(pack.images).length && !confirm(t('pe.confirmScale'))) return
     setRescaling(true)
     try {
       for (const [el, img] of Object.entries(latest.current.images) as [PackElement, string][]) {
@@ -138,14 +140,14 @@ export default function PackEditor({ pack, profiles, onBack, onChanged, onError 
     <section className="page wide pack-editor">
       <div className="pack-editor__header">
         <button className="link-back" onClick={onBack}>
-          ← Créations
+          ← {t('nav.creations')}
         </button>
         <h2>{pack.name}</h2>
         <div className="pack-editor__scale">
-          <span>Résolution</span>
+          <span>{t('pe.resolution')}</span>
           <div className="segmented small">
             {SCALES.map((s) => (
-              <button key={s.value} className={scale === s.value ? 'active' : ''} disabled={rescaling} title={s.hint} onClick={() => changeScale(s.value)}>
+              <button key={s.value} className={scale === s.value ? 'active' : ''} disabled={rescaling} title={t(s.hint)} onClick={() => changeScale(s.value)}>
                 {s.label}
               </button>
             ))}
@@ -158,11 +160,11 @@ export default function PackEditor({ pack, profiles, onBack, onChanged, onError 
           <HudPreview image={image} />
           {tab === 'totem' && (
             <div className="totem-preview">
-              {image('totem') ? <img src={image('totem')} alt="" className="pixel" /> : <span className="muted">Pas de totem dans cette version</span>}
+              {image('totem') ? <img src={image('totem')} alt="" className="pixel" /> : <span className="muted">{t('pe.noTotem')}</span>}
             </div>
           )}
           <div className="pack-editor__install">
-            <span>Installer dans</span>
+            <span>{t('pe.installIn')}</span>
             <Select
               name="pack-target"
               value={target}
@@ -170,29 +172,28 @@ export default function PackEditor({ pack, profiles, onBack, onChanged, onError 
               options={profiles.profiles.map((p) => ({ value: p.id, label: `${p.icon} ${p.name} · ${describeProfile(p)}` }))}
             />
             <button className="primary" disabled={!vanilla || installing || rescaling} onClick={install}>
-              {installing ? 'Installation…' : 'Installer'}
+              {installing ? t('library.installing') : t('library.install')}
             </button>
           </div>
           {done && (
             <small className="success">
-              ✓ « {done} » installé et activé dans {profile?.name} : il sera là au prochain lancement.
+              ✓ {t('pe.installed', { name: done, profile: profile?.name ?? '' })}
             </small>
           )}
           {vanilla && (
             <small className="muted">
-              Minecraft {vanilla.gameVersion} :{' '}
-              {vanilla.layout === 'sprites' ? 'une image par élément' : 'planches icons.png et widgets.png recomposées'}, format {vanilla.format[0]}
-              {scale > 1 ? `, résolution ×${scale}` : ''}.
+              {t(vanilla.layout === 'sprites' ? 'pe.formatSprites' : 'pe.formatSheets', { version: vanilla.gameVersion, format: vanilla.format[0] })}
+              {scale > 1 ? t('pe.formatScale', { scale }) : ''}.
             </small>
           )}
         </div>
 
         <div className="pack-editor__tools card">
           <div className="tabs">
-            {TABS.map((t) => (
-              <button key={t.id} className={tab === t.id ? 'active' : ''} onClick={() => setTab(t.id)}>
-                {t.label}
-                {TAB_ELEMENTS[t.id].some((el) => pack.images[el]) && <span className="dot" />}
+            {TABS.map((it) => (
+              <button key={it.id} className={tab === it.id ? 'active' : ''} onClick={() => setTab(it.id)}>
+                {t(it.label)}
+                {TAB_ELEMENTS[it.id].some((el) => pack.images[el]) && <span className="dot" />}
               </button>
             ))}
           </div>
@@ -311,7 +312,7 @@ async function recolorOutline(src: string, hex: string): Promise<string> {
 type Pixels = Uint8ClampedArray
 /** quad : symétrie sur les deux axes (viseur) ; horizontal : gauche/droite (cœur, totem) */
 type Mirror = 'quad' | 'horizontal'
-type Preset = { id: string; label: string; pixels: (x: number, y: number) => boolean }
+type Preset = { id: string; label: MessageKey; pixels: (x: number, y: number) => boolean }
 
 /**
  * Grille de pixels : clic gauche dessine, clic droit efface, Alt + clic prend la couleur (pipette), avec symétrie ;
@@ -327,8 +328,8 @@ function PixelEditor({
   defaultColor,
   presets,
   presetScale = 1,
-  clearLabel = 'Vide',
-  resetLabel = 'Celui du jeu',
+  clearLabel = t('pe.empty'),
+  resetLabel = t('pe.resetMasc'),
   extra
 }: {
   size: number
@@ -443,22 +444,22 @@ function PixelEditor({
         })}
       </div>
       <small className="muted">
-        Clic gauche : dessiner · clic droit : effacer · Alt + clic : pipette · {size} × {size} pixels
+        {t('pe.pixelHelp', { size })}
       </small>
       <div className="tool__row">
         <label className="color-field">
           <input type="color" value={color} onChange={(e) => setColor(e.target.value)} />
-          Couleur
+          {t('pe.color')}
         </label>
         <label className="toggle-line">
           <input type="checkbox" checked={mirror} onChange={(e) => setMirror(e.target.checked)} />
-          <span>Symétrie</span>
+          <span>{t('pe.mirror')}</span>
         </label>
       </div>
       <div className="tool__presets">
         {presets?.map((p) => (
           <button key={p.id} onClick={() => applyPreset(p.pixels)}>
-            {p.label}
+            {t(p.label)}
           </button>
         ))}
         <button onClick={() => applyPreset(() => false)}>{clearLabel}</button>
@@ -484,22 +485,22 @@ async function readFile(f: File): Promise<string> {
 const C = 7
 const ring = (dx: number, dy: number) => Math.max(Math.abs(dx), Math.abs(dy))
 const CROSSHAIRS: Preset[] = [
-  { id: 'point', label: 'Point', pixels: (x, y) => ring(x - C, y - C) <= 1 },
+  { id: 'point', label: 'pe.shape.point', pixels: (x, y) => ring(x - C, y - C) <= 1 },
   {
     id: 'cross',
-    label: 'Croix fine',
+    label: 'pe.shape.cross',
     pixels: (x, y) => (x === C && Math.abs(y - C) >= 2 && Math.abs(y - C) <= 5) || (y === C && Math.abs(x - C) >= 2 && Math.abs(x - C) <= 5)
   },
   {
     id: 'crossdot',
-    label: 'Croix + point',
+    label: 'pe.shape.crossdot',
     pixels: (x, y) =>
       (x === C && y === C) || (x === C && Math.abs(y - C) >= 3 && Math.abs(y - C) <= 6) || (y === C && Math.abs(x - C) >= 3 && Math.abs(x - C) <= 6)
   },
-  { id: 'plus', label: 'Plus', pixels: (x, y) => (x === C && Math.abs(y - C) <= 4) || (y === C && Math.abs(x - C) <= 4) },
-  { id: 'circle', label: 'Cercle', pixels: (x, y) => Math.abs(Math.hypot(x - C, y - C) - 4.5) < 0.6 },
-  { id: 'square', label: 'Carré', pixels: (x, y) => ring(x - C, y - C) === 4 },
-  { id: 'x', label: 'X', pixels: (x, y) => Math.abs(x - C) === Math.abs(y - C) && ring(x - C, y - C) >= 2 && ring(x - C, y - C) <= 5 }
+  { id: 'plus', label: 'pe.shape.plus', pixels: (x, y) => (x === C && Math.abs(y - C) <= 4) || (y === C && Math.abs(x - C) <= 4) },
+  { id: 'circle', label: 'pe.shape.circle', pixels: (x, y) => Math.abs(Math.hypot(x - C, y - C) - 4.5) < 0.6 },
+  { id: 'square', label: 'pe.shape.square', pixels: (x, y) => ring(x - C, y - C) === 4 },
+  { id: 'x', label: 'pe.shape.x', pixels: (x, y) => Math.abs(x - C) === Math.abs(y - C) && ring(x - C, y - C) >= 2 && ring(x - C, y - C) <= 5 }
 ]
 
 function CrosshairTool({ scale, value, custom, onChange }: { scale: number; value?: string; custom: boolean; onChange: (v: string | null) => void }) {
@@ -515,7 +516,7 @@ function CrosshairTool({ scale, value, custom, onChange }: { scale: number; valu
       presetScale={scale}
       extra={
         <small className="muted">
-          En jeu, le viseur s'inverse selon le décor derrière lui (comme celui de Minecraft) : le blanc donne le résultat le plus net.
+          {t('pe.crosshairHint')}
         </small>
       }
     />
@@ -534,11 +535,11 @@ async function tileHotbar(slot: string, scale: number): Promise<string> {
 
 type HotbarMode = 'tint' | 'slot' | 'selection' | 'import'
 
-const HOTBAR_MODES: { id: HotbarMode; label: string }[] = [
-  { id: 'tint', label: 'Teinte' },
-  { id: 'slot', label: 'Dessiner une case' },
-  { id: 'selection', label: 'Dessiner la sélection' },
-  { id: 'import', label: 'Importer' }
+const HOTBAR_MODES: { id: HotbarMode; label: MessageKey }[] = [
+  { id: 'tint', label: 'pe.mode.tint' },
+  { id: 'slot', label: 'pe.mode.slot' },
+  { id: 'selection', label: 'pe.mode.selection' },
+  { id: 'import', label: 'pe.mode.import' }
 ]
 
 function HotbarTool({
@@ -587,7 +588,7 @@ function HotbarTool({
       <div className="segmented small">
         {HOTBAR_MODES.map((m) => (
           <button key={m.id} className={mode === m.id ? 'active' : ''} onClick={() => setMode(m.id)}>
-            {m.label}
+            {t(m.label)}
           </button>
         ))}
       </div>
@@ -597,20 +598,20 @@ function HotbarTool({
           <div className="tool__row">
             <label className="color-field">
               <input type="color" value={color} onChange={(e) => setColor(e.target.value)} />
-              Couleur
+              {t('pe.color')}
             </label>
             <div className="slider-line">
               <input type="range" className="slider" min={10} max={100} value={strength} onChange={(e) => setStrength(Number(e.target.value))} />
-              <strong>{strength} %</strong>
+              <strong>{t('gs.percent', { n: strength })}</strong>
             </div>
           </div>
           <label className="toggle-line">
             <input type="checkbox" checked={selectionToo} onChange={(e) => setSelectionToo(e.target.checked)} />
-            <span>Teinter aussi la case sélectionnée</span>
+            <span>{t('pe.tintSelection')}</span>
           </label>
           <div className="tool__presets">
             <button className="primary" disabled={!base.hotbar} onClick={applyTint}>
-              Appliquer la teinte
+              {t('pe.applyTint')}
             </button>
           </div>
         </>
@@ -623,10 +624,10 @@ function HotbarTool({
           custom={!!pack.images.hotbar}
           mirror="quad"
           defaultColor="#5cc8e0"
-          clearLabel="Effacer"
-          resetLabel="Celle du jeu"
+          clearLabel={t('pe.erase')}
+          resetLabel={t('pe.resetFem')}
           onChange={async (v) => onChange('hotbar', v ? await tileHotbar(v, scale) : null)}
-          extra={<small className="muted">Ta case est répétée sur les 9 emplacements de la hotbar.</small>}
+          extra={<small className="muted">{t('pe.slotHint')}</small>}
         />
       )}
 
@@ -637,21 +638,21 @@ function HotbarTool({
           custom={!!pack.images.hotbar_selection}
           mirror="quad"
           defaultColor="#ffffff"
-          clearLabel="Effacer"
-          resetLabel="Celle du jeu"
+          clearLabel={t('pe.erase')}
+          resetLabel={t('pe.resetFem')}
           onChange={(v) => onChange('hotbar_selection', v)}
-          extra={<small className="muted">Le cadre qui entoure l'objet tenu en main.</small>}
+          extra={<small className="muted">{t('pe.selectionHint')}</small>}
         />
       )}
 
       {mode === 'import' && (
         <>
           <small className="muted">
-            PNG redimensionné sans flou : hotbar {182 * scale} × {22 * scale}, case sélectionnée {24 * scale} × {24 * scale}.
+            {t('pe.importHint', { hw: 182 * scale, hh: 22 * scale, s: 24 * scale })}
           </small>
           <div className="tool__presets">
-            <button onClick={() => pick('hotbar')}>Importer la hotbar…</button>
-            <button onClick={() => pick('hotbar_selection')}>Importer la sélection…</button>
+            <button onClick={() => pick('hotbar')}>{t('pe.importHotbar')}</button>
+            <button onClick={() => pick('hotbar_selection')}>{t('pe.importSelection')}</button>
           </div>
         </>
       )}
@@ -664,7 +665,7 @@ function HotbarTool({
             onChange('hotbar_selection', null)
           }}
         >
-          Tout remettre comme dans le jeu
+          {t('pe.resetAll')}
         </button>
       </div>
       <input ref={file} type="file" accept="image/png" hidden onChange={(e) => imported(e.target.files?.[0]).finally(() => (e.target.value = ''))} />
@@ -686,17 +687,17 @@ async function leftHalf(src: string, scale: number, rightFrom?: string): Promise
 const HEART_SHAPE = ['.##...##.', '####.####', '#########', '#########', '.#######.', '..#####..', '...###...', '....#....', '.........']
 
 const HEARTS: Preset[] = [
-  { id: 'heart', label: 'Cœur', pixels: (x, y) => HEART_SHAPE[y]?.[x] === '#' },
-  { id: 'diamond', label: 'Losange', pixels: (x, y) => Math.abs(x - 4) + Math.abs(y - 4) <= 4 },
-  { id: 'square', label: 'Carré', pixels: (x, y) => x >= 1 && x <= 7 && y >= 1 && y <= 7 }
+  { id: 'heart', label: 'pe.shape.heart', pixels: (x, y) => HEART_SHAPE[y]?.[x] === '#' },
+  { id: 'diamond', label: 'pe.shape.diamond', pixels: (x, y) => Math.abs(x - 4) + Math.abs(y - 4) <= 4 },
+  { id: 'square', label: 'pe.shape.square', pixels: (x, y) => x >= 1 && x <= 7 && y >= 1 && y <= 7 }
 ]
 
-type Group = { id: 'heart' | 'armor' | 'food'; label: string; full: PackElement; half: PackElement; empty: PackElement }
+type Group = { id: 'heart' | 'armor' | 'food'; label: MessageKey; full: PackElement; half: PackElement; empty: PackElement }
 
 const GROUPS: Group[] = [
-  { id: 'heart', label: 'Cœurs', full: 'heart_full', half: 'heart_half', empty: 'heart_container' },
-  { id: 'armor', label: 'Armure', full: 'armor_full', half: 'armor_half', empty: 'armor_empty' },
-  { id: 'food', label: 'Faim', full: 'food_full', half: 'food_half', empty: 'food_empty' }
+  { id: 'heart', label: 'pe.group.hearts', full: 'heart_full', half: 'heart_half', empty: 'heart_container' },
+  { id: 'armor', label: 'pe.group.armor', full: 'armor_full', half: 'armor_half', empty: 'armor_empty' },
+  { id: 'food', label: 'pe.group.food', full: 'food_full', half: 'food_half', empty: 'food_empty' }
 ]
 
 type Part = 'full' | 'half' | 'empty'
@@ -754,9 +755,9 @@ function HealthTool({
   return (
     <div className="tool">
       <div className="slider-line">
-        <span>Intensité de la teinte</span>
+        <span>{t('pe.tintStrength')}</span>
         <input type="range" className="slider" min={10} max={100} value={strength} onChange={(e) => setStrength(Number(e.target.value))} />
-        <strong>{strength} %</strong>
+        <strong>{t('gs.percent', { n: strength })}</strong>
       </div>
       {GROUPS.map((g) => (
         <div key={g.id} className="health-row">
@@ -764,13 +765,13 @@ function HealthTool({
             {image(g.full) && <img className="pixel" src={image(g.full)} alt="" />}
             {image(g.half) && <img className="pixel" src={image(g.half)} alt="" />}
           </div>
-          <strong>{g.label}</strong>
+          <strong>{t(g.label)}</strong>
           <label className="color-field">
             <input type="color" value={colors[g.id]} onChange={(e) => setColors({ ...colors, [g.id]: e.target.value })} />
           </label>
           <div className="tool__presets">
             <button className="primary" onClick={() => tintGroup(g)}>
-              Teinter
+              {t('pe.tint')}
             </button>
             <button
               disabled={!pack.images[g.full] && !pack.images[g.half] && !pack.images[g.empty]}
@@ -780,7 +781,7 @@ function HealthTool({
                 onChange(g.empty, null)
               }}
             >
-              Celle du jeu
+              {t('pe.resetFem')}
             </button>
           </div>
         </div>
@@ -790,22 +791,22 @@ function HealthTool({
           {image('heart_container') && <img className="pixel" src={image('heart_container')} alt="" />}
           {image('food_empty') && <img className="pixel" src={image('food_empty')} alt="" />}
         </div>
-        <strong>Contours</strong>
+        <strong>{t('pe.outlines')}</strong>
         <label className="color-field">
           <input type="color" value={outline} onChange={(e) => setOutline(e.target.value)} />
         </label>
         <div className="tool__presets">
           <button className="primary" onClick={colorOutlines}>
-            Colorer
+            {t('pe.colorize')}
           </button>
         </div>
       </div>
-      <small className="muted">« Contours » change le trait noir autour des cœurs, de l'armure et de la faim (et de leurs fonds vides).</small>
+      <small className="muted">{t('pe.outlinesHint')}</small>
 
-      <h4>Dessiner tes icônes</h4>
+      <h4>{t('pe.drawIcons')}</h4>
       {!drawing ? (
         <div className="tool__presets">
-          <button onClick={() => setDrawing(true)}>Ouvrir l’éditeur de pixels</button>
+          <button onClick={() => setDrawing(true)}>{t('pe.openPixelEditor')}</button>
         </div>
       ) : (
         <>
@@ -813,33 +814,33 @@ function HealthTool({
             <div className="segmented small">
               {GROUPS.map((g) => (
                 <button key={g.id} className={drawGroup === g.id ? 'active' : ''} onClick={() => setDrawGroup(g.id)}>
-                  {g.label}
+                  {t(g.label)}
                 </button>
               ))}
             </div>
             <div className="segmented small">
               <button className={part === 'full' ? 'active' : ''} onClick={() => setPart('full')}>
-                Plein
+                {t('pe.full')}
               </button>
               <button className={part === 'half' ? 'active' : ''} onClick={() => setPart('half')}>
-                Moitié
+                {t('pe.half')}
               </button>
               <button className={part === 'empty' ? 'active' : ''} onClick={() => setPart('empty')}>
-                Vide
+                {t('pe.emptyIcon')}
               </button>
             </div>
           </div>
           {part === 'full' && (
             <label className="toggle-line">
               <input type="checkbox" checked={autoHalf} onChange={(e) => setAutoHalf(e.target.checked)} />
-              <span>Moitié automatique (la partie gauche de l’icône pleine)</span>
+              <span>{t('pe.autoHalf')}</span>
             </label>
           )}
           {part === 'empty' && (
             <small className="muted">
               {drawGroup === 'armor'
-                ? 'L’armure vide s’affiche à la place des pièces d’armure manquantes.'
-                : 'Le fond vide est dessiné derrière chaque icône : c’est lui qui fait le contour noir.'}
+                ? t('pe.armorEmptyHint')
+                : t('pe.emptyHint')}
             </small>
           )}
           <PixelEditor
@@ -865,35 +866,35 @@ function HealthTool({
 function XpTool({ base, pack, onChange }: { base: BaseImages; pack: PackInfo; onChange: (el: PackElement, v: string | null) => void }) {
   const [colors, setColors] = useState({ xp_progress: '#7ce84f', xp_background: '#1d3a2a' })
   const [strength, setStrength] = useState(90)
-  const rows: { el: 'xp_progress' | 'xp_background'; label: string }[] = [
-    { el: 'xp_progress', label: 'Remplissage' },
-    { el: 'xp_background', label: 'Fond' }
+  const rows: { el: 'xp_progress' | 'xp_background'; label: MessageKey }[] = [
+    { el: 'xp_progress', label: 'pe.xpFill' },
+    { el: 'xp_background', label: 'pe.xpBackground' }
   ]
   return (
     <div className="tool">
       <div className="slider-line">
-        <span>Intensité de la teinte</span>
+        <span>{t('pe.tintStrength')}</span>
         <input type="range" className="slider" min={10} max={100} value={strength} onChange={(e) => setStrength(Number(e.target.value))} />
-        <strong>{strength} %</strong>
+        <strong>{t('gs.percent', { n: strength })}</strong>
       </div>
       {rows.map((r) => (
         <div key={r.el} className="xp-row">
-          <strong>{r.label}</strong>
+          <strong>{t(r.label)}</strong>
           <label className="color-field">
             <input type="color" value={colors[r.el]} onChange={(e) => setColors({ ...colors, [r.el]: e.target.value })} />
           </label>
           <div className="tool__presets">
             <button className="primary" disabled={!base[r.el]} onClick={async () => onChange(r.el, await tint(base[r.el]!, colors[r.el], strength / 100))}>
-              Teinter
+              {t('pe.tint')}
             </button>
             <button disabled={!pack.images[r.el]} onClick={() => onChange(r.el, null)}>
-              Celle du jeu
+              {t('pe.resetFem')}
             </button>
           </div>
           <div className="xp-row__bar">{(pack.images[r.el] ?? base[r.el]) && <img className="pixel" src={pack.images[r.el] ?? base[r.el]} alt="" />}</div>
         </div>
       ))}
-      <small className="muted">La barre verte qui se remplit avec ton expérience, au-dessus de la hotbar.</small>
+      <small className="muted">{t('pe.xpHint')}</small>
     </div>
   )
 }
@@ -922,7 +923,7 @@ function TotemTool({
 
   return (
     <div className="tool">
-      {!available && <small className="warning">Le totem n'existe pas dans la version de ce profil : il sera ignoré à l'installation.</small>}
+      {!available && <small className="warning">{t('pe.totemMissing')}</small>}
       <PixelEditor
         size={16 * scale}
         value={value}
@@ -930,14 +931,14 @@ function TotemTool({
         mirror="horizontal"
         mirrorDefault={false}
         defaultColor="#f2c14e"
-        clearLabel="Effacer"
+        clearLabel={t('pe.erase')}
         onChange={onChange}
       />
       <div className="tool__presets">
-        <button onClick={() => file.current?.click()}>Importer une image…</button>
+        <button onClick={() => file.current?.click()}>{t('pe.importImage')}</button>
       </div>
       <small className="muted">
-        Image PNG carrée ({16 * scale} × {16 * scale} ou autre), redimensionnée sans flou.
+        {t('pe.totemImportHint', { n: 16 * scale })}
       </small>
       <input ref={file} type="file" accept="image/png" hidden onChange={(e) => imported(e.target.files?.[0]).finally(() => (e.target.value = ''))} />
     </div>

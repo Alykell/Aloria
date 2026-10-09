@@ -1,5 +1,6 @@
 import { app } from 'electron'
 import type { ContentType, SearchHit, SearchQuery } from '../../shared/types'
+import { tm } from '../i18n'
 
 const API = 'https://api.modrinth.com/v2'
 
@@ -32,8 +33,8 @@ async function get<T>(path: string, params: Record<string, unknown> = {}): Promi
   const res = await fetch(`${API}${path}${query.size ? `?${query}` : ''}`, {
     headers: { 'User-Agent': `Alykell/Aloria/${app.getVersion()} (github.com/Alykell/Aloria)` }
   })
-  if (res.status === 429) throw new Error('Trop de requêtes vers Modrinth, réessaie dans une minute.')
-  if (!res.ok) throw new Error(`Erreur Modrinth (HTTP ${res.status}).`)
+  if (res.status === 429) throw new Error(tm('err.modrinthRateLimit'))
+  if (!res.ok) throw new Error(tm('err.modrinth', { status: res.status }))
   return (await res.json()) as T
 }
 

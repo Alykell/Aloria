@@ -2,6 +2,7 @@ import { BrowserWindow, session } from 'electron'
 import { createHash, randomBytes } from 'node:crypto'
 import { MS_AUTHORITY, MS_CLIENT_ID, MS_REDIRECT_URI, MS_SCOPES } from '../config'
 import { AuthError } from './errors'
+import { tm } from '../i18n'
 
 export interface MicrosoftTokens {
   accessToken: string
@@ -30,7 +31,7 @@ function requestAuthCode(parent: BrowserWindow | null, verifier: string): Promis
       height: 680,
       parent: parent ?? undefined,
       modal: !!parent,
-      title: 'Connexion Microsoft',
+      title: tm('auth.windowTitle'),
       autoHideMenuBar: true,
       backgroundColor: '#ffffff',
       webPreferences: {
@@ -50,13 +51,13 @@ function requestAuthCode(parent: BrowserWindow | null, verifier: string): Promis
       win.destroy()
       const code = query.get('code')
       if (code) resolve(code)
-      else reject(new AuthError('microsoft', query.get('error_description') ?? 'Connexion refusée.'))
+      else reject(new AuthError('microsoft', query.get('error_description') ?? tm('auth.refused')))
     }
 
     win.webContents.on('will-redirect', handleUrl)
     win.webContents.on('will-navigate', handleUrl)
     win.on('closed', () => {
-      if (!settled) reject(new AuthError('cancelled', 'Connexion annulée.'))
+      if (!settled) reject(new AuthError('cancelled', tm('auth.cancelled')))
     })
 
     win.loadURL(`${MS_AUTHORITY}/authorize?${params}`)
@@ -71,7 +72,7 @@ async function tokenRequest(body: Record<string, string>): Promise<MicrosoftToke
   })
   const json = (await res.json()) as Record<string, string>
   if (!res.ok) {
-    throw new AuthError('microsoft', json.error_description ?? `Erreur Microsoft (${res.status}).`)
+    throw new AuthError('microsoft', json.error_description ?? tm('auth.microsoftError', { status: res.status }))
   }
   return { accessToken: json.access_token, refreshToken: json.refresh_token }
 }

@@ -1,4 +1,5 @@
 import type { GameStatus } from '../../../shared/types'
+import { t } from '../i18n'
 
 const mb = (bytes: number) => (bytes / 1024 / 1024).toFixed(bytes > 100 * 1024 * 1024 ? 0 : 1)
 
@@ -9,15 +10,20 @@ function describe(status: GameStatus): { label: string; detail?: string; percent
     case 'downloading': {
       const percent = status.totalBytes > 0 ? (status.doneBytes / status.totalBytes) * 100 : 0
       return {
-        label: 'Téléchargement…',
-        detail: `${mb(status.doneBytes)} / ${mb(status.totalBytes)} Mo · ${status.doneFiles}/${status.totalFiles} fichiers`,
+        label: t('play.downloading'),
+        detail: t('play.downloadDetail', {
+          done: mb(status.doneBytes),
+          total: mb(status.totalBytes),
+          files: status.doneFiles,
+          totalFiles: status.totalFiles
+        }),
         percent
       }
     }
     case 'launching':
-      return { label: 'Lancement du jeu…' }
+      return { label: t('play.launching') }
     case 'running':
-      return { label: `${status.profile} est lancé` }
+      return { label: t('play.running', { profile: status.profile }) }
     default:
       return { label: '' }
   }
@@ -27,7 +33,7 @@ export default function PlayButton({ status, disabled, onPlay }: { status: GameS
   if (status.state === 'idle') {
     return (
       <button className="play" onClick={onPlay} disabled={disabled}>
-        Jouer
+        {t('common.play')}
       </button>
     )
   }
@@ -37,7 +43,7 @@ export default function PlayButton({ status, disabled, onPlay }: { status: GameS
     <div className="progress">
       <div className="progress__label">
         <strong>{label}</strong>
-        {percent !== undefined && <span>{Math.floor(percent)} %</span>}
+        {percent !== undefined && <span>{t('play.percent', { n: Math.floor(percent) })}</span>}
       </div>
       <div className={'progress__bar' + (percent === undefined ? ' indeterminate' : '')}>
         <div className="progress__fill" style={percent !== undefined ? { width: `${percent}%` } : undefined} />

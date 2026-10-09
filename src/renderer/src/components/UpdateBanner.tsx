@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { UpdateStatus } from '../../../shared/types'
+import { t } from '../i18n'
 
 export default function UpdateBanner() {
   const [status, setStatus] = useState<UpdateStatus>({ state: 'idle' })
@@ -12,7 +13,7 @@ export default function UpdateBanner() {
   if (status.state === 'downloading') {
     return (
       <div className="update">
-        <span>Mise à jour {status.version}…</span>
+        <span>{t('update.downloading', { version: status.version })}</span>
         <div className="update__bar">
           <div style={{ width: `${status.percent}%` }} />
         </div>
@@ -23,8 +24,8 @@ export default function UpdateBanner() {
   if (status.state === 'ready') {
     return (
       <button className="update ready" onClick={() => window.aloria.updater.install()}>
-        <span>Version {status.version} prête</span>
-        <strong>Redémarrer pour l'installer</strong>
+        <span>{t('update.ready', { version: status.version })}</span>
+        <strong>{t('update.restart')}</strong>
       </button>
     )
   }

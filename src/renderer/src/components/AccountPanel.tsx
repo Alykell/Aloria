@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { AccountsState } from '../hooks/useAccounts'
+import { t } from '../i18n'
 
 const head = (uuid: string) => `https://mc-heads.net/avatar/${uuid}/64`
 
@@ -11,7 +12,7 @@ export default function AccountPanel({ state, onSkin }: { state: AccountsState; 
     return (
       <div className="account">
         <button className="account__login" onClick={add} disabled={busy}>
-          {busy ? 'Connexion…' : 'Se connecter'}
+          {busy ? t('common.connecting') : t('common.login')}
         </button>
       </div>
     )
@@ -43,7 +44,7 @@ export default function AccountPanel({ state, onSkin }: { state: AccountsState; 
               onSkin()
             }}
           >
-            🎽 Changer de skin
+            {t('home.changeSkin')}
           </button>
           <button
             className="account__action"
@@ -52,7 +53,7 @@ export default function AccountPanel({ state, onSkin }: { state: AccountsState; 
               add()
             }}
           >
-            + Ajouter un compte
+            {t('account.add')}
           </button>
           <button
             className="account__action danger"
@@ -61,7 +62,7 @@ export default function AccountPanel({ state, onSkin }: { state: AccountsState; 
               remove(active.uuid)
             }}
           >
-            Se déconnecter
+            {t('account.logout')}
           </button>
         </div>
       )}
@@ -69,7 +70,7 @@ export default function AccountPanel({ state, onSkin }: { state: AccountsState; 
         <img src={head(active.uuid)} alt="" />
         <span>
           <strong>{active.name}</strong>
-          <small>{busy ? 'Connexion…' : 'Compte Microsoft'}</small>
+          <small>{busy ? t('common.connecting') : t('account.microsoft')}</small>
         </span>
         {/* Vers le haut : la liste des comptes s'ouvre au-dessus */}
         <svg className={`chevron ${open ? 'open' : ''}`} width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">

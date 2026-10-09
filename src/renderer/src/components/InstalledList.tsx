@@ -1,9 +1,11 @@
 import type { ContentType, InstalledContent } from '../../../shared/types'
+import type { MessageKey } from '../../../shared/i18n'
+import { t } from '../i18n'
 
-const SECTIONS: { type: ContentType; label: string; icon: string }[] = [
-  { type: 'mod', label: 'Mods', icon: '🧩' },
-  { type: 'resourcepack', label: 'Resource packs', icon: '🎨' },
-  { type: 'shader', label: 'Shaders', icon: '✨' }
+const SECTIONS: { type: ContentType; label: MessageKey; icon: string }[] = [
+  { type: 'mod', label: 'library.tabMods', icon: '🧩' },
+  { type: 'resourcepack', label: 'library.tabResourcepacks', icon: '🎨' },
+  { type: 'shader', label: 'library.tabShaders', icon: '✨' }
 ]
 
 interface Props {
@@ -28,14 +30,14 @@ export default function InstalledList({ profileId, items, onChanged, onError }: 
           <div key={section.type} className="installed__section">
             <div className="installed__head">
               <h3>
-                {section.icon} {section.label} <span className="muted">({list.length})</span>
+                {section.icon} {t(section.label)} <span className="muted">({list.length})</span>
               </h3>
               <button className="secondary" onClick={() => window.aloria.library.openFolder(profileId, section.type)}>
-                Ouvrir le dossier
+                {t('common.openFolder')}
               </button>
             </div>
             {list.length === 0 ? (
-              <p className="muted">Rien d'installé pour l'instant.</p>
+              <p className="muted">{t('library.nothing')}</p>
             ) : (
               list.map((item) => (
                 <div key={item.fileName} className={'installed__row' + (item.enabled ? '' : ' disabled')}>
@@ -43,11 +45,11 @@ export default function InstalledList({ profileId, items, onChanged, onError }: 
                   <div className="installed__info">
                     <strong>{item.title}</strong>
                     <small className="muted">
-                      {item.versionNumber ?? (item.projectId ? '' : 'Ajouté à la main')}
-                      {item.auto && <span className="chip">dépendance</span>}
+                      {item.versionNumber ?? (item.projectId ? '' : t('library.manual'))}
+                      {item.auto && <span className="chip">{t('library.dependency')}</span>}
                     </small>
                   </div>
-                  <label className="switch" title={item.enabled ? 'Désactiver' : 'Activer'}>
+                  <label className="switch" title={item.enabled ? t('library.disable') : t('library.enable')}>
                     <input
                       type="checkbox"
                       checked={item.enabled}
@@ -57,8 +59,8 @@ export default function InstalledList({ profileId, items, onChanged, onError }: 
                   </label>
                   <button
                     className="icon-btn"
-                    aria-label="Supprimer"
-                    title="Supprimer"
+                    aria-label={t('common.delete')}
+                    title={t('common.delete')}
                     onClick={() => act(window.aloria.library.remove(profileId, item.type, item.fileName))}
                   >
                     🗑

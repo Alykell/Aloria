@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { getValidSession } from './accounts'
 import { paths } from '../game/paths'
 import type { CapeInfo, PlayerSkin, SavedSkin } from '../../shared/types'
+import { tm } from '../i18n'
 
 /**
  * Skin d'un joueur, pour l'aperçu 3D de l'accueil : la texture (en data URL, pour que le rendu WebGL de l'interface
@@ -56,8 +57,8 @@ interface ServicesProfile {
 async function services(uuid: string, path = '', init: RequestInit = {}): Promise<ServicesProfile> {
   const { accessToken } = await getValidSession(uuid)
   const res = await fetch(SERVICES + path, { ...init, headers: { ...(init.headers ?? {}), Authorization: `Bearer ${accessToken}` } })
-  if (res.status === 429) throw new Error('Trop de changements d’affilée : Minecraft demande d’attendre un peu.')
-  if (!res.ok) throw new Error(`Minecraft a refusé la demande (HTTP ${res.status}).`)
+  if (res.status === 429) throw new Error(tm('err.skinRateLimit'))
+  if (!res.ok) throw new Error(tm('err.skinRefused', { status: res.status }))
   return (await res.json()) as ServicesProfile
 }
 
@@ -80,7 +81,7 @@ async function remember(uuid: string, profile: ServicesProfile): Promise<PlayerS
 /** Envoie un skin (PNG en data URL) sur le compte ; le précédent est d'abord gardé dans la bibliothèque */
 export async function uploadSkin(uuid: string, texture: string, slim: boolean, name: string): Promise<PlayerSkin | null> {
   const previous = await getSkin(uuid).catch(() => null)
-  if (previous) await addSavedSkin(previous.texture, previous.slim, 'Skin précédent')
+  if (previous) await addSavedSkin(previous.texture, previous.slim, tm('skin.previous'))
   await addSavedSkin(texture, slim, name)
   const form = new FormData()
   form.append('variant', slim ? 'slim' : 'classic')
@@ -91,7 +92,7 @@ export async function uploadSkin(uuid: string, texture: string, slim: boolean, n
 /** Revient au skin par défaut de Minecraft */
 export async function resetSkin(uuid: string): Promise<PlayerSkin | null> {
   const previous = await getSkin(uuid).catch(() => null)
-  if (previous) await addSavedSkin(previous.texture, previous.slim, 'Skin précédent')
+  if (previous) await addSavedSkin(previous.texture, previous.slim, tm('skin.previous'))
   await services(uuid, '/skins/active', { method: 'DELETE' })
   cache.delete(uuid)
   return remember(uuid, await services(uuid))

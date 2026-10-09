@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { chmod, mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
+import { tm } from '../i18n'
 
 export interface DownloadTask {
   url: string
@@ -57,7 +58,7 @@ async function downloadOne(task: DownloadTask): Promise<number> {
       const res = await fetch(task.url)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = Buffer.from(await res.arrayBuffer())
-      if (task.sha1 && sha1(data) !== task.sha1) throw new Error('fichier corrompu (sha1)')
+      if (task.sha1 && sha1(data) !== task.sha1) throw new Error(tm('err.corrupted'))
       await mkdir(dirname(task.path), { recursive: true })
       const tmp = `${task.path}.part`
       await writeFile(tmp, data)
@@ -69,7 +70,7 @@ async function downloadOne(task: DownloadTask): Promise<number> {
     }
   }
   const reason = lastError instanceof Error ? lastError.message : String(lastError)
-  throw new Error(`Impossible de télécharger ${task.url} : ${reason}`)
+  throw new Error(tm('err.download', { url: task.url, reason }))
 }
 
 export async function downloadAll(
@@ -96,6 +97,6 @@ export async function downloadAll(
 
 export async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url)
-  if (!res.ok) throw new Error(`Impossible de récupérer ${url} (HTTP ${res.status})`)
+  if (!res.ok) throw new Error(tm('err.fetch', { url, status: res.status }))
   return (await res.json()) as T
 }

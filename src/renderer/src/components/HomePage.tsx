@@ -5,6 +5,7 @@ import type { ProfilesState } from '../hooks/useProfiles'
 import type { useGame } from '../hooks/useGame'
 import Select from './Select'
 import SkinViewer from './SkinViewer'
+import { t } from '../i18n'
 
 interface Props {
   accounts: AccountsState
@@ -24,13 +25,13 @@ export default function HomePage({ accounts, profiles, game, onSkin }: Props) {
           <div className="hero__skin">
             <SkinViewer uuid={accounts.active.uuid} width={150} height={205} />
             <button className="skin-change" onClick={onSkin}>
-              🎽 Changer de skin
+              {t('home.changeSkin')}
             </button>
           </div>
         )}
         <div className="hero__main">
-          <h1>{accounts.active ? `Salut ${accounts.active.name} !` : 'Bienvenue sur Aloria'}</h1>
-          <p>Ton launcher Minecraft, entre ciel et océan.</p>
+          <h1>{accounts.active ? t('home.hello', { name: accounts.active.name }) : t('home.welcome')}</h1>
+          <p>{t('home.tagline')}</p>
 
           {canPlay ? (
             <>
@@ -50,9 +51,9 @@ export default function HomePage({ accounts, profiles, game, onSkin }: Props) {
           ) : (
             <>
               <button className="play" onClick={accounts.add} disabled={accounts.busy}>
-                {accounts.busy ? 'Connexion…' : 'Se connecter'}
+                {accounts.busy ? t('common.connecting') : t('common.login')}
               </button>
-              <small>Connecte-toi avec ton compte Microsoft</small>
+              <small>{t('home.loginHint')}</small>
             </>
           )}
         </div>

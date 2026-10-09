@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path'
 import { paths } from '../game/paths'
 import { isSyncedKey, parseOptions } from './options'
 import type { SettingsPreset } from '../../shared/types'
+import { tm } from '../i18n'
 
 /** Jeu de réglages par défaut, utilisé par les profils qui n'en ont pas choisi */
 export const MAIN_PRESET = 'main'
@@ -73,7 +74,7 @@ export function renamePreset(id: string, name: string): void {
 }
 
 export function deletePreset(id: string): void {
-  if (id === MAIN_PRESET) throw new Error('« Mes réglages » ne peut pas être supprimé.')
+  if (id === MAIN_PRESET) throw new Error(tm('err.mainPreset'))
   savePresets(listPresets().filter((p) => p.id !== id))
 }
 
@@ -81,7 +82,7 @@ export function deletePreset(id: string): void {
 export function updatePresetOptions(id: string, patch: Record<string, string | null>): SettingsPreset {
   const presets = listPresets()
   const preset = presets.find((p) => p.id === id)
-  if (!preset) throw new Error('Jeu de réglages introuvable.')
+  if (!preset) throw new Error(tm('err.presetMissing'))
   for (const [k, v] of Object.entries(patch)) {
     if (v === null) delete preset.options[k]
     else preset.options[k] = v

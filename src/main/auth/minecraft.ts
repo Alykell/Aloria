@@ -1,4 +1,6 @@
 import { AuthError } from './errors'
+import { tm } from '../i18n'
+import type { MessageKey } from '../../shared/i18n'
 
 export interface MinecraftSession {
   uuid: string
@@ -11,13 +13,13 @@ export interface MinecraftSession {
 const JSON_HEADERS = { 'Content-Type': 'application/json', Accept: 'application/json' }
 
 // Codes d'erreur XSTS documentés par Microsoft
-const XSTS_ERRORS: Record<number, [AuthError['code'], string]> = {
-  2148916227: ['xbox_banned', 'Ce compte est banni du Xbox Live.'],
-  2148916233: ['no_xbox', "Ce compte Microsoft n'a pas de profil Xbox. Connecte-toi une fois sur minecraft.net pour le créer."],
-  2148916235: ['xbox', "Le Xbox Live n'est pas disponible dans ton pays."],
-  2148916236: ['xbox', 'Ce compte doit être vérifié (Corée du Sud).'],
-  2148916237: ['xbox', 'Ce compte doit être vérifié (Corée du Sud).'],
-  2148916238: ['child', "Compte mineur : un adulte doit l'ajouter à une famille Microsoft."]
+const XSTS_ERRORS: Record<number, [AuthError['code'], MessageKey]> = {
+  2148916227: ['xbox_banned', 'auth.banned'],
+  2148916233: ['no_xbox', 'auth.noXbox'],
+  2148916235: ['xbox', 'auth.country'],
+  2148916236: ['xbox', 'auth.korea'],
+  2148916237: ['xbox', 'auth.korea'],
+  2148916238: ['child', 'auth.child']
 }
 
 async function postJson<T>(url: string, body: unknown, headers: Record<string, string> = {}): Promise<{ res: Response; json: T }> {
@@ -35,7 +37,7 @@ async function xboxLive(msAccessToken: string): Promise<{ token: string; uhs: st
       TokenType: 'JWT'
     }
   )
-  if (!res.ok) throw new AuthError('xbox', `Échec de la connexion Xbox Live (${res.status}).`)
+  if (!res.ok) throw new AuthError('xbox', tm('auth.xboxFailed', { status: res.status }))
   return { token: json.Token, uhs: json.DisplayClaims.xui[0].uhs }
 }
 
@@ -47,8 +49,8 @@ async function xsts(xblToken: string): Promise<{ token: string; xuid: string }> 
   })
   if (!res.ok) {
     const known = json.XErr ? XSTS_ERRORS[json.XErr] : undefined
-    if (known) throw new AuthError(known[0], known[1])
-    throw new AuthError('xbox', `Échec de l'autorisation Xbox (${res.status}).`)
+    if (known) throw new AuthError(known[0], tm(known[1]))
+    throw new AuthError('xbox', tm('auth.xstsFailed', { status: res.status }))
   }
   return { token: json.Token, xuid: json.DisplayClaims?.xui[0]?.xid ?? '0' }
 }
@@ -61,10 +63,10 @@ async function minecraftLogin(uhs: string, xstsToken: string): Promise<{ token: 
   if (res.status === 403) {
     throw new AuthError(
       'app_not_approved',
-      "Mojang n'a pas encore autorisé l'application Aloria à utiliser l'API Minecraft."
+      tm('auth.notApproved')
     )
   }
-  if (!res.ok) throw new AuthError('minecraft', json.errorMessage ?? `Échec de la connexion Minecraft (${res.status}).`)
+  if (!res.ok) throw new AuthError('minecraft', json.errorMessage ?? tm('auth.minecraftFailed', { status: res.status }))
   return { token: json.access_token, expiresIn: json.expires_in }
 }
 
@@ -88,11 +90,11 @@ export async function authenticateMinecraft(msAccessToken: string): Promise<Mine
     throw new AuthError(
       owned ? 'no_profile' : 'not_owned',
       owned
-        ? "Tu possèdes Minecraft mais n'as pas encore choisi de pseudo. Crée-le sur minecraft.net."
-        : 'Ce compte ne possède pas Minecraft Java Edition.'
+        ? tm('auth.noProfile')
+        : tm('auth.notOwned')
     )
   }
-  if (!profile.res.ok) throw new AuthError('minecraft', `Impossible de récupérer le profil (${profile.res.status}).`)
+  if (!profile.res.ok) throw new AuthError('minecraft', tm('auth.profileFailed', { status: profile.res.status }))
 
   // Compte tout neuf : le premier jeton peut être émis avant que Mojang y rattache le profil,
   // et les serveurs refusent alors la session (« Session non valide »). On en redemande un.
@@ -104,7 +106,7 @@ export async function authenticateMinecraft(msAccessToken: string): Promise<Mine
   if (!tokenHasProfile(session.token)) {
     throw new AuthError(
       'minecraft',
-      "Ton profil Minecraft n'est pas encore activé chez Mojang (compte tout neuf ?). Réessaie de te connecter dans quelques minutes."
+      tm('auth.profileNotReady')
     )
   }
 

@@ -1,3 +1,4 @@
+import type { Lang } from './i18n'
 export interface PublicAccount {
   uuid: string
   name: string
@@ -89,6 +90,8 @@ export interface Settings {
   discordShowServer: boolean
   /** Nom affiché pendant une partie : « Joue à Aloria Client » ou « Joue à Minecraft » */
   discordGameName: DiscordGameName
+  /** Langue du launcher ; absente tant qu'elle n'a pas été choisie (premier lancement) */
+  language?: Lang
 }
 
 export type DiscordGameName = 'aloria' | 'minecraft'

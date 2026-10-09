@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { keyFromCode, keyFromMouse, keyLabel } from '../keys'
 import type { SettingsPreset } from '../../../shared/types'
 import Select from './Select'
+import { getLang, presetName, t } from '../i18n'
+import { gameLangOf } from '../../../shared/i18n'
 
 const LANGUAGES: [string, string][] = [
   ['fr_fr', 'Français'], ['en_us', 'English (US)'], ['en_gb', 'English (UK)'], ['es_es', 'Español'],
@@ -10,21 +12,21 @@ const LANGUAGES: [string, string][] = [
   ['ko_kr', '한국어'], ['zh_cn', '简体中文']
 ]
 
-const SOUNDS: [string, string][] = [
-  ['master', 'Volume général'], ['music', 'Musique'], ['record', 'Juke-box'], ['weather', 'Météo'],
-  ['block', 'Blocs'], ['hostile', 'Créatures hostiles'], ['neutral', 'Créatures amicales'], ['player', 'Joueurs'],
-  ['ambient', 'Ambiance'], ['voice', 'Voix']
+const sounds = (): [string, string][] => [
+  ['master', t('gs.sound.master')], ['music', t('gs.sound.music')], ['record', t('gs.sound.record')], ['weather', t('gs.sound.weather')],
+  ['block', t('gs.sound.block')], ['hostile', t('gs.sound.hostile')], ['neutral', t('gs.sound.neutral')], ['player', t('gs.sound.player')],
+  ['ambient', t('gs.sound.ambient')], ['voice', t('gs.sound.voice')]
 ]
 
-const KEY_GROUPS: [string, [string, string][]][] = [
-  ['Déplacement', [['forward', 'Avancer'], ['back', 'Reculer'], ['left', 'Aller à gauche'], ['right', 'Aller à droite'],
-    ['jump', 'Sauter'], ['sneak', "S'accroupir"], ['sprint', 'Courir']]],
-  ['Actions', [['attack', 'Attaquer / détruire'], ['use', 'Utiliser / placer'], ['pickItem', 'Choisir le bloc'],
-    ['drop', "Jeter l'objet"], ['swapOffhand', 'Échanger de main']]],
-  ['Inventaire', [['inventory', 'Inventaire'], ...Array.from({ length: 9 }, (_, i): [string, string] => [`hotbar.${i + 1}`, `Emplacement ${i + 1}`])]],
-  ['Multijoueur', [['chat', 'Ouvrir le chat'], ['command', 'Taper une commande'], ['playerlist', 'Liste des joueurs']]],
-  ['Divers', [['screenshot', "Capture d'écran"], ['togglePerspective', 'Changer de vue'], ['fullscreen', 'Plein écran'],
-    ['aloriahud.editor', 'Aloria HUD (menu)']]]
+const keyGroups = (): [string, [string, string][]][] => [
+  [t('gs.group.movement'), [['forward', t('gs.key.forward')], ['back', t('gs.key.back')], ['left', t('gs.key.left')], ['right', t('gs.key.right')],
+    ['jump', t('gs.key.jump')], ['sneak', t('gs.key.sneak')], ['sprint', t('gs.key.sprint')]]],
+  [t('gs.group.actions'), [['attack', t('gs.key.attack')], ['use', t('gs.key.use')], ['pickItem', t('gs.key.pickItem')],
+    ['drop', t('gs.key.drop')], ['swapOffhand', t('gs.key.swapOffhand')]]],
+  [t('gs.group.inventory'), [['inventory', t('gs.group.inventory')], ...Array.from({ length: 9 }, (_, i): [string, string] => [`hotbar.${i + 1}`, t('gs.key.slot', { n: i + 1 })])]],
+  [t('gs.group.multiplayer'), [['chat', t('gs.key.chat')], ['command', t('gs.key.command')], ['playerlist', t('gs.key.playerlist')]]],
+  [t('gs.group.misc'), [['screenshot', t('gs.key.screenshot')], ['togglePerspective', t('gs.key.perspective')], ['fullscreen', t('gs.key.fullscreen')],
+    ['aloriahud.editor', t('gs.key.hud')]]]
 ]
 
 type Patch = Record<string, string | null>
@@ -91,7 +93,8 @@ export default function GameSettingsPage({ onError }: { onError: (message: strin
   const num = (key: string, fallback: number) => (o[key] !== undefined ? Number(o[key]) : fallback)
   const bool = (key: string, fallback = false) => (o[key] !== undefined ? o[key] === 'true' : fallback)
   const percent = (key: string, fallback: number) => Math.round(num(key, fallback) * 100)
-  const offOrPercent = (v: number) => (v === 0 ? 'Désactivé' : `${v} %`)
+  const pct = (v: number) => t('gs.percent', { n: v })
+  const offOrPercent = (v: number) => (v === 0 ? t('gs.off') : pct(v))
   const fov = Math.round(70 + num('fov', 0) * 40)
   const maxFps = num('maxFps', 120)
 
@@ -105,11 +108,8 @@ export default function GameSettingsPage({ onError }: { onError: (message: strin
 
   return (
     <section className="page wide game-settings">
-      <h2>Réglages du jeu</h2>
-      <p className="muted">
-        Appliqués au lancement de chaque profil qui utilise ce jeu de réglages, y compris en 1.8 (touches et langue
-        converties). Ce que tu changes en jeu y est enregistré à la fermeture.
-      </p>
+      <h2>{t('nav.gamesettings')}</h2>
+      <p className="muted">{t('gs.intro')}</p>
 
       <div className="preset-bar">
         {presets.map((p) =>
@@ -136,21 +136,21 @@ export default function GameSettingsPage({ onError }: { onError: (message: strin
                 setConfirmDelete(false)
               }}
               onDoubleClick={() => p.id !== 'main' && setRenaming(p.id)}
-              title={p.id !== 'main' ? 'Double-clic pour renommer' : undefined}
+              title={p.id !== 'main' ? t('gs.renameHint') : undefined}
             >
-              {p.name}
+              {presetName(p)}
             </button>
           )
         )}
         {newName === null ? (
           <button className="preset-chip add" onClick={() => setNewName('')}>
-            ＋ Nouveau
+            {t('gs.new')}
           </button>
         ) : (
           <input
             className="preset-input"
             autoFocus
-            placeholder="Nom (ex. PvP 1.8)"
+            placeholder={t('gs.newPlaceholder')}
             maxLength={24}
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
@@ -173,119 +173,119 @@ export default function GameSettingsPage({ onError }: { onError: (message: strin
                 refresh()
               }}
             >
-              Confirmer la suppression
+              {t('gs.confirmDelete')}
             </button>
           ) : (
             <button className="link-danger" onClick={() => setConfirmDelete(true)}>
-              Supprimer « {preset.name} »
+              {t('gs.delete', { name: presetName(preset) })}
             </button>
           ))}
       </div>
 
       <div className="settings-grid">
         <div className="card">
-          <h3>Général</h3>
-          <Row label="Langue">
-            <Select value={o.lang ?? 'fr_fr'} onChange={(v) => set({ lang: v })} options={LANGUAGES.map(([id, name]) => ({ value: id, label: name }))} />
+          <h3>{t('gs.general')}</h3>
+          <Row label={t('gs.language')}>
+            <Select value={o.lang ?? gameLangOf(getLang())} onChange={(v) => set({ lang: v })} options={LANGUAGES.map(([id, name]) => ({ value: id, label: name }))} />
           </Row>
-          <Slider label="Champ de vision" value={fov} min={30} max={110} display={(v) => (v === 70 ? 'Normal' : v === 110 ? 'Quake Pro' : `${v}°`)}
+          <Slider label={t('gs.fov')} value={fov} min={30} max={110} display={(v) => (v === 70 ? t('gs.fovNormal') : v === 110 ? 'Quake Pro' : `${v}°`)}
             onChange={(v) => set({ fov: String((v - 70) / 40) })} />
-          <Slider label="Luminosité" value={Math.round(num('gamma', 0.5) * 100)} min={0} max={100} display={(v) => (v === 0 ? 'Sombre' : v === 100 ? 'Lumineux' : `${v} %`)}
+          <Slider label={t('gs.brightness')} value={Math.round(num('gamma', 0.5) * 100)} min={0} max={100} display={(v) => (v === 0 ? t('gs.moody') : v === 100 ? t('gs.bright') : pct(v))}
             onChange={(v) => set({ gamma: String(v / 100) })} />
-          <Slider label="Distance de rendu" value={num('renderDistance', 12)} min={2} max={32} display={(v) => `${v} tronçons`}
+          <Slider label={t('gs.renderDistance')} value={num('renderDistance', 12)} min={2} max={32} display={(v) => t('gs.chunks', { n: v })}
             onChange={(v) => set({ renderDistance: String(v) })} />
-          <Row label="Taille de l'interface">
+          <Row label={t('gs.guiScale')}>
             <Select
               value={o.guiScale ?? '0'}
               onChange={(v) => set({ guiScale: v })}
-              options={[{ value: '0', label: 'Auto' }, ...['1', '2', '3', '4'].map((n) => ({ value: n, label: n }))]}
+              options={[{ value: '0', label: t('gs.auto') }, ...['1', '2', '3', '4'].map((n) => ({ value: n, label: n }))]}
             />
           </Row>
-          <Slider label="FPS maximum" value={maxFps} min={10} max={260} step={10} display={(v) => (v >= 260 ? 'Illimité' : `${v} FPS`)}
+          <Slider label={t('gs.maxFps')} value={maxFps} min={10} max={260} step={10} display={(v) => (v >= 260 ? t('gs.unlimited') : t('gs.fps', { n: v }))}
             onChange={(v) => set({ maxFps: String(v) })} />
-          <Toggle label="Synchronisation verticale" value={bool('enableVsync', true)} onChange={(v) => set({ enableVsync: String(v) })} />
-          <Toggle label="Plein écran" value={bool('fullscreen')} onChange={(v) => set({ fullscreen: String(v) })} />
+          <Toggle label={t('gs.vsync')} value={bool('enableVsync', true)} onChange={(v) => set({ enableVsync: String(v) })} />
+          <Toggle label={t('gs.fullscreen')} value={bool('fullscreen')} onChange={(v) => set({ fullscreen: String(v) })} />
         </div>
 
         <div className="card">
-          <h3>Souris et contrôles</h3>
-          <Slider label="Sensibilité" value={Math.round(num('mouseSensitivity', 0.5) * 200)} min={0} max={200} display={(v) => `${v} %`}
+          <h3>{t('gs.mouse')}</h3>
+          <Slider label={t('gs.sensitivity')} value={Math.round(num('mouseSensitivity', 0.5) * 200)} min={0} max={200} display={pct}
             onChange={(v) => set({ mouseSensitivity: String(v / 200) })} />
-          <Toggle label="Entrée brute (sans accélération Windows)" value={bool('rawMouseInput', true)} onChange={(v) => set({ rawMouseInput: String(v) })} />
-          <Toggle label="Inverser la souris" value={bool('invertYMouse')} onChange={(v) => set({ invertYMouse: String(v) })} />
-          <Toggle label="Saut automatique" value={bool('autoJump')} onChange={(v) => set({ autoJump: String(v) })} />
-          <Toggle label="S'accroupir : basculer" value={bool('toggleCrouch')} onChange={(v) => set({ toggleCrouch: String(v) })} />
-          <Toggle label="Courir : basculer" value={bool('toggleSprint')} onChange={(v) => set({ toggleSprint: String(v) })} />
-          <Slider label="Opacité du chat" value={Math.round(num('chatOpacity', 1) * 100)} min={10} max={100} display={(v) => `${v} %`}
+          <Toggle label={t('gs.rawInput')} value={bool('rawMouseInput', true)} onChange={(v) => set({ rawMouseInput: String(v) })} />
+          <Toggle label={t('gs.invertMouse')} value={bool('invertYMouse')} onChange={(v) => set({ invertYMouse: String(v) })} />
+          <Toggle label={t('gs.autoJump')} value={bool('autoJump')} onChange={(v) => set({ autoJump: String(v) })} />
+          <Toggle label={t('gs.toggleCrouch')} value={bool('toggleCrouch')} onChange={(v) => set({ toggleCrouch: String(v) })} />
+          <Toggle label={t('gs.toggleSprint')} value={bool('toggleSprint')} onChange={(v) => set({ toggleSprint: String(v) })} />
+          <Slider label={t('gs.chatOpacity')} value={Math.round(num('chatOpacity', 1) * 100)} min={10} max={100} display={pct}
             onChange={(v) => set({ chatOpacity: String(v / 100) })} />
 
-          <h3 className="spaced">Son</h3>
-          {SOUNDS.map(([id, label]) => (
+          <h3 className="spaced">{t('gs.sound')}</h3>
+          {sounds().map(([id, label]) => (
             <Slider key={id} label={label} value={Math.round(num(`soundCategory_${id}`, 1) * 100)} min={0} max={100}
-              display={(v) => (v === 0 ? 'Coupé' : `${v} %`)} onChange={(v) => set({ [`soundCategory_${id}`]: String(v / 100) })} />
+              display={(v) => (v === 0 ? t('gs.muted') : pct(v))} onChange={(v) => set({ [`soundCategory_${id}`]: String(v / 100) })} />
           ))}
         </div>
 
         <div className="card">
-          <h3>Accessibilité</h3>
-          <p className="muted small">Mouvements de caméra et effets visuels. Certains n'existent pas dans les anciennes versions.</p>
-          <Toggle label="Balancement de la vue" value={bool('viewBobbing', true)} onChange={(v) => set({ viewBobbing: String(v) })} />
-          <Slider label="Inclinaison aux dégâts" value={percent('damageTiltStrength', 1)} min={0} max={100} display={offOrPercent}
+          <h3>{t('gs.accessibility')}</h3>
+          <p className="muted small">{t('gs.accessibilityHint')}</p>
+          <Toggle label={t('gs.viewBobbing')} value={bool('viewBobbing', true)} onChange={(v) => set({ viewBobbing: String(v) })} />
+          <Slider label={t('gs.damageTilt')} value={percent('damageTiltStrength', 1)} min={0} max={100} display={offOrPercent}
             onChange={(v) => set({ damageTiltStrength: String(v / 100) })} />
-          <Slider label="FOV dynamique" value={percent('fovEffectScale', 1)} min={0} max={100} display={offOrPercent}
+          <Slider label={t('gs.fovEffects')} value={percent('fovEffectScale', 1)} min={0} max={100} display={offOrPercent}
             onChange={(v) => set({ fovEffectScale: String(v / 100) })} />
-          <Slider label="Distorsion (nausée, portail)" value={percent('screenEffectScale', 1)} min={0} max={100} display={offOrPercent}
+          <Slider label={t('gs.distortion')} value={percent('screenEffectScale', 1)} min={0} max={100} display={offOrPercent}
             onChange={(v) => set({ screenEffectScale: String(v / 100) })} />
-          <Slider label="Pulsation de l'obscurité" value={percent('darknessEffectScale', 1)} min={0} max={100} display={offOrPercent}
+          <Slider label={t('gs.darkness')} value={percent('darknessEffectScale', 1)} min={0} max={100} display={offOrPercent}
             onChange={(v) => set({ darknessEffectScale: String(v / 100) })} />
-          <Toggle label="Masquer les flashs d'éclair" value={bool('hideLightningFlashes')} onChange={(v) => set({ hideLightningFlashes: String(v) })} />
-          <Toggle label="Tourner avec le wagonnet" value={bool('rotateWithMinecart')} onChange={(v) => set({ rotateWithMinecart: String(v) })} />
-          <Slider label="Scintillement : vitesse" value={percent('glintSpeed', 0.5)} min={0} max={100} display={offOrPercent}
+          <Toggle label={t('gs.lightning')} value={bool('hideLightningFlashes')} onChange={(v) => set({ hideLightningFlashes: String(v) })} />
+          <Toggle label={t('gs.minecart')} value={bool('rotateWithMinecart')} onChange={(v) => set({ rotateWithMinecart: String(v) })} />
+          <Slider label={t('gs.glintSpeed')} value={percent('glintSpeed', 0.5)} min={0} max={100} display={offOrPercent}
             onChange={(v) => set({ glintSpeed: String(v / 100) })} />
-          <Slider label="Scintillement : intensité" value={percent('glintStrength', 0.75)} min={0} max={100} display={offOrPercent}
+          <Slider label={t('gs.glintStrength')} value={percent('glintStrength', 0.75)} min={0} max={100} display={offOrPercent}
             onChange={(v) => set({ glintStrength: String(v / 100) })} />
-          <Slider label="Flou des menus" value={num('menuBackgroundBlurriness', 5)} min={0} max={10} display={(v) => (v === 0 ? 'Désactivé' : String(v))}
+          <Slider label={t('gs.menuBlur')} value={num('menuBackgroundBlurriness', 5)} min={0} max={10} display={(v) => (v === 0 ? t('gs.off') : String(v))}
             onChange={(v) => set({ menuBackgroundBlurriness: String(v) })} />
-          <Slider label="Vitesse du panorama" value={percent('panoramaScrollSpeed', 1)} min={0} max={100} display={offOrPercent}
+          <Slider label={t('gs.panorama')} value={percent('panoramaScrollSpeed', 1)} min={0} max={100} display={offOrPercent}
             onChange={(v) => set({ panoramaScrollSpeed: String(v / 100) })} />
-          <Toggle label="Logo de chargement noir" value={bool('darkMojangStudiosBackground')} onChange={(v) => set({ darkMojangStudiosBackground: String(v) })} />
-          <Toggle label="Masquer les textes du menu" value={bool('hideSplashTexts')} onChange={(v) => set({ hideSplashTexts: String(v) })} />
+          <Toggle label={t('gs.darkLogo')} value={bool('darkMojangStudiosBackground')} onChange={(v) => set({ darkMojangStudiosBackground: String(v) })} />
+          <Toggle label={t('gs.splashes')} value={bool('hideSplashTexts')} onChange={(v) => set({ hideSplashTexts: String(v) })} />
 
-          <h3 className="spaced">Texte et chat</h3>
-          <Toggle label="Sous-titres" value={bool('showSubtitles')} onChange={(v) => set({ showSubtitles: String(v) })} />
-          <Row label="Narrateur">
+          <h3 className="spaced">{t('gs.textChat')}</h3>
+          <Toggle label={t('gs.subtitles')} value={bool('showSubtitles')} onChange={(v) => set({ showSubtitles: String(v) })} />
+          <Row label={t('gs.narrator')}>
             <Select
               value={o.narrator ?? '0'}
               onChange={(v) => set({ narrator: v })}
               options={[
-                { value: '0', label: 'Désactivé' },
-                { value: '1', label: 'Tout' },
-                { value: '2', label: 'Chat' },
-                { value: '3', label: 'Système' }
+                { value: '0', label: t('gs.off') },
+                { value: '1', label: t('gs.narratorAll') },
+                { value: '2', label: t('gs.narratorChat') },
+                { value: '3', label: t('gs.narratorSystem') }
               ]}
             />
           </Row>
-          <Slider label="Fond du texte" value={percent('textBackgroundOpacity', 0.5)} min={0} max={100} display={(v) => `${v} %`}
+          <Slider label={t('gs.textBackground')} value={percent('textBackgroundOpacity', 0.5)} min={0} max={100} display={pct}
             onChange={(v) => set({ textBackgroundOpacity: String(v / 100) })} />
-          <Toggle label="Fond pour le chat seulement" value={bool('backgroundForChatOnly', true)} onChange={(v) => set({ backgroundForChatOnly: String(v) })} />
-          <Slider label="Interligne du chat" value={percent('chatLineSpacing', 0)} min={0} max={100} display={(v) => `${v} %`}
+          <Toggle label={t('gs.chatOnly')} value={bool('backgroundForChatOnly', true)} onChange={(v) => set({ backgroundForChatOnly: String(v) })} />
+          <Slider label={t('gs.lineSpacing')} value={percent('chatLineSpacing', 0)} min={0} max={100} display={pct}
             onChange={(v) => set({ chatLineSpacing: String(v / 100) })} />
-          <Slider label="Durée des notifications" value={Math.round(num('notificationDisplayTime', 1) * 10)} min={5} max={100}
+          <Slider label={t('gs.notifications')} value={Math.round(num('notificationDisplayTime', 1) * 10)} min={5} max={100}
             display={(v) => `×${(v / 10).toFixed(1)}`} onChange={(v) => set({ notificationDisplayTime: String(v / 10) })} />
-          <Toggle label="Contour de bloc contrasté" value={bool('highContrastBlockOutline')} onChange={(v) => set({ highContrastBlockOutline: String(v) })} />
+          <Toggle label={t('gs.outline')} value={bool('highContrastBlockOutline')} onChange={(v) => set({ highContrastBlockOutline: String(v) })} />
         </div>
 
         <div className="card keys">
-          <h3>Touches</h3>
-          <p className="muted small">Clique sur une touche, puis appuie sur la nouvelle (ou clique avec la souris). Échap annule.</p>
-          {KEY_GROUPS.map(([group, keys]) => (
+          <h3>{t('gs.keys')}</h3>
+          <p className="muted small">{t('gs.keysHint')}</p>
+          {keyGroups().map(([group, keys]) => (
             <div key={group} className="key-group">
               <span className="key-group__title">{group}</span>
               {keys.map(([id, label]) => (
                 <div key={id} className="key-row">
                   <span>{label}</span>
                   <button className={'key-btn' + (capturing === id ? ' capturing' : '')} onClick={() => setCapturing(capturing === id ? null : id)}>
-                    {capturing === id ? 'Appuie sur une touche…' : keyLabel(o[`key_key.${id}`])}
+                    {capturing === id ? t('gs.pressKey') : keyLabel(o[`key_key.${id}`])}
                   </button>
                 </div>
               ))}

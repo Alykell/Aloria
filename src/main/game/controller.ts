@@ -14,6 +14,7 @@ import { launchGame } from './launch'
 import { getManifest, loadVersion, resolveVersionId } from './versions'
 import { applyShared, collectShared } from '../shared/sync'
 import type { GameExit, GameStatus, VersionEntry } from '../../shared/types'
+import { tm } from '../i18n'
 
 const LOADER_NAMES = { vanilla: 'Minecraft', fabric: 'Fabric', forge: 'Forge' } as const
 
@@ -52,7 +53,7 @@ export async function listVersions(includeSnapshots: boolean): Promise<VersionEn
  * développement (ALORIA_TEST_DEMO=1) lancent la démo officielle, sans compte.
  */
 export async function play(sender: WebContents, profileId: string): Promise<void> {
-  if (status.state !== 'idle') throw new Error('Le jeu est déjà en cours de lancement.')
+  if (status.state !== 'idle') throw new Error(tm('err.alreadyLaunching'))
   target = sender
 
   try {
@@ -60,9 +61,9 @@ export async function play(sender: WebContents, profileId: string): Promise<void
     const profile = getProfile(profileId)
     const { active } = listAccounts()
     const testDemo = !app.isPackaged && process.env.ALORIA_TEST_DEMO === '1'
-    if (!active && !testDemo) throw new Error('Connecte-toi avec ton compte Microsoft pour jouer.')
+    if (!active && !testDemo) throw new Error(tm('err.loginToPlay'))
 
-    setStatus({ state: 'preparing', label: 'Préparation de la version…' })
+    setStatus({ state: 'preparing', label: tm('status.version') })
     const player = active
       ? await getValidSession(active)
       : { name: 'Player', uuid: '00000000000000000000000000000000', accessToken: '0', xuid: '0' }
@@ -70,10 +71,10 @@ export async function play(sender: WebContents, profileId: string): Promise<void
     const gameVersion = await resolveVersionId(profile.versionId)
     let versionId = gameVersion
     if (profile.loader === 'fabric') {
-      setStatus({ state: 'preparing', label: 'Installation de Fabric…' })
+      setStatus({ state: 'preparing', label: tm('status.fabric') })
       versionId = await installFabric(gameVersion, profile.loaderVersion)
     } else if (profile.loader === 'forge') {
-      setStatus({ state: 'preparing', label: 'Installation de Forge…' })
+      setStatus({ state: 'preparing', label: tm('status.forge') })
       versionId = await installForge(gameVersion, profile.loaderVersion)
     }
     const version = await loadVersion(versionId)
@@ -82,19 +83,19 @@ export async function play(sender: WebContents, profileId: string): Promise<void
 
     // Aussi en Forge : le jar Fabric d'Aloria HUD est retiré d'un profil passé de Fabric à Forge
     if (profile.loader !== 'vanilla') {
-      setStatus({ state: 'preparing', label: 'Préparation d’Aloria HUD…' })
+      setStatus({ state: 'preparing', label: tm('status.hud') })
       const warning = await syncAloriaHud(profile, gameVersion, gameDir)
       if (warning) console.warn('[aloria-hud]', warning)
     }
 
     const installed = await installVersion(version, gameDir, (step) => {
-      if (step.step === 'check') setStatus({ state: 'preparing', label: 'Vérification des fichiers…' })
-      else if (step.step === 'extract') setStatus({ state: 'preparing', label: 'Finalisation…' })
+      if (step.step === 'check') setStatus({ state: 'preparing', label: tm('status.check') })
+      else if (step.step === 'extract') setStatus({ state: 'preparing', label: tm('status.extract') })
       else setStatus({ state: 'downloading', doneFiles: step.doneFiles, totalFiles: step.totalFiles, doneBytes: step.doneBytes, totalBytes: step.totalBytes })
     })
 
     // Liste de serveurs commune et jeu de réglages du profil (convertis pour les anciennes versions)
-    setStatus({ state: 'preparing', label: 'Application de tes réglages…' })
+    setStatus({ state: 'preparing', label: tm('status.settings') })
     const sync = await applyShared(profile, gameVersion, gameDir, installed.classpath[installed.classpath.length - 1])
 
     setStatus({ state: 'launching' })
@@ -128,7 +129,7 @@ export async function play(sender: WebContents, profileId: string): Promise<void
     })
     child.once('error', (err) => {
       setStatus({ state: 'idle' })
-      sendExit({ code: null, crashLog: `Impossible de démarrer Java : ${err.message}` })
+      sendExit({ code: null, crashLog: tm('err.javaStart', { message: err.message }) })
     })
     child.once('exit', async (code) => {
       setStatus({ state: 'idle' })

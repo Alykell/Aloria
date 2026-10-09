@@ -4,6 +4,13 @@ Launcher Minecraft perso d'Alykell (« Aloria Client »), répondre **en frança
 Electron 44 + electron-vite + React 19 + TypeScript (`src/`), mod Fabric **Aloria HUD** (`mod/`) de la 1.20.1 à la 26.3, et en 1.8.9 (`mod-legacy/`, Legacy Fabric ; `mod-forge/`, même code pour Forge).
 Données du jeu : `%APPDATA%\.aloria` (profils, instances, `shared/` = serveurs et jeux de réglages communs).
 
+## Langues (launcher)
+- Textes dans `src/shared/i18n/fr.ts` (référence) et `en.ts` (mêmes clés, sinon la compilation échoue). Interface : `t('clé', { param })`
+  de `src/renderer/src/i18n.ts` ; processus principal (erreurs, statut, Discord) : `tm()` de `src/main/i18n.ts`.
+- `Settings.language` absent = premier lancement (choix de la langue, celle de Windows présélectionnée) ; un `settings.json` déjà
+  là sans langue = français (joueurs d'avant). Le premier choix règle aussi `lang` de « Mes réglages » s'il n'en a pas.
+- Captures en anglais : `ALORIA_CAPTURE_LANG=en` (remet la langue et le thème d'avant à la fin : `.aloria` n'est pas isolé par `ALORIA_USER_DATA`).
+
 ## Publication
 - Changer `version` dans `package.json`, commit, `git tag vX.Y.Z`, push du tag → GitHub Actions
   (`.github/workflows/release.yml`) compile le mod pour chaque version, construit l'installeur, publie

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Profile, VersionEntry } from '../../../shared/types'
+import { t } from '../i18n'
 
 export function useVersions(showSnapshots: boolean) {
   const [versions, setVersions] = useState<VersionEntry[]>([])
@@ -20,6 +21,10 @@ export function useVersions(showSnapshots: boolean) {
 /** « Fabric 26.3 », « Dernière version », etc. */
 export function describeProfile(p: Pick<Profile, 'versionId' | 'loader'>): string {
   const version =
-    p.versionId === 'latest-release' ? 'Dernière version' : p.versionId === 'latest-snapshot' ? 'Dernier snapshot' : p.versionId
+    p.versionId === 'latest-release'
+      ? t('profiles.latestRelease')
+      : p.versionId === 'latest-snapshot'
+        ? t('profiles.latestSnapshot')
+        : p.versionId
   return p.loader === 'fabric' ? `Fabric · ${version}` : p.loader === 'forge' ? `Forge · ${version}` : version
 }

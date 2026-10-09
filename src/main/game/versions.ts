@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto'
 import { fetchJson } from './download'
 import { paths } from './paths'
 import type { Rule } from './rules'
+import { tm } from '../i18n'
 
 const MANIFEST_URL = 'https://piston-meta.mojang.com/mc/game/version_manifest_v2.json'
 
@@ -90,10 +91,10 @@ async function loadRaw(id: string): Promise<VersionJson> {
     // Version Mojang : on vérifie que la copie locale est à jour ; version installée à la main (Fabric…) : telle quelle
     if (!entry || createHash('sha1').update(text).digest('hex') === entry.sha1) return JSON.parse(text) as VersionJson
   }
-  if (!entry) throw new Error(`Version inconnue : ${id}`)
+  if (!entry) throw new Error(tm('err.unknownVersion', { id }))
 
   const res = await fetch(entry.url)
-  if (!res.ok) throw new Error(`Impossible de récupérer la version ${id} (HTTP ${res.status})`)
+  if (!res.ok) throw new Error(tm('err.versionFetch', { id, status: res.status }))
   const text = await res.text()
   await mkdir(dirname(file), { recursive: true })
   await writeFile(file, text)
