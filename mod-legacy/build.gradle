@@ -22,6 +22,27 @@ def sharedConfig = tasks.register('sharedConfig', Sync) {
 }
 sourceSets.main.java.srcDir(sharedConfig)
 
+// Mêmes modules que le mod moderne (identifiant et nom) : l'identifiant est la clé des réglages dans le JSON commun
+def checkModuleIds = tasks.register('checkModuleIds') {
+	def modern = fileTree('../mod/src/main/java/fr/alykell/aloria/hud/module')
+	def legacy = fileTree('src/main/java/fr/alykell/aloria/hud/module')
+	inputs.files(modern, legacy)
+	doLast {
+		def ids = { files ->
+			def found = new TreeMap<String, String>()
+			files.each { f -> (f.getText('UTF-8') =~ /super\("([a-z_]+)", "([^"]*)"\)/).each { all, id, name -> found[id] = name } }
+			found
+		}
+		def m = ids(modern.files), l = ids(legacy.files)
+		if (m != l) {
+			def diff = ((m.keySet() + l.keySet()) as TreeSet).findAll { m[it] != l[it] }
+				.collect { "  ${it} : moderne = ${m[it] ?: 'absent'}, 1.8.9 = ${l[it] ?: 'absent'}" }
+			throw new GradleException("Modules différents entre mod/ et mod-legacy/ :\n" + diff.join('\n'))
+		}
+	}
+}
+tasks.named('compileJava') { dependsOn checkModuleIds }
+
 dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	mappings(legacy.yarn(project.minecraft_version, project.yarn_build))
