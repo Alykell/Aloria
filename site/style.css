@@ -97,6 +97,7 @@ h1, h2, h3 { font-family: 'Quicksand', sans-serif; color: var(--sea-deep); line-
 .hero__tagline { font-size: 19px; color: var(--text-soft); margin-bottom: 26px; }
 .hero__meta { margin-top: 12px; font-size: 14px; font-weight: 700; color: var(--text-soft); }
 .hero__note { margin-top: 6px; font-size: 13px; color: var(--text-soft); }
+.hero__others { margin-top: 4px; font-size: 13px; color: var(--text-soft); }
 
 .download {
   display: inline-flex;
@@ -189,6 +190,8 @@ h1, h2, h3 { font-family: 'Quicksand', sans-serif; color: var(--sea-deep); line-
 .faq summary::after { content: '+'; font-size: 20px; line-height: 1; color: var(--sea); transition: transform 0.2s ease; }
 .faq details[open] summary::after { transform: rotate(45deg); }
 .faq details p { padding: 0 20px 18px; color: var(--text-soft); }
+.faq details ul { padding: 0 20px 14px 40px; color: var(--text-soft); }
+.faq details li { margin-bottom: 8px; }
 
 /* ------------------------------------------------------------ pages légales (confidentialité, signature) */
 

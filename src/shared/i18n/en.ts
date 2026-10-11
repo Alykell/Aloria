@@ -236,7 +236,7 @@ export const en: Record<keyof typeof fr, string> = {
   'gs.fullscreen': 'Fullscreen',
   'gs.mouse': 'Mouse and controls',
   'gs.sensitivity': 'Sensitivity',
-  'gs.rawInput': 'Raw input (no Windows acceleration)',
+  'gs.rawInput': 'Raw input (no mouse acceleration)',
   'gs.invertMouse': 'Invert mouse',
   'gs.autoJump': 'Auto-jump',
   'gs.toggleCrouch': 'Sneak: toggle',

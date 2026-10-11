@@ -234,7 +234,7 @@ export const fr = {
   'gs.fullscreen': 'Plein écran',
   'gs.mouse': 'Souris et contrôles',
   'gs.sensitivity': 'Sensibilité',
-  'gs.rawInput': 'Entrée brute (sans accélération Windows)',
+  'gs.rawInput': 'Entrée brute (sans accélération de la souris)',
   'gs.invertMouse': 'Inverser la souris',
   'gs.autoJump': 'Saut automatique',
   'gs.toggleCrouch': 'S\'accroupir : basculer',

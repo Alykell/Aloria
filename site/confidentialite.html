@@ -30,8 +30,9 @@
 
     <h2>Ce qui reste sur ton PC</h2>
     <p>Tes comptes Microsoft (jetons de connexion), profils, réglages, mondes et mods sont enregistrés uniquement sur ton
-      ordinateur, dans <code>%APPDATA%\.aloria</code> et <code>%APPDATA%\Aloria</code>. Les jetons de connexion sont chiffrés
-      avec la protection de Windows (DPAPI). Aloria ne les envoie qu'aux services officiels listés ci-dessous.</p>
+      ordinateur, dans <code>%APPDATA%\.aloria</code> et <code>%APPDATA%\Aloria</code> (sous Linux : <code>~/.config/.aloria</code> et
+      <code>~/.config/Aloria</code>). Les jetons de connexion sont chiffrés avec la protection de Windows (DPAPI), ou le
+      trousseau du système sous Linux quand il y en a un. Aloria ne les envoie qu'aux services officiels listés ci-dessous.</p>
 
     <h2>Les services qu'Aloria contacte</h2>
     <p>Aloria communique uniquement avec ces services, et seulement pour ce dont tu as besoin :</p>
@@ -54,11 +55,12 @@
     <p>This program will not transfer any information to other networked systems unless specifically requested by the user
       or the person installing or operating it, except for the automatic update check described above (a download request
       to GitHub, without personal data). Sign-in tokens are stored only on the user's computer, encrypted with the Windows
-      data protection API, and are only sent to Microsoft, Xbox Live and Mojang.</p>
+      data protection API (or the system keyring on Linux, when available), and are only sent to Microsoft, Xbox Live and Mojang.</p>
 
     <h2>Désinstallation</h2>
     <p>Aloria se désinstalle depuis Windows (Paramètres → Applications). Tes mondes et réglages sont conservés dans
-      <code>%APPDATA%\.aloria</code> : supprime ce dossier pour tout effacer.</p>
+      <code>%APPDATA%\.aloria</code> : supprime ce dossier pour tout effacer. Sous Linux, supprime l'AppImage (ou
+      <code>sudo apt remove aloria</code> pour le .deb), puis <code>~/.config/.aloria</code> pour tout effacer.</p>
   </main>
 
   <footer class="footer">

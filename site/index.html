@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Aloria — Launcher Minecraft</title>
-  <meta name="description" content="Aloria, un launcher Minecraft: Java Edition au style plage et océan : profils Fabric, mods Modrinth, HUD intégré et mises à jour automatiques. Gratuit, pour Windows.">
+  <meta name="description" content="Aloria, un launcher Minecraft: Java Edition au style plage et océan : profils Fabric, mods Modrinth, HUD intégré et mises à jour automatiques. Gratuit, pour Windows et Linux.">
   <meta name="theme-color" content="#1a9bc7">
   <meta property="og:title" content="Aloria — Launcher Minecraft">
   <meta property="og:description" content="Ton launcher Minecraft, entre ciel et océan. Profils Fabric, mods Modrinth, HUD intégré.">
@@ -44,6 +44,10 @@
           <span>Télécharger pour Windows</span>
         </a>
         <p class="hero__meta" id="download-meta">Gratuit · Windows 10 et 11</p>
+        <p class="hero__others" id="download-others">Tous les systèmes :
+          <a href="https://github.com/Alykell/Aloria/releases/latest/download/Aloria-Setup.exe">Windows</a> ·
+          <a href="https://github.com/Alykell/Aloria/releases/latest/download/Aloria.AppImage">Linux (AppImage)</a> ·
+          <a href="https://github.com/Alykell/Aloria/releases/latest/download/Aloria.deb">Linux (.deb)</a></p>
         <p class="hero__note">Il faut un compte Microsoft qui possède <strong>Minecraft: Java Edition</strong>.</p>
       </div>
     </section>
@@ -169,20 +173,34 @@
             <a href="https://github.com/Alykell/Aloria">code d'Aloria est public</a>), et sache qu'une fois désactivé, Windows ne
             permet pas toujours de le réactiver sans réinstallation. Une fois Aloria installé, ses mises à jour passent sans blocage.</p>
         </details>
+        <details id="linux">
+          <summary>Comment installer Aloria sur Linux ?</summary>
+          <p>Deux choix, pour toutes les distributions basées sur Ubuntu ou Debian (Zorin OS, Linux Mint, Pop!_OS…) :</p>
+          <ul>
+            <li><a href="https://github.com/Alykell/Aloria/releases/latest/download/Aloria.AppImage"><strong>AppImage</strong></a> (conseillé) : un seul fichier, qui
+              <strong>se met à jour tout seul</strong>. Rends-le exécutable (clic droit → Propriétés → « Autoriser
+              l'exécution », ou <code>chmod +x Aloria.AppImage</code>) puis double-clique dessus. S'il ne s'ouvre pas,
+              installe FUSE une fois : <code>sudo apt install libfuse2</code>. Ça marche aussi sur les autres distributions.</li>
+            <li><a href="https://github.com/Alykell/Aloria/releases/latest/download/Aloria.deb"><strong>.deb</strong></a> : installation classique, Aloria apparaît dans le menu
+              des applications. Ouvre le fichier avec l'installateur de logiciels, ou <code>sudo apt install ./Aloria.deb</code>.</li>
+          </ul>
+          <p>Pour la 1.8.9, le jeu a besoin de <code>xrandr</code> (paquet <code>x11-xserver-utils</code>, déjà présent sur la plupart des bureaux).</p>
+        </details>
         <details>
-          <summary>Et sur Mac ou Linux ?</summary>
-          <p>Pas pour l'instant : Aloria est disponible uniquement pour Windows.</p>
+          <summary>Et sur Mac ?</summary>
+          <p>Pas pour l'instant : Aloria est disponible pour Windows et Linux.</p>
         </details>
         <details>
           <summary>Je perds mes mondes si je désinstalle ?</summary>
-          <p>Non, tes mondes, profils et comptes sont conservés dans <code>%APPDATA%\.aloria</code>.</p>
+          <p>Non, tes mondes, profils et comptes sont conservés dans <code>%APPDATA%\.aloria</code> sous Windows,
+            et dans <code>~/.config/.aloria</code> sous Linux.</p>
         </details>
       </div>
     </section>
     <section class="section legal" id="signature">
       <h2>Sécurité</h2>
       <p>L'installeur d'Aloria n'est pas encore signé (un certificat de signature coûte cher pour un projet gratuit).
-        À la place, tout est transparent : les installeurs et programmes Windows sont construits automatiquement par
+        À la place, tout est transparent : les installeurs Windows et Linux sont construits automatiquement par
         <a href="https://github.com/Alykell/Aloria/actions">GitHub Actions</a> à partir du
         <a href="https://github.com/Alykell/Aloria">code source public</a> (licence <a href="https://github.com/Alykell/Aloria/blob/main/LICENSE">MIT</a>),
         et chaque mise à jour est vérifiée par son empreinte (SHA-512) avant d'être installée.</p>

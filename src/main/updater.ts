@@ -24,6 +24,12 @@ export const getUpdateStatus = () => status
  */
 async function checkForUpdates(): Promise<void> {
   if (status.state === 'downloading' || status.state === 'ready') return
+  // Hors Windows, pas de contrôle intelligent à contourner, et l'AppImage est en lecture seule (la mise à jour
+  // légère ne pourrait pas y écrire) : electron-updater remplace l'AppImage entier
+  if (process.platform !== 'win32') {
+    autoUpdater.checkForUpdates().catch(() => setStatus({ state: 'idle' }))
+    return
+  }
   let result: string
   try {
     result = await downloadLightUpdate((v, percent) => setStatus({ state: 'downloading', version: v, percent }))

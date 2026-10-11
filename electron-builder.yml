@@ -27,6 +27,19 @@ win:
   target: nsis
   icon: resources/icon.png
   artifactName: Aloria-Setup-${version}.${ext}
+# Linux : un AppImage (un seul fichier, toutes distributions, mis à jour par electron-updater via latest-linux.yml)
+# et un .deb (Ubuntu, Zorin, Mint… : installation classique, dans le menu des applications)
+linux:
+  target:
+    - AppImage
+    - deb
+  icon: resources/icon.png
+  category: Game
+  maintainer: Alykell
+  synopsis: Launcher Minecraft Aloria
+  # Relie la fenêtre à son raccourci (icône dans la barre des tâches du bureau Linux)
+  syncDesktopName: true
+  artifactName: Aloria-${version}.${ext}
 nsis:
   oneClick: false
   perMachine: false

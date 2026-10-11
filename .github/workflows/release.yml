@@ -1,5 +1,5 @@
 # Publie une nouvelle version d'Aloria quand un tag vX.Y.Z est poussé :
-# construit l'installeur Windows et le dépose dans les Releases GitHub,
+# construit l'installeur Windows, l'AppImage et le .deb Linux, et les dépose dans les Releases GitHub,
 # où le launcher va chercher ses mises à jour automatiques.
 name: Release
 
@@ -90,7 +90,7 @@ jobs:
           gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1 && gh release delete "$GITHUB_REF_NAME" --yes
           gh release create "$GITHUB_REF_NAME" --draft --title "Aloria ${GITHUB_REF_NAME#v}" --notes "Mise à jour d'Aloria ${GITHUB_REF_NAME#v}.
 
-          Téléchargement : https://alykell.github.io/Aloria/
+          Téléchargement : https://alykell.github.io/Aloria/ (Windows : Aloria-Setup.exe ; Linux : Aloria.AppImage, qui se met à jour seul, ou Aloria.deb)
 
           Installeur non signé : si Windows affiche un avertissement, « Informations complémentaires » puis « Exécuter quand même » (détails : https://alykell.github.io/Aloria/#faq). Construit par GitHub Actions à partir du code public. Confidentialité : https://alykell.github.io/Aloria/confidentialite.html"
         env:
@@ -113,8 +113,56 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Les jars du mod pour la version Linux (Gradle n'est lancé qu'ici)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mod-jars
+          path: |
+            mod/build/libs/aloria-hud-*.jar
+            mod-legacy/build/libs/aloria-hud-*.jar
+            mod-forge/build/libs/aloria-hud-*.jar
+          if-no-files-found: error
+
+  # Linux : AppImage (mis à jour par electron-updater, latest-linux.yml) et .deb, déposés dans le même brouillon
+  linux:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: mod-jars
+
+      - run: npm ci
+
+      - name: Construire et envoyer l'AppImage et le .deb
+        run: npm run release:linux
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Copies sous un nom fixe : le site les télécharge via …/releases/latest/download/Aloria.AppImage et Aloria.deb
+      - name: Envoyer l'AppImage et le .deb à nom fixe
+        run: |
+          cp "dist/Aloria-${GITHUB_REF_NAME#v}.AppImage" dist/Aloria.AppImage
+          cp "dist/Aloria-${GITHUB_REF_NAME#v}.deb" dist/Aloria.deb
+          gh release upload "$GITHUB_REF_NAME" dist/Aloria.AppImage dist/Aloria.deb --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Publication une fois Windows et Linux envoyés, puis annonce
+  publish:
+    needs: [release, linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
       - name: Publier la release
-        shell: bash
         run: gh release edit "$GITHUB_REF_NAME" --draft=false --latest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
