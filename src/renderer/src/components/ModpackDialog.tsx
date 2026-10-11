@@ -143,11 +143,15 @@ export default function ModpackDialog({ target, onClose, onInstalled }: Props) {
         {installing && (
           <div className="progress">
             <div className="progress__label">
-              <span>{t('modpack.installing')}</span>
-              <span>{progress ? `${progress.doneFiles} / ${progress.totalFiles}` : ''}</span>
+              <span>
+                {progress?.packBytes
+                  ? t('modpack.downloadingPack', { size: Math.round(progress.packBytes / 1e6) })
+                  : t('modpack.installing')}
+              </span>
+              <span>{progress && !progress.packBytes ? `${progress.doneFiles} / ${progress.totalFiles}` : ''}</span>
             </div>
-            <div className={'progress__bar' + (progress ? '' : ' indeterminate')}>
-              <div className="progress__fill" style={progress ? { width: `${percent}%` } : undefined} />
+            <div className={'progress__bar' + (!progress || progress.packBytes ? ' indeterminate' : '')}>
+              <div className="progress__fill" style={progress && !progress.packBytes ? { width: `${percent}%` } : undefined} />
             </div>
           </div>
         )}

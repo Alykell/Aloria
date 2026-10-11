@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import AdmZip from 'adm-zip'
+import { inflateRawSync } from 'node:zlib'
 import { downloadAll } from '../game/download'
 import { forgeLoaders } from '../game/forge'
 import { createProfile, deleteProfile, gameDirOf } from '../profiles'
@@ -60,15 +61,22 @@ export async function modpackVersions(projectId: string): Promise<ModpackVersion
 // Fichiers .mrpack téléchargés pour un aperçu, réutilisés à l'installation
 const cacheDir = () => join(app.getPath('temp'), 'aloria-modpacks')
 
-async function openPack(source: ModpackSource): Promise<{ zip: AdmZip; index: MrpackIndex }> {
+/** Fichier .mrpack d'une version Modrinth (adresse, taille, SHA-1) */
+async function packFile(versionId: string) {
+  const version = await getVersion(versionId)
+  const file = version.files.find((f) => f.filename.endsWith('.mrpack')) ?? version.files.find((f) => f.primary)
+  if (!file) throw new Error(tm('err.modpackNoFile'))
+  return file
+}
+
+async function openPack(source: ModpackSource, onDownload?: (bytes: number) => void): Promise<{ zip: AdmZip; index: MrpackIndex }> {
   let path: string
   if (source.kind === 'file') path = source.path
   else {
     path = join(cacheDir(), `${source.versionId}.mrpack`)
     if (!existsSync(path)) {
-      const version = await getVersion(source.versionId)
-      const file = version.files.find((f) => f.filename.endsWith('.mrpack')) ?? version.files.find((f) => f.primary)
-      if (!file) throw new Error(tm('err.modpackNoFile'))
+      const file = await packFile(source.versionId)
+      onDownload?.(file.size)
       await downloadAll([{ url: file.url, path, sha1: file.hashes.sha1, size: file.size }], () => {})
     }
   }
@@ -80,6 +88,65 @@ async function openPack(source: ModpackSource): Promise<{ zip: AdmZip; index: Mr
   } catch {
     throw new Error(tm('err.modpackRead'))
   }
+}
+
+/** Morceau d'un fichier distant (null si le serveur ne sait pas envoyer seulement une partie) */
+async function fetchRange(url: string, start: number, end: number): Promise<Buffer | null> {
+  const res = await fetch(url, { headers: { Range: `bytes=${start}-${end}` } })
+  if (res.status !== 206) return null
+  return Buffer.from(await res.arrayBuffer())
+}
+
+/**
+ * Index et nombre de fichiers fournis d'un .mrpack distant, sans le télécharger en entier : on lit la fin du zip
+ * (son sommaire), puis seulement modrinth.index.json. Certains modpacks pèsent plus de 100 Mo pour quelques Ko d'index.
+ * null si ce n'est pas possible (serveur, zip64…) : l'appelant télécharge alors le fichier complet.
+ */
+async function remoteSummary(url: string, size: number): Promise<{ index: MrpackIndex; overrides: number } | null> {
+  // Fin du sommaire (22 octets, plus un commentaire de 64 Ko au plus)
+  const tailStart = Math.max(0, size - 65_557)
+  const tail = await fetchRange(url, tailStart, size - 1)
+  if (!tail) return null
+  const eocd = tail.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]))
+  if (eocd < 0) return null
+  const cdSize = tail.readUInt32LE(eocd + 12)
+  const cdOffset = tail.readUInt32LE(eocd + 16)
+  if (cdOffset === 0xffffffff) return null
+  const cd = cdOffset >= tailStart ? tail.subarray(cdOffset - tailStart, cdOffset - tailStart + cdSize) : await fetchRange(url, cdOffset, cdOffset + cdSize - 1)
+  if (!cd) return null
+
+  let overrides = 0
+  let indexEntry: { method: number; compressedSize: number; offset: number } | null = null
+  for (let p = 0; p + 46 <= cd.length && cd.readUInt32LE(p) === 0x02014b50; ) {
+    const nameLen = cd.readUInt16LE(p + 28)
+    const name = cd.toString('utf8', p + 46, p + 46 + nameLen)
+    if (name === 'modrinth.index.json') {
+      indexEntry = { method: cd.readUInt16LE(p + 10), compressedSize: cd.readUInt32LE(p + 20), offset: cd.readUInt32LE(p + 42) }
+    } else if (!name.endsWith('/') && OVERRIDES.some((o) => name.startsWith(o))) overrides++
+    p += 46 + nameLen + cd.readUInt16LE(p + 30) + cd.readUInt16LE(p + 32)
+  }
+  if (!indexEntry) return null
+
+  // En-tête local (30 octets + nom + extra) puis les données compressées
+  const head = await fetchRange(url, indexEntry.offset, indexEntry.offset + 29)
+  if (!head || head.readUInt32LE(0) !== 0x04034b50) return null
+  const start = indexEntry.offset + 30 + head.readUInt16LE(26) + head.readUInt16LE(28)
+  const data = indexEntry.compressedSize ? await fetchRange(url, start, start + indexEntry.compressedSize - 1) : Buffer.alloc(0)
+  if (!data) return null
+  const raw = indexEntry.method === 8 ? inflateRawSync(data) : data
+  return { index: JSON.parse(raw.toString('utf8')) as MrpackIndex, overrides }
+}
+
+/** Index et nombre de fichiers fournis, pour l'aperçu : lecture partielle quand c'est possible */
+async function packSummary(source: ModpackSource): Promise<{ index: MrpackIndex; overrides: number }> {
+  if (source.kind === 'modrinth' && !existsSync(join(cacheDir(), `${source.versionId}.mrpack`))) {
+    const file = await packFile(source.versionId)
+    const summary = await remoteSummary(file.url, file.size).catch(() => null)
+    if (summary) return summary
+  }
+  const { zip, index } = await openPack(source)
+  const overrides = zip.getEntries().filter((e) => !e.isDirectory && OVERRIDES.some((o) => e.entryName.startsWith(o))).length
+  return { index, overrides }
 }
 
 /** Chargeur du modpack et raison de le refuser (Quilt, NeoForge, Forge moderne : Aloria ne sait pas les lancer) */
@@ -123,7 +190,7 @@ async function lookup(index: MrpackIndex): Promise<Map<string, { title: string; 
 const clientFiles = (index: MrpackIndex) => index.files.filter((f) => f.env?.client !== 'unsupported')
 
 export async function previewModpack(source: ModpackSource): Promise<ModpackPreview> {
-  const { zip, index } = await openPack(source)
+  const { index, overrides } = await packSummary(source)
   const known = await lookup(index)
   const { loader, loaderVersion, unsupported } = loaderOf(index)
   const files: ModpackEntry[] = clientFiles(index).map((f) => {
@@ -138,7 +205,6 @@ export async function previewModpack(source: ModpackSource): Promise<ModpackPrev
     }
   })
   files.sort((a, b) => a.title.localeCompare(b.title))
-  const overrides = zip.getEntries().filter((e) => !e.isDirectory && OVERRIDES.some((o) => e.entryName.startsWith(o))).length
   let summary = index.summary ?? ''
   if (!summary && source.kind === 'modrinth') summary = (await getProject(source.projectId).catch(() => null))?.description ?? ''
   return {
@@ -167,7 +233,7 @@ export async function forgeVersion(gameVersion: string, forge: string): Promise<
  * puis overrides copiés par-dessus. En cas d'échec, le profil à moitié installé est supprimé.
  */
 export async function installModpack(source: ModpackSource, onProgress: (p: ModpackProgress) => void): Promise<Profile> {
-  const { zip, index } = await openPack(source)
+  const { zip, index } = await openPack(source, (bytes) => onProgress({ doneFiles: 0, totalFiles: 0, packBytes: bytes }))
   const { loader, loaderVersion, unsupported } = loaderOf(index)
   if (unsupported) throw new Error(unsupported)
   const gameVersion = index.dependencies.minecraft

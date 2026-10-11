@@ -203,6 +203,7 @@ export const fr = {
   'modpack.optional': 'optionnel',
   'modpack.overrides': '+ {n} fichiers de réglages et de configuration fournis par le modpack',
   'modpack.install': 'Créer le profil et installer',
+  'modpack.downloadingPack': 'Téléchargement du modpack ({size} Mo)…',
   'modpack.installing': 'Téléchargement des fichiers du modpack…',
   'modpack.done': 'Profil « {name} » créé : il est prêt à jouer.',
   'library.import': 'Importer un fichier',

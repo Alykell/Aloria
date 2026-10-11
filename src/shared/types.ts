@@ -248,6 +248,8 @@ export interface ModpackPreview {
 export interface ModpackProgress {
   doneFiles: number
   totalFiles: number
+  /** Taille du fichier du modpack pendant son téléchargement (avant les mods) */
+  packBytes?: number
 }
 
 export interface InstalledContent {

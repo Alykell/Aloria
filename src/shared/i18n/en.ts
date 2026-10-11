@@ -205,6 +205,7 @@ export const en: Record<keyof typeof fr, string> = {
   'modpack.optional': 'optional',
   'modpack.overrides': '+ {n} settings and config files included in the modpack',
   'modpack.install': 'Create the profile and install',
+  'modpack.downloadingPack': 'Downloading the modpack ({size} MB)…',
   'modpack.installing': 'Downloading the modpack files…',
   'modpack.done': '“{name}” profile created: it is ready to play.',
   'library.import': 'Import a file',
