@@ -1,5 +1,5 @@
 import type { SettingsState } from '../hooks/useSettings'
-import type { AfterLaunch, DiscordGameName, ThemeChoice } from '../../../shared/types'
+import type { AfterLaunch, AppModule, DiscordGameName, ThemeChoice } from '../../../shared/types'
 import { LANG_NAMES, LANGS, type MessageKey } from '../../../shared/i18n'
 import { gb, t } from '../i18n'
 
@@ -13,6 +13,13 @@ const AFTER_LAUNCH: { id: AfterLaunch; label: MessageKey }[] = [
   { id: 'keep', label: 'settings.afterKeep' },
   { id: 'minimize', label: 'settings.afterMinimize' },
   { id: 'close', label: 'settings.afterClose' }
+]
+
+const MODULES: { id: AppModule; label: MessageKey; hint: MessageKey; icon: string }[] = [
+  { id: 'library', label: 'nav.library', hint: 'settings.moduleLibrary', icon: '🐚' },
+  { id: 'modpacks', label: 'library.tabModpacks', hint: 'settings.moduleModpacks', icon: '📦' },
+  { id: 'creations', label: 'nav.creations', hint: 'settings.moduleCreations', icon: '🎨' },
+  { id: 'gamesettings', label: 'nav.gamesettings', hint: 'settings.moduleGameSettings', icon: '🎮' }
 ]
 
 const DISCORD_DETAILS: { key: 'discordShowProfile' | 'discordShowVersion' | 'discordShowServer'; label: MessageKey }[] = [
@@ -80,6 +87,41 @@ export default function SettingsPage({ state: { settings, systemRamMb, update } 
               </button>
             ))}
           </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card__row">
+          <div>
+            <strong>{t('settings.modules')}</strong>
+            <p>{t('settings.modulesHint')}</p>
+          </div>
+        </div>
+        <div className="sub-options">
+          {MODULES.map((m) => {
+            const shown = !settings.hiddenModules.includes(m.id)
+            // Les modpacks sont un onglet de la Bibliothèque : sans elle, ils disparaissent aussi
+            const locked = m.id === 'modpacks' && settings.hiddenModules.includes('library')
+            return (
+              <label key={m.id} className={'toggle-line module' + (locked ? ' disabled' : '')}>
+                <input
+                  type="checkbox"
+                  checked={shown && !locked}
+                  disabled={locked}
+                  onChange={(e) =>
+                    update({
+                      hiddenModules: e.target.checked
+                        ? settings.hiddenModules.filter((h) => h !== m.id)
+                        : [...settings.hiddenModules, m.id]
+                    })
+                  }
+                />
+                <span>
+                  {m.icon} <strong>{t(m.label)}</strong> <small className="muted">· {t(m.hint)}</small>
+                </span>
+              </label>
+            )
+          })}
         </div>
       </div>
 

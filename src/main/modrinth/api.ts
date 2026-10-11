@@ -20,26 +20,36 @@ export interface ModrinthProject {
   id: string
   slug: string
   title: string
-  project_type: ContentType
+  project_type: ContentType | 'modpack'
+  description?: string
   icon_url: string | null
 }
 
 // Modrinth demande un User-Agent qui identifie l'application
-async function get<T>(path: string, params: Record<string, unknown> = {}): Promise<T> {
+async function get<T>(path: string, params: Record<string, unknown> = {}, body?: unknown): Promise<T> {
   const query = new URLSearchParams()
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined) query.set(key, typeof value === 'string' || typeof value === 'number' ? String(value) : JSON.stringify(value))
   }
   const res = await fetch(`${API}${path}${query.size ? `?${query}` : ''}`, {
-    headers: { 'User-Agent': `Alykell/Aloria/${app.getVersion()} (github.com/Alykell/Aloria)` }
+    method: body === undefined ? 'GET' : 'POST',
+    headers: {
+      'User-Agent': `Alykell/Aloria/${app.getVersion()} (github.com/Alykell/Aloria)`,
+      ...(body === undefined ? {} : { 'Content-Type': 'application/json' })
+    },
+    body: body === undefined ? undefined : JSON.stringify(body)
   })
   if (res.status === 429) throw new Error(tm('err.modrinthRateLimit'))
   if (!res.ok) throw new Error(tm('err.modrinth', { status: res.status }))
   return (await res.json()) as T
 }
 
+/**
+ * Recherche Modrinth. Modpacks : toutes versions du jeu (ils créent leur propre profil), Fabric ou Forge seulement
+ */
 export async function search(q: SearchQuery, gameVersion: string, loaders: string[]): Promise<{ hits: SearchHit[]; total: number }> {
-  const facets: string[][] = [[`project_type:${q.type}`], [`versions:${gameVersion}`]]
+  const facets: string[][] = [[`project_type:${q.type}`]]
+  if (q.type !== 'modpack') facets.push([`versions:${gameVersion}`])
   if (q.type !== 'resourcepack') facets.push(loaders.map((l) => `categories:${l}`))
 
   const res = await get<{
@@ -74,6 +84,12 @@ export async function search(q: SearchQuery, gameVersion: string, loaders: strin
 export const getProject = (idOrSlug: string) => get<ModrinthProject>(`/project/${encodeURIComponent(idOrSlug)}`)
 
 export const getVersion = (id: string) => get<ModrinthVersion>(`/version/${encodeURIComponent(id)}`)
+
+/** Versions publiées correspondant à des fichiers, par leur SHA-1 (fichiers absents de Modrinth : pas de clé) */
+export const versionsByHash = (sha1: string[]) =>
+  get<Record<string, ModrinthVersion>>('/version_files', {}, { hashes: sha1, algorithm: 'sha1' })
+
+export const getProjects = (ids: string[]) => get<ModrinthProject[]>('/projects', { ids })
 
 export const listVersions = (projectId: string, loaders: string[] | undefined, gameVersions: string[] | undefined) =>
   get<ModrinthVersion[]>(`/project/${encodeURIComponent(projectId)}/version`, { loaders, game_versions: gameVersions })

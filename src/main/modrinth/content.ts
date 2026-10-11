@@ -1,12 +1,14 @@
 import { existsSync } from 'node:fs'
-import { copyFile, mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { copyFile, cp, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
+import AdmZip from 'adm-zip'
 import { basename, join } from 'node:path'
 import { downloadAll } from '../game/download'
 import { resolveVersionId } from '../game/versions'
 import { gameDirOf, getProfile } from '../profiles'
 import { getProject, getVersion, listVersions, search, type ModrinthVersion } from './api'
-import type { ContentType, InstalledContent, Loader, Profile, SearchHit, SearchQuery } from '../../shared/types'
+import type { ContentType, ImportResult, InstalledContent, Loader, Profile, SearchHit, SearchQuery } from '../../shared/types'
 import { tm } from '../i18n'
+import { isInstanceZip } from '../instances'
 
 const FOLDERS: Record<ContentType, string> = { mod: 'mods', resourcepack: 'resourcepacks', shader: 'shaderpacks' }
 /** Chargeur Modrinth du contenu : mods du chargeur du profil, shaders pour Iris (Fabric) ou OptiFine (Forge) */
@@ -26,11 +28,31 @@ interface Context {
   profile: Profile
   gameDir: string
   gameVersion: string
+  /** Identifiants des mods Fabric ajoutés à la main (sans projet Modrinth connu), pour ne pas les installer en double */
+  localIds?: Set<string>
 }
 
 async function context(profileId: string): Promise<Context> {
   const profile = getProfile(profileId)
   return { profile, gameDir: gameDirOf(profile.id), gameVersion: await resolveVersionId(profile.versionId) }
+}
+
+/** Identifiants (fabric.mod.json) des mods ajoutés à la main dans le dossier mods */
+async function localModIds(gameDir: string, index: Index): Promise<Set<string>> {
+  const ids = new Set<string>()
+  const dir = join(gameDir, FOLDERS.mod)
+  if (!existsSync(dir)) return ids
+  for (const name of await readdir(dir)) {
+    if (!name.endsWith('.jar') || index[name]?.projectId) continue
+    try {
+      const raw = new AdmZip(join(dir, name)).getEntry('fabric.mod.json')?.getData().toString('utf8')
+      const id = raw ? (JSON.parse(raw) as { id?: string }).id : undefined
+      if (id) ids.add(id)
+    } catch {
+      // Jar illisible : il n'empêche pas l'installation
+    }
+  }
+  return ids
 }
 
 // Ce qu'Aloria a installé dans un profil (titre, icône, version…), indexé par nom de fichier
@@ -60,7 +82,8 @@ function requireModLoader(ctx: Context, type: ContentType): void {
 
 export async function searchContent(q: SearchQuery): Promise<{ hits: SearchHit[]; total: number; gameVersion: string }> {
   const { gameVersion, profile } = await context(q.profileId)
-  return { ...(await search(q, gameVersion, modrinthLoaders(q.type, profile.loader))), gameVersion }
+  const loaders = q.type === 'modpack' ? ['fabric', 'forge'] : modrinthLoaders(q.type, profile.loader)
+  return { ...(await search(q, gameVersion, loaders)), gameVersion }
 }
 
 export async function listInstalled(profileId: string): Promise<InstalledContent[]> {
@@ -117,6 +140,8 @@ async function installOne(
   const project = await getProject(projectId)
   projectId = project.id
   visited.add(projectId)
+  // Même mod déjà ajouté à la main (l'identifiant du mod est presque toujours le nom court du projet Modrinth)
+  if (auto && ctx.localIds?.has(project.slug)) return
   const existing = findExisting(projectId)
   if (existing && auto) return
 
@@ -157,6 +182,7 @@ export async function installContent(profileId: string, projectId: string, type:
   if (type !== 'resourcepack') requireModLoader(ctx, type)
 
   const index = await readIndex(ctx.gameDir)
+  ctx.localIds = await localModIds(ctx.gameDir, index)
   const visited = new Set<string>()
   try {
     await installOne(ctx, index, projectId, type, false, null, visited)
@@ -208,6 +234,140 @@ export async function addOptiFine(profileId: string, file: string): Promise<void
   for (const key of Object.keys(index)) if (isOptiFine(key) && key !== name) delete index[key]
   index[name] = { type: 'mod', title: 'OptiFine', versionNumber: name.replace(/^OptiFine_/i, '').replace(/\.jar$/i, '') }
   await writeIndex(ctx.gameDir, index)
+}
+
+/** Nom et version lus dans un jar de mod (fabric.mod.json, mods.toml ou mcmod.info), et son chargeur */
+function modInfo(zip: AdmZip): { loader: Loader | null; title?: string; version?: string } {
+  const text = (path: string) => zip.getEntry(path)?.getData().toString('utf8')
+  const fabric = text('fabric.mod.json')
+  if (fabric) {
+    try {
+      const json = JSON.parse(fabric) as { name?: string; version?: string }
+      return { loader: 'fabric', title: json.name, version: json.version }
+    } catch {
+      return { loader: 'fabric' }
+    }
+  }
+  const toml = text('META-INF/mods.toml') ?? text('META-INF/neoforge.mods.toml')
+  if (toml) {
+    const field = (key: string) => toml.match(new RegExp(`^\\s*${key}\\s*=\\s*"([^"]*)"`, 'm'))?.[1]
+    const version = field('version')
+    return { loader: 'forge', title: field('displayName'), version: version?.includes('$') ? undefined : version }
+  }
+  const mcmod = text('mcmod.info')
+  if (mcmod) {
+    try {
+      const raw = JSON.parse(mcmod) as { name?: string; version?: string }[] | { modList?: { name?: string; version?: string }[] }
+      const first = Array.isArray(raw) ? raw[0] : raw.modList?.[0]
+      return { loader: 'forge', title: first?.name, version: first?.version?.includes('$') ? undefined : first?.version }
+    } catch {
+      return { loader: 'forge' }
+    }
+  }
+  return { loader: null }
+}
+
+/** Ce qu'est un fichier ou dossier importé : mod (.jar), resource pack (pack.mcmeta) ou shader (dossier shaders/) */
+function detectType(zip: AdmZip | null, dir: string | null): ContentType | null {
+  if (dir) {
+    if (existsSync(join(dir, 'pack.mcmeta'))) return 'resourcepack'
+    if (existsSync(join(dir, 'shaders'))) return 'shader'
+    return null
+  }
+  if (!zip) return null
+  const names = zip.getEntries().map((e) => e.entryName)
+  if (names.includes('pack.mcmeta')) return 'resourcepack'
+  if (names.some((n) => n.startsWith('shaders/'))) return 'shader'
+  return null
+}
+
+/**
+ * Importe des fichiers choisis ou glissés par le joueur (mods .jar, resource packs et shaders en .zip ou en dossier)
+ * dans un profil. Les fichiers refusés ne bloquent pas les autres : leurs erreurs sont renvoyées.
+ */
+export async function importFiles(profileId: string, paths: string[]): Promise<ImportResult> {
+  const ctx = await context(profileId)
+  const index = await readIndex(ctx.gameDir)
+  const added: ContentType[] = []
+  const errors: string[] = []
+  const modpacks: string[] = []
+  const instances: string[] = []
+  let needIris = false
+
+  for (const path of paths) {
+    const name = basename(path)
+    // Un modpack crée son propre profil : le renderer l'affiche avant de l'installer
+    if (name.toLowerCase().endsWith('.mrpack')) {
+      modpacks.push(path)
+      continue
+    }
+    try {
+      const isDir = (await stat(path)).isDirectory()
+      const lower = name.toLowerCase()
+      if (!isDir && isOptiFine(name)) {
+        await addOptiFine(profileId, path)
+        added.push('mod')
+        continue
+      }
+      if (!isDir && !lower.endsWith('.jar') && !lower.endsWith('.zip')) throw new Error(tm('err.importUnknown', { name }))
+      let zip: AdmZip | null = null
+      try {
+        if (!isDir) zip = new AdmZip(path)
+      } catch {
+        throw new Error(tm('err.importUnreadable', { name }))
+      }
+
+      // Profil complet exporté (Aloria, Prism, MultiMC, CurseForge) : il devient un nouveau profil
+      if (zip && lower.endsWith('.zip') && isInstanceZip(zip)) {
+        instances.push(path)
+        continue
+      }
+
+      let type: ContentType
+      let meta: IndexEntry | undefined
+      if (zip && lower.endsWith('.jar')) {
+        type = 'mod'
+        requireModLoader(ctx, type)
+        const info = modInfo(zip)
+        // Un mod Fabric dans un profil Forge (ou l'inverse) ferait planter le jeu au lancement
+        if (info.loader && info.loader !== ctx.profile.loader) {
+          throw new Error(tm('err.importWrongLoader', { name, loader: info.loader === 'fabric' ? 'Fabric' : 'Forge' }))
+        }
+        meta = { type, title: info.title || name.replace(/\.jar$/i, ''), versionNumber: info.version }
+      } else {
+        const detected = detectType(zip, isDir ? path : null)
+        if (!detected) throw new Error(tm('err.importUnknown', { name }))
+        type = detected
+        if (type === 'shader') requireModLoader(ctx, type)
+        if (type === 'shader' && ctx.profile.loader === 'fabric') needIris = true
+      }
+
+      const dir = join(ctx.gameDir, FOLDERS[type])
+      await mkdir(dir, { recursive: true })
+      const dest = join(dir, name)
+      await rm(dest + DISABLED, { force: true, recursive: true })
+      if (isDir) await cp(path, dest, { recursive: true, force: true })
+      else await copyFile(path, dest)
+      if (meta) index[name] = meta
+      else delete index[name]
+      added.push(type)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      // Même refus pour plusieurs fichiers (mods dans un profil vanilla…) : une seule fois
+      if (!errors.includes(message)) errors.push(message)
+    }
+  }
+
+  try {
+    // Comme depuis la recherche : les shaders ont besoin d'Iris sous Fabric
+    ctx.localIds = await localModIds(ctx.gameDir, index)
+    if (needIris) await installOne(ctx, index, IRIS_PROJECT, 'mod', true, null, new Set())
+  } catch (err) {
+    errors.push(err instanceof Error ? err.message : String(err))
+  } finally {
+    await writeIndex(ctx.gameDir, index)
+  }
+  return { added, errors, modpacks, instances }
 }
 
 export async function openContentFolder(profileId: string, type: ContentType): Promise<string> {

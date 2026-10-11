@@ -1,6 +1,12 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
+import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
 import type {
   ContentType,
+  ImportResult,
+  ExportOptions,
+  ModpackPreview,
+  ModpackProgress,
+  ModpackSource,
+  ModpackVersion,
   GameExit,
   InstalledContent,
   SearchHit,
@@ -62,7 +68,13 @@ const api = {
     update: (id: string, patch: Partial<ProfileInput>): Promise<Profile> => ipcRenderer.invoke('profiles:update', id, patch),
     select: (id: string): Promise<void> => ipcRenderer.invoke('profiles:select', id),
     remove: (id: string, deleteFiles: boolean): Promise<Result<void>> => ipcRenderer.invoke('profiles:delete', id, deleteFiles),
-    openFolder: (id: string): Promise<void> => ipcRenderer.invoke('profiles:openFolder', id)
+    openFolder: (id: string): Promise<void> => ipcRenderer.invoke('profiles:openFolder', id),
+    /** Chemin du zip créé, null si annulé */
+    exportZip: (id: string, options: ExportOptions): Promise<Result<string | null>> => ipcRenderer.invoke('profiles:export', id, options),
+    /** Sans fichier : fenêtre de choix (null si annulée) */
+    importZip: (file: File | string | null): Promise<Result<Profile | null>> =>
+      ipcRenderer.invoke('profiles:import', file instanceof File ? webUtils.getPathForFile(file) : file),
+    showFile: (path: string): Promise<void> => ipcRenderer.invoke('profiles:showFile', path)
   },
   presets: {
     list: (): Promise<SettingsPreset[]> => ipcRenderer.invoke('presets:list'),
@@ -82,7 +94,16 @@ const api = {
     remove: (profileId: string, type: ContentType, fileName: string): Promise<Result<void>> =>
       ipcRenderer.invoke('library:remove', profileId, type, fileName),
     openFolder: (profileId: string, type: ContentType): Promise<void> => ipcRenderer.invoke('library:openFolder', profileId, type),
-    addOptiFine: (profileId: string): Promise<Result<boolean>> => ipcRenderer.invoke('library:addOptiFine', profileId)
+    addOptiFine: (profileId: string): Promise<Result<boolean>> => ipcRenderer.invoke('library:addOptiFine', profileId),
+    /** Sans fichiers : fenêtre de choix (null si annulée) */
+    import: (profileId: string, files: File[] | null): Promise<Result<ImportResult | null>> =>
+      ipcRenderer.invoke('library:import', profileId, files && files.map((f) => webUtils.getPathForFile(f)).filter(Boolean))
+  },
+  modpacks: {
+    versions: (projectId: string): Promise<Result<ModpackVersion[]>> => ipcRenderer.invoke('modpacks:versions', projectId),
+    preview: (source: ModpackSource): Promise<Result<ModpackPreview>> => ipcRenderer.invoke('modpacks:preview', source),
+    install: (source: ModpackSource): Promise<Result<Profile>> => ipcRenderer.invoke('modpacks:install', source),
+    onProgress: (cb: (p: ModpackProgress) => void) => subscribe('modpacks:progress', cb)
   },
   skins: {
     upload: (texture: string, slim: boolean, name: string): Promise<Result<PlayerSkin | null>> =>

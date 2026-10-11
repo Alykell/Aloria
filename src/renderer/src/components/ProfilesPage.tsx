@@ -24,13 +24,27 @@ interface Props {
 export default function ProfilesPage({ profiles, settings, onPlay, onError }: Props) {
   // undefined = fermé, null = création, Profile = modification
   const [editing, setEditing] = useState<Profile | null | undefined>(undefined)
+  const [importing, setImporting] = useState(false)
+  // Profil exporté (Aloria, Prism, MultiMC) : il devient un nouveau profil, sélectionné
+  const importProfile = async () => {
+    setImporting(true)
+    const res = await window.aloria.profiles.importZip(null)
+    setImporting(false)
+    if (!res.ok) onError(res.error)
+    else if (res.value) await profiles.refresh()
+  }
   const s = settings.settings
   if (!s) return null
   const maxRamMb = Math.max(1024, Math.floor((settings.systemRamMb - 2048) / 512) * 512)
 
   return (
     <section className="page wide">
-      <h2>{t('profiles.title')}</h2>
+      <div className="library__header">
+        <h2>{t('profiles.title')}</h2>
+        <button className="secondary" disabled={importing} title={t('profiles.importHint')} onClick={importProfile}>
+          📥 {importing ? t('profiles.importing') : t('profiles.import')}
+        </button>
+      </div>
       <p className="muted">{t('profiles.intro')}</p>
 
       <div className="profile-grid">

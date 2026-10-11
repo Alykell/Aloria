@@ -39,6 +39,21 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
     window.aloria.presets.list().then(setPresets)
   }, [])
   const [saving, setSaving] = useState(false)
+  // Export en zip : options, puis chemin du fichier créé
+  const [exportOpen, setExportOpen] = useState(false)
+  const [exportOptions, setExportOptions] = useState({ worlds: false, screenshots: false })
+  const [exporting, setExporting] = useState(false)
+  const [exported, setExported] = useState<string | null>(null)
+  const [exportError, setExportError] = useState<string | null>(null)
+  const runExport = async () => {
+    if (!profile) return
+    setExporting(true)
+    setExportError(null)
+    const res = await window.aloria.profiles.exportZip(profile.id, exportOptions)
+    setExporting(false)
+    if (!res.ok) setExportError(res.error)
+    else if (res.value) setExported(res.value)
+  }
   const { versions, latestRelease, latestSnapshot } = useVersions(showSnapshots || form.versionId.includes('snapshot'))
 
   const set = (patch: Partial<ProfileInput>) => setForm((f) => ({ ...f, ...patch }))
@@ -253,6 +268,43 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
           </span>
         </label>
 
+        {profile && exportOpen && (
+          <div className="export-box">
+            <strong>{t('editor.exportTitle')}</strong>
+            <small className="muted">{t('editor.exportHint')}</small>
+            <label className="toggle-line">
+              <input
+                type="checkbox"
+                checked={exportOptions.worlds}
+                onChange={(e) => setExportOptions((o) => ({ ...o, worlds: e.target.checked }))}
+              />
+              <span>{t('editor.exportWorlds')}</span>
+            </label>
+            <label className="toggle-line">
+              <input
+                type="checkbox"
+                checked={exportOptions.screenshots}
+                onChange={(e) => setExportOptions((o) => ({ ...o, screenshots: e.target.checked }))}
+              />
+              <span>{t('editor.exportScreenshots')}</span>
+            </label>
+            {exportError && <small className="modpack__warning">⚠️ {exportError}</small>}
+            <div className="export-box__actions">
+              {exported && (
+                <>
+                  <span className="modpack__done">{t('editor.exported')}</span>
+                  <button className="secondary" onClick={() => window.aloria.profiles.showFile(exported)}>
+                    {t('editor.showFile')}
+                  </button>
+                </>
+              )}
+              <button className="primary" disabled={exporting} onClick={runExport}>
+                {exporting ? t('editor.exporting') : t('editor.exportGo')}
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="dialog__actions">
           {profile && onDelete && (
             <div className="dialog__danger">
@@ -275,6 +327,11 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
           {profile && (
             <button className="secondary" onClick={() => window.aloria.profiles.openFolder(profile.id)}>
               {t('common.openFolder')}
+            </button>
+          )}
+          {profile && !exportOpen && (
+            <button className="secondary" onClick={() => setExportOpen(true)}>
+              {t('editor.export')}
             </button>
           )}
           <button className="secondary" onClick={onClose}>

@@ -430,10 +430,19 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* Bibliothèque */
-.library { gap: 12px; }
+.library { gap: 12px; position: relative; }
 .library__header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .library__profile { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--sea-deep); }
 .library__profile .select { font-weight: 600; }
+/* Zone de dépôt des fichiers glissés dans la bibliothèque */
+.library__drop {
+  position: absolute; inset: 0; z-index: 20; pointer-events: none;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  border: 3px dashed var(--sea); border-radius: var(--radius);
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  color: var(--text-soft);
+}
+.library__drop strong { font-family: 'Quicksand', sans-serif; font-size: 20px; color: var(--sea-deep); }
 .tabs { display: flex; gap: 4px; border-bottom: 2px solid rgba(26, 155, 199, 0.15); }
 .tabs button { padding: 10px 16px; font-weight: 700; color: var(--text-soft); border-bottom: 3px solid transparent; margin-bottom: -2px; display: flex; align-items: center; gap: 6px; }
 .tabs button:hover { color: var(--sea-deep); }
@@ -473,6 +482,25 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .notice p { color: var(--text-soft); margin-bottom: 6px; }
 .notice.optifine { padding: 16px 20px; margin-bottom: 14px; }
 .notice.optifine strong { font-size: 16px; }
+
+/* Export d'un profil (fiche du profil) */
+.export-box { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: 12px; background: var(--card); }
+.export-box strong { font-family: 'Quicksand', sans-serif; color: var(--sea-deep); }
+.export-box .toggle-line { font-weight: 500; font-size: 14px; }
+.export-box__actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+
+/* Aperçu d'un modpack */
+.dialog.modpack { width: min(620px, 92vw); max-height: 88vh; }
+.modpack__head { display: flex; align-items: center; gap: 14px; }
+.modpack__head img, .modpack__head .result__noicon { width: 56px; height: 56px; border-radius: 12px; flex-shrink: 0; }
+.modpack__version { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--sea-deep); }
+.modpack__warning { color: #c0392b; font-weight: 600; }
+.modpack__done { color: var(--sea-deep); font-weight: 700; }
+.modpack__files { overflow-y: auto; min-height: 120px; display: flex; flex-direction: column; gap: 12px; padding-right: 4px; }
+.modpack__files h4 { font-family: 'Quicksand', sans-serif; color: var(--sea-deep); margin-bottom: 4px; }
+.modpack__file { display: flex; align-items: center; gap: 10px; padding: 3px 0; }
+.modpack__file img, .modpack__file .result__noicon { width: 24px; height: 24px; border-radius: 6px; font-size: 13px; }
+.dialog.modpack .progress { margin-top: 0; width: 100%; }
 
 /* Contenu installé */
 .installed { display: flex; flex-direction: column; gap: 18px; }
@@ -558,6 +586,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 
 .sub-options { display: flex; flex-direction: column; gap: 8px; padding: 4px 0 2px 4px; border-top: 1px solid var(--line); padding-top: 12px; }
 .sub-options .toggle-line { font-weight: 500; font-size: 14px; }
+.toggle-line.module.disabled { opacity: 0.5; cursor: default; }
 .discord-name { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-weight: 500; font-size: 14px; }
 .discord-name .segmented button { padding: 6px 14px; }
 

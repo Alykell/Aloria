@@ -17,19 +17,21 @@ const ITEMS: { id: Page; label: MessageKey; icon: string }[] = [
 
 interface Props {
   page: Page
+  /** Pages masquées dans les Paramètres */
+  hidden: Page[]
   onChange: (p: Page) => void
   accounts: AccountsState
   onSkin: () => void
 }
 
-export default function Sidebar({ page, onChange, accounts, onSkin }: Props) {
+export default function Sidebar({ page, hidden, onChange, accounts, onSkin }: Props) {
   return (
     <nav className="sidebar">
       <div className="sidebar__logo">
         <span className="wave">〰</span>
         <strong>Aloria</strong>
       </div>
-      {ITEMS.map((it) => (
+      {ITEMS.filter((it) => !hidden.includes(it.id)).map((it) => (
         <button
           key={it.id}
           className={'sidebar__item' + (page === it.id ? ' active' : '')}

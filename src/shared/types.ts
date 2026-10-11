@@ -94,7 +94,12 @@ export interface Settings {
   dedicatedGpu: boolean
   /** Langue du launcher ; absente tant qu'elle n'a pas été choisie (premier lancement) */
   language?: Lang
+  /** Parties du launcher masquées par le joueur (pour un launcher plus simple) */
+  hiddenModules: AppModule[]
 }
+
+/** Parties du launcher qu'on peut masquer : pages du menu, et l'onglet Modpacks de la Bibliothèque */
+export type AppModule = 'library' | 'modpacks' | 'creations' | 'gamesettings'
 
 export type DiscordGameName = 'aloria' | 'minecraft'
 
@@ -145,6 +150,8 @@ export interface ProfileInput {
   shareServers?: boolean
   /** Jeu de réglages appliqué au lancement (absent = « Mes réglages », null = réglages propres au profil) */
   settingsPreset?: string | null
+  /** Modpack d'origine du profil (installé depuis Modrinth ou un fichier .mrpack) */
+  modpack?: { name: string; versionNumber: string; projectId?: string; versionId?: string }
 }
 
 /** Jeu de réglages du jeu partagé entre profils (format options.txt moderne) */
@@ -166,7 +173,7 @@ export type SearchSort = 'relevance' | 'downloads' | 'newest' | 'updated'
 
 export interface SearchQuery {
   profileId: string
-  type: ContentType
+  type: ContentType | 'modpack'
   query: string
   sort: SearchSort
   offset: number
@@ -181,6 +188,66 @@ export interface SearchHit {
   downloads: number
   iconUrl: string | null
   categories: string[]
+}
+
+/** Résultat d'un import de fichiers : type de chaque fichier ajouté, et erreurs des fichiers refusés */
+export interface ImportResult {
+  added: ContentType[]
+  errors: string[]
+  /** Modpacks (.mrpack) glissés ou choisis : ils créent un profil, après un aperçu */
+  modpacks: string[]
+  /** Profils complets (zip Aloria, Prism, MultiMC, CurseForge) : chacun devient un nouveau profil */
+  instances: string[]
+}
+
+/** Ce qu'un export de profil emporte en plus des mods, packs et configs */
+export interface ExportOptions {
+  worlds: boolean
+  screenshots: boolean
+}
+
+/** Modpack à afficher ou installer : une version publiée sur Modrinth, ou un fichier .mrpack du joueur */
+export type ModpackSource = { kind: 'modrinth'; projectId: string; versionId: string } | { kind: 'file'; path: string }
+
+export interface ModpackVersion {
+  id: string
+  versionNumber: string
+  gameVersions: string[]
+  loaders: string[]
+  /** Version finale (ni bêta, ni alpha) */
+  stable: boolean
+  /** Installable par Aloria (Fabric, ou Forge jusqu'à la 1.12.2) */
+  supported: boolean
+}
+
+/** Fichier d'un modpack (mod, resource pack, shader ou autre), avec le nom du projet Modrinth quand on le connaît */
+export interface ModpackEntry {
+  path: string
+  type: ContentType | 'other'
+  title: string
+  iconUrl: string | null
+  /** Le modpack le propose sans l'imposer (installé quand même) */
+  optional: boolean
+  size: number
+}
+
+export interface ModpackPreview {
+  name: string
+  summary: string
+  versionNumber: string
+  gameVersion: string
+  loader: string
+  loaderVersion: string | null
+  /** Raison pour laquelle Aloria ne peut pas l'installer (chargeur ou version non gérés), sinon null */
+  unsupported: string | null
+  files: ModpackEntry[]
+  /** Fichiers fournis directement par le modpack (configs, réglages, mondes…) */
+  overrides: number
+}
+
+export interface ModpackProgress {
+  doneFiles: number
+  totalFiles: number
 }
 
 export interface InstalledContent {

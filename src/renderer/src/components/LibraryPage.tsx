@@ -1,25 +1,28 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import InstalledList from './InstalledList'
+import ModpackDialog, { type ModpackTarget } from './ModpackDialog'
 import { describeProfile } from '../hooks/useVersions'
 import type { ProfilesState } from '../hooks/useProfiles'
-import type { ContentType, InstalledContent, SearchHit, SearchSort } from '../../../shared/types'
+import type { ContentType, InstalledContent, Profile, SearchHit, SearchSort } from '../../../shared/types'
 import Select from './Select'
 import { compactNumber, t } from '../i18n'
 import type { MessageKey } from '../../../shared/i18n'
 
-type Tab = ContentType | 'installed'
+type Tab = ContentType | 'modpack' | 'installed'
 
 const TABS: { id: Tab; label: MessageKey }[] = [
   { id: 'mod', label: 'library.tabMods' },
   { id: 'resourcepack', label: 'library.tabResourcepacks' },
   { id: 'shader', label: 'library.tabShaders' },
+  { id: 'modpack', label: 'library.tabModpacks' },
   { id: 'installed', label: 'library.tabInstalled' }
 ]
 
-const SEARCH_PLACEHOLDERS: Record<ContentType, MessageKey> = {
+const SEARCH_PLACEHOLDERS: Record<ContentType | 'modpack', MessageKey> = {
   mod: 'library.searchMods',
   resourcepack: 'library.searchResourcepacks',
-  shader: 'library.searchShaders'
+  shader: 'library.searchShaders',
+  modpack: 'library.searchModpacks'
 }
 
 const SORTS: { id: SearchSort; label: MessageKey }[] = [
@@ -31,11 +34,13 @@ const SORTS: { id: SearchSort; label: MessageKey }[] = [
 
 interface Props {
   profiles: ProfilesState
+  /** Onglet Modpacks (masquable dans les Paramètres) */
+  showModpacks: boolean
   onError: (message: string) => void
   onOpenProfiles: () => void
 }
 
-export default function LibraryPage({ profiles, onError, onOpenProfiles }: Props) {
+export default function LibraryPage({ profiles, showModpacks, onError, onOpenProfiles }: Props) {
   const [profileId, setProfileId] = useState<string | null>(profiles.selected?.id ?? null)
   const [tab, setTab] = useState<Tab>('mod')
   const [query, setQuery] = useState('')
@@ -46,7 +51,12 @@ export default function LibraryPage({ profiles, onError, onOpenProfiles }: Props
   const [loading, setLoading] = useState(false)
   const [installed, setInstalled] = useState<InstalledContent[]>([])
   const [installing, setInstalling] = useState<Set<string>>(new Set())
+  const [dragging, setDragging] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [modpack, setModpack] = useState<ModpackTarget | null>(null)
   const requestId = useRef(0)
+  // dragenter / dragleave se déclenchent aussi en passant d'un élément à l'autre : on compte les entrées
+  const dragDepth = useRef(0)
 
   const profile = profiles.profiles.find((p) => p.id === profileId) ?? profiles.selected
   const needsLoader = (tab === 'mod' || tab === 'shader') && profile?.loader === 'vanilla'
@@ -97,7 +107,15 @@ export default function LibraryPage({ profiles, onError, onOpenProfiles }: Props
     return () => clearTimeout(timer)
   }, [runSearch])
 
+  // Un modpack crée son propre profil : la Bibliothèque passe dessus pour montrer ce qu'il contient
+  const modpackInstalled = async (created: Profile) => {
+    await profiles.refresh()
+    setProfileId(created.id)
+    setTab('installed')
+  }
+
   const install = async (hit: SearchHit) => {
+    if (tab === 'modpack') return setModpack({ projectId: hit.projectId, title: hit.title, iconUrl: hit.iconUrl })
     if (!profile || tab === 'installed') return
     setInstalling((s) => new Set(s).add(hit.projectId))
     const res = await window.aloria.library.install(profile.id, hit.projectId, tab)
@@ -110,15 +128,73 @@ export default function LibraryPage({ profiles, onError, onOpenProfiles }: Props
     await refreshInstalled()
   }
 
+  // Fichiers du joueur (bouton : fenêtre de choix ; glisser-déposer : fichiers donnés)
+  const importFiles = async (files: File[] | null) => {
+    if (!profile || importing) return
+    setImporting(true)
+    const res = await window.aloria.library.import(profile.id, files)
+    setImporting(false)
+    if (!res.ok) return onError(res.error)
+    if (!res.value) return
+    await refreshInstalled()
+    if (res.value.added.length > 0) setTab('installed')
+    if (res.value.errors.length > 0) onError(res.value.errors.join(' '))
+    if (res.value.modpacks.length > 0) setModpack({ file: res.value.modpacks[0] })
+    // Profils complets glissés : chacun devient un nouveau profil, la Bibliothèque passe sur le dernier
+    let created: Profile | null = null
+    for (const path of res.value.instances) {
+      const imported = await window.aloria.profiles.importZip(path)
+      if (!imported.ok) onError(imported.error)
+      else if (imported.value) created = imported.value
+    }
+    if (created) await modpackInstalled(created)
+  }
+
+  const isFileDrag = (e: React.DragEvent) => e.dataTransfer.types.includes('Files')
+  const dropHandlers = {
+    onDragEnter: (e: React.DragEvent) => {
+      if (!isFileDrag(e)) return
+      dragDepth.current++
+      setDragging(true)
+    },
+    onDragOver: (e: React.DragEvent) => {
+      if (!isFileDrag(e)) return
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'copy'
+    },
+    onDragLeave: (e: React.DragEvent) => {
+      if (!isFileDrag(e)) return
+      dragDepth.current = Math.max(0, dragDepth.current - 1)
+      if (dragDepth.current === 0) setDragging(false)
+    },
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault()
+      dragDepth.current = 0
+      setDragging(false)
+      const files = Array.from(e.dataTransfer.files)
+      if (files.length > 0) importFiles(files)
+    }
+  }
+
   const installedIds = new Set(installed.map((i) => i.projectId).filter(Boolean))
 
   if (!profile) return null
 
   return (
-    <section className="page wide library">
+    <section className="page wide library" {...dropHandlers}>
+      {modpack && <ModpackDialog target={modpack} onClose={() => setModpack(null)} onInstalled={modpackInstalled} />}
+      {dragging && (
+        <div className="library__drop">
+          <strong>📥 {t('library.drop')}</strong>
+          <span>{t('library.dropProfile', { name: profile.name })}</span>
+        </div>
+      )}
       <div className="library__header">
         <h2>{t('library.title')}</h2>
         <div className="library__profile">
+          <button className="secondary" disabled={importing} title={t('library.importHint')} onClick={() => importFiles(null)}>
+            📥 {importing ? t('library.installing') : t('library.import')}
+          </button>
           <span>{t('library.profile')}</span>
           <Select
             name="library-profile"
@@ -130,7 +206,7 @@ export default function LibraryPage({ profiles, onError, onOpenProfiles }: Props
       </div>
 
       <div className="tabs">
-        {TABS.map((it) => (
+        {TABS.filter((it) => showModpacks || it.id !== 'modpack').map((it) => (
           <button key={it.id} className={tab === it.id ? 'active' : ''} onClick={() => setTab(it.id)}>
             {t(it.label)}
             {it.id === 'installed' && installed.length > 0 && <span className="badge">{installed.length}</span>}
@@ -191,14 +267,16 @@ export default function LibraryPage({ profiles, onError, onOpenProfiles }: Props
           </div>
           {gameVersion && (
             <small className="muted">
-              {t('library.results', { n: compactNumber(total), version: gameVersion })}
+              {tab === 'modpack'
+                ? t('library.resultsModpacks', { n: compactNumber(total) })
+                : t('library.results', { n: compactNumber(total), version: gameVersion })}
               {tab === 'shader' && t('library.shadersAuto')}
             </small>
           )}
 
           <div className="results">
             {hits.map((hit) => {
-              const isInstalled = installedIds.has(hit.projectId)
+              const isInstalled = tab !== 'modpack' && installedIds.has(hit.projectId)
               const busy = installing.has(hit.projectId)
               return (
                 <article key={hit.projectId} className="result">
@@ -225,7 +303,13 @@ export default function LibraryPage({ profiles, onError, onOpenProfiles }: Props
                     disabled={busy || isInstalled}
                     onClick={() => install(hit)}
                   >
-                    {busy ? t('library.installing') : isInstalled ? t('library.installed') : t('library.install')}
+                    {tab === 'modpack'
+                      ? t('library.view')
+                      : busy
+                        ? t('library.installing')
+                        : isInstalled
+                          ? t('library.installed')
+                          : t('library.install')}
                   </button>
                 </article>
               )

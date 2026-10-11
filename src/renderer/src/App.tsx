@@ -30,6 +30,14 @@ export default function App() {
   const { backdrop } = useTheme(settings.settings?.theme)
   const lang = settings.settings?.language
   if (lang) setLang(lang)
+  const hiddenModules = settings.settings?.hiddenModules ?? []
+  // Toutes les parties masquables sont des pages, sauf l'onglet Modpacks de la Bibliothèque
+  const hiddenPages = hiddenModules.filter((m) => m !== 'modpacks') as Page[]
+
+  // Page masquée depuis les Paramètres pendant qu'on y était : retour à l'accueil
+  useEffect(() => {
+    if (hiddenPages.includes(page)) setPage('home')
+  }, [hiddenPages.join(), page])
 
   useEffect(() => {
     window.aloria.getVersion().then(setVersion)
@@ -58,7 +66,7 @@ export default function App() {
       <div className="backdrop" style={{ backgroundImage: `url(${backdrop})` }} />
       <TitleBar />
       <div className="app__body">
-        <Sidebar page={page} onChange={setPage} accounts={accounts} onSkin={() => setSkinOpen(true)} />
+        <Sidebar page={page} hidden={hiddenPages} onChange={setPage} accounts={accounts} onSkin={() => setSkinOpen(true)} />
         <main className="content">
           {error && (
             <div className="toast" role="alert">
@@ -76,7 +84,12 @@ export default function App() {
           {page === 'creations' && <CreationsPage profiles={profiles} onError={setPageError} />}
           {page === 'settings' && <SettingsPage state={settings} />}
           {page === 'library' && (
-            <LibraryPage profiles={profiles} onError={setPageError} onOpenProfiles={() => setPage('profiles')} />
+            <LibraryPage
+              profiles={profiles}
+              showModpacks={!hiddenModules.includes('modpacks')}
+              onError={setPageError}
+              onOpenProfiles={() => setPage('profiles')}
+            />
           )}
           <footer className="version">
             <a href={DISCORD_INVITE} target="_blank" rel="noreferrer" title={t('common.discordTitle')}>

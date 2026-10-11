@@ -7,7 +7,9 @@ import { createPack, deletePack, installPack, listPacks, packVanilla, renamePack
 import { getStatus, isGameRunning, listVersions, play } from './game/controller'
 import { fabricLoaders } from './game/fabric'
 import { forgeLoaders } from './game/forge'
-import { addOptiFine, installContent, listInstalled, openContentFolder, removeContent, searchContent, setContentEnabled } from './modrinth/content'
+import { addOptiFine, importFiles, installContent, listInstalled, openContentFolder, removeContent, searchContent, setContentEnabled } from './modrinth/content'
+import { exportProfile, importInstance } from './instances'
+import { installModpack, modpackVersions, previewModpack } from './modrinth/modpack'
 import { createPreset, deletePreset, getPreset, listPresets, MAIN_PRESET, renamePreset, updatePresetOptions } from './shared/presets'
 import { gameLangOf, translate, type Lang, type MessageKey } from '../shared/i18n'
 import { createProfile, deleteProfile, listProfiles, openProfileFolder, selectProfile, updateProfile } from './profiles'
@@ -17,6 +19,8 @@ import { initDiscord, refreshDiscord } from './discord'
 import { processPending } from './shared/pending'
 import { saveKeyboardLayout } from './shared/options'
 import type {
+  ExportOptions,
+  ModpackSource,
   PackElement,
   ContentType,
   LoaderVersion,
@@ -158,6 +162,40 @@ ipcMain.handle('profiles:update', (_e, id: string, patch: Partial<ProfileInput>)
 ipcMain.handle('profiles:select', (_e, id: string) => selectProfile(id))
 ipcMain.handle('profiles:delete', (_e, id: string, deleteFiles: boolean) => wrap(() => deleteProfile(id, deleteFiles)))
 ipcMain.handle('profiles:openFolder', (_e, id: string) => openProfileFolder(id))
+// Export d'un profil en zip (fenêtre d'enregistrement ; null si annulé) et import d'un zip de profil (choisi ici, ou glissé)
+ipcMain.handle('profiles:export', (e, id: string, options: ExportOptions) =>
+  wrap(async () => {
+    const win = BrowserWindow.fromWebContents(e.sender)
+    const name = listProfiles().profiles.find((p) => p.id === id)?.name ?? 'profil'
+    const dialogOptions = {
+      title: tm('dialog.exportProfile'),
+      defaultPath: join(app.getPath('downloads'), `${name.replace(/[\\/:*?"<>|]/g, '_')}.zip`),
+      filters: [{ name: 'Zip', extensions: ['zip'] }]
+    }
+    const res = win ? await dialog.showSaveDialog(win, dialogOptions) : await dialog.showSaveDialog(dialogOptions)
+    if (res.canceled || !res.filePath) return null
+    await exportProfile(id, res.filePath, options)
+    return res.filePath
+  })
+)
+ipcMain.handle('profiles:import', (e, path: string | null) =>
+  wrap(async () => {
+    if (!path) {
+      const win = BrowserWindow.fromWebContents(e.sender)
+      const options = {
+        title: tm('dialog.importProfile'),
+        defaultPath: app.getPath('downloads'),
+        filters: [{ name: tm('dialog.importProfileFilter'), extensions: ['zip'] }],
+        properties: ['openFile' as const]
+      }
+      const res = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
+      if (res.canceled || res.filePaths.length === 0) return null
+      path = res.filePaths[0]
+    }
+    return importInstance(path)
+  })
+)
+ipcMain.handle('profiles:showFile', (_e, path: string) => shell.showItemInFolder(path))
 ipcMain.handle('fabric:loaders', (_e, gameVersion: string): Promise<Result<LoaderVersion[]>> => wrap(() => fabricLoaders(gameVersion)))
 ipcMain.handle('forge:loaders', (_e, gameVersion: string): Promise<Result<LoaderVersion[]>> => wrap(() => forgeLoaders(gameVersion)))
 
@@ -193,6 +231,30 @@ ipcMain.handle('library:addOptiFine', (e, profileId: string) =>
     await addOptiFine(profileId, res.filePaths[0])
     return true
   })
+)
+// Mods, resource packs et shaders ajoutés par le joueur : glissés dans la fenêtre (chemins donnés), sinon choisis ici
+ipcMain.handle('library:import', (e, profileId: string, paths: string[] | null) =>
+  wrap(async () => {
+    if (!paths) {
+      const win = BrowserWindow.fromWebContents(e.sender)
+      const options = {
+        title: tm('dialog.import'),
+        defaultPath: app.getPath('downloads'),
+        filters: [{ name: tm('dialog.importFilter'), extensions: ['jar', 'zip', 'mrpack'] }],
+        properties: ['openFile' as const, 'multiSelections' as const]
+      }
+      const res = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
+      if (res.canceled || res.filePaths.length === 0) return null
+      paths = res.filePaths
+    }
+    return importFiles(profileId, paths)
+  })
+)
+// Modpacks (.mrpack) : versions, aperçu (liste des mods) puis installation dans un nouveau profil
+ipcMain.handle('modpacks:versions', (_e, projectId: string) => wrap(() => modpackVersions(projectId)))
+ipcMain.handle('modpacks:preview', (_e, source: ModpackSource) => wrap(() => previewModpack(source)))
+ipcMain.handle('modpacks:install', (e, source: ModpackSource) =>
+  wrap(() => installModpack(source, (p) => !e.sender.isDestroyed() && e.sender.send('modpacks:progress', p)))
 )
 ipcMain.handle('library:openFolder', async (_e, profileId: string, type: ContentType) => {
   await shell.openPath(await openContentFolder(profileId, type))
@@ -360,6 +422,35 @@ async function captureScreens(win: BrowserWindow, dir: string): Promise<void> {
   await wait(500)
   await writeFile(join(dir, 'nuit-menu-ouvert.png'), (await snap()).toPNG())
   await win.webContents.executeJavaScript(`document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))`)
+  // Modpacks : recherche, puis aperçu du premier (liste des mods), fermé sans rien installer
+  await click(L('library.tabModpacks'))
+  await wait(3000)
+  await writeFile(join(dir, 'nuit-modpacks.png'), (await snap()).toPNG())
+  await click(L('library.view'))
+  await wait(8000)
+  await writeFile(join(dir, 'nuit-modpack-apercu.png'), (await snap()).toPNG())
+  await click(L('common.cancel'))
+  await wait(400)
+  // Parties du launcher à masquer (Paramètres)
+  await click(L('nav.settings'))
+  await wait(600)
+  await win.webContents.executeJavaScript(`document.querySelector('.module')?.scrollIntoView({ block: 'center' })`)
+  await wait(400)
+  await writeFile(join(dir, 'nuit-parametres-modules.png'), (await snap()).toPNG())
+  await win.webContents.executeJavaScript('document.querySelector(".content").scrollTop = 0')
+  // Profils (carte « Importer un profil ») et export d'un profil, fermé sans rien enregistrer
+  await click(L('nav.profiles'))
+  await wait(600)
+  await writeFile(join(dir, 'nuit-profils.png'), (await snap()).toPNG())
+  await win.webContents.executeJavaScript(`document.querySelector('.profile-card__actions .secondary')?.click()`)
+  await wait(800)
+  await click(L('editor.export'))
+  await wait(400)
+  await win.webContents.executeJavaScript(`document.querySelector('.export-box')?.scrollIntoView({ block: 'center' })`)
+  await wait(300)
+  await writeFile(join(dir, 'nuit-profil-export.png'), (await snap()).toPNG())
+  await win.webContents.executeJavaScript(`document.querySelector('.overlay')?.click()`)
+  await wait(400)
   // Créations (si ALORIA_CAPTURE_PACK est défini) : un pack de test installé dans les profils d'auto-test 26.3 et 1.8.9
   if (process.env.ALORIA_CAPTURE_PACK) {
     await click(L('nav.creations'))
