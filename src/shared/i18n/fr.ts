@@ -83,6 +83,8 @@ export const fr = {
   'settings.discordServer': 'Montrer le serveur (ex. « Sur donutsmp.net ») ou « En solo »',
   'settings.discordProfile': 'Montrer le nom du profil',
   'settings.discordVersion': 'Montrer la version (ex. « Fabric 26.2 »)',
+  'settings.gpu': 'Carte graphique dédiée',
+  'settings.gpuHint': 'Sur les PC à deux cartes graphiques (souvent les portables), lance le jeu sur la plus puissante. Désactive-le si le jeu ne démarre plus.',
   'settings.ram': 'Mémoire par défaut',
   'settings.ramHint':
     '{ram} sur {total} disponibles, utilisée par les profils sans réglage propre. 4 Go suffisent en vanilla, prévois-en 6 à 8 avec beaucoup de mods ou des shaders.',

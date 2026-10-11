@@ -36,6 +36,8 @@ const api = {
     close: () => ipcRenderer.send('window:close')
   },
   getVersion: (): Promise<string> => ipcRenderer.invoke('app:version'),
+  /** Système (« win32 », « linux »…) : certains réglages n'existent que sous Linux */
+  platform: process.platform,
   /** Disposition du clavier (code physique → caractère), pour convertir les touches des anciennes versions */
   keyboardLayout: (layout: Record<string, string>) => ipcRenderer.send('keyboard:layout', layout),
   updater: {

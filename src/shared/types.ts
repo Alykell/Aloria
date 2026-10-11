@@ -90,6 +90,8 @@ export interface Settings {
   discordShowServer: boolean
   /** Nom affiché pendant une partie : « Joue à Aloria Client » ou « Joue à Minecraft » */
   discordGameName: DiscordGameName
+  /** Linux : lancer le jeu sur la carte graphique dédiée des PC qui en ont deux (portables NVIDIA / AMD) */
+  dedicatedGpu: boolean
   /** Langue du launcher ; absente tant qu'elle n'a pas été choisie (premier lancement) */
   language?: Lang
 }

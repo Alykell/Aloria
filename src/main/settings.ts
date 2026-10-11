@@ -13,7 +13,8 @@ const DEFAULTS: Settings = {
   discordShowProfile: true,
   discordShowVersion: true,
   discordShowServer: true,
-  discordGameName: 'aloria'
+  discordGameName: 'aloria',
+  dedicatedGpu: true
 }
 
 export function getSettings(): Settings {

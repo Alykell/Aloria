@@ -138,6 +138,17 @@ async function patchAtlas(
   return c.toDataURL('image/png')
 }
 
+/**
+ * Case de la seconde main (29×24, depuis la 1.9) tirée de la hotbar du pack : sa première case (22×22, bords compris),
+ * collée à gauche (main gauche) ou à droite (main droite), une ligne sous le haut comme celle du jeu.
+ */
+async function offhandSlot(hotbar: string, scale: number, side: 'left' | 'right'): Promise<string> {
+  const img = await loadImage(hotbar)
+  const [c, g] = canvas(29 * scale, 24 * scale)
+  g.drawImage(img, 0, 0, 22 * scale, 22 * scale, side === 'left' ? 0 : 7 * scale, scale, 22 * scale, 22 * scale)
+  return c.toDataURL('image/png')
+}
+
 /** Fichiers du pack pour une version (chemin dans le zip → PNG), seulement pour les éléments modifiés */
 export async function packFiles(pack: PackInfo, v: PackVanilla): Promise<Record<string, string>> {
   const img = pack.images
@@ -145,7 +156,11 @@ export async function packFiles(pack: PackInfo, v: PackVanilla): Promise<Record<
   const files: Record<string, string> = {}
   if (v.layout === 'sprites') {
     if (img.crosshair) files[`${T}gui/sprites/hud/crosshair.png`] = img.crosshair
-    if (img.hotbar) files[`${T}gui/sprites/hud/hotbar.png`] = img.hotbar
+    if (img.hotbar) {
+      files[`${T}gui/sprites/hud/hotbar.png`] = img.hotbar
+      files[`${T}gui/sprites/hud/hotbar_offhand_left.png`] = await offhandSlot(img.hotbar, s, 'left')
+      files[`${T}gui/sprites/hud/hotbar_offhand_right.png`] = await offhandSlot(img.hotbar, s, 'right')
+    }
     if (img.hotbar_selection) files[`${T}gui/sprites/hud/hotbar_selection.png`] = await crop(img.hotbar_selection, 0, 0, 24 * s, 23 * s)
     for (const [key, p] of Object.entries(ICONS) as [PackElement, { sprite: string }][]) {
       const image = img[key]
@@ -162,6 +177,13 @@ export async function packFiles(pack: PackInfo, v: PackVanilla): Promise<Record<
     if (icons.length && v.atlases.icons) files[`${T}gui/icons.png`] = await patchAtlas(v.atlases.icons, s, icons)
     const widgets = [
       ...(img.hotbar ? [{ image: img.hotbar, x: 0, y: 0, w: 182, h: 22 }] : []),
+      // Cases de la seconde main (zone vide en 1.8.9 : sans effet)
+      ...(img.hotbar
+        ? [
+            { image: await offhandSlot(img.hotbar, s, 'left'), x: 24, y: 22, w: 29, h: 24 },
+            { image: await offhandSlot(img.hotbar, s, 'right'), x: 53, y: 22, w: 29, h: 24 }
+          ]
+        : []),
       ...(img.hotbar_selection ? [{ image: img.hotbar_selection, x: 0, y: 22, w: 24, h: 24 }] : [])
     ]
     if (widgets.length && v.atlases.widgets) files[`${T}gui/widgets.png`] = await patchAtlas(v.atlases.widgets, s, widgets)

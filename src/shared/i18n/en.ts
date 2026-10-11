@@ -85,6 +85,8 @@ export const en: Record<keyof typeof fr, string> = {
   'settings.discordServer': 'Show the server (e.g. “On donutsmp.net”) or “Singleplayer”',
   'settings.discordProfile': 'Show the profile name',
   'settings.discordVersion': 'Show the version (e.g. “Fabric 26.2”)',
+  'settings.gpu': 'Dedicated graphics card',
+  'settings.gpuHint': 'On PCs with two graphics cards (often laptops), runs the game on the more powerful one. Turn it off if the game no longer starts.',
   'settings.ram': 'Default memory',
   'settings.ramHint':
     '{ram} out of {total} available, used by profiles without their own setting. 4 GB is enough for vanilla; plan 6 to 8 with lots of mods or shaders.',

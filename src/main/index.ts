@@ -51,6 +51,16 @@ function createWindow(): BrowserWindow {
 
   win.once('ready-to-show', () => win.show())
 
+  // L'interface grandit avec la fenêtre au-delà de 1280×800 (taille logique, échelle du système déjà comprise) :
+  // sur un grand écran à 100 % (fréquent sous Linux), une fenêtre agrandie ne garde plus des boutons minuscules
+  const fitZoom = () => {
+    const [w, h] = win.getContentSize()
+    const zoom = Math.min(1.5, Math.max(1, Math.min(w / 1280, h / 800)))
+    win.webContents.setZoomFactor(Math.round(zoom * 20) / 20)
+  }
+  win.on('resize', fitZoom)
+  win.webContents.on('did-finish-load', fitZoom)
+
   // Fermer la fenêtre pendant une partie la cache seulement : le statut Discord et la récupération
   // des réglages continuent, et le launcher quitte quand le jeu se ferme
   win.on('close', (event) => {

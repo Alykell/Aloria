@@ -76,7 +76,7 @@ async function downloadOne(task: DownloadTask): Promise<number> {
 export async function downloadAll(
   tasks: DownloadTask[],
   onProgress: (p: DownloadProgress) => void,
-  concurrency = 16
+  concurrency = 32
 ): Promise<void> {
   const progress: DownloadProgress = {
     doneFiles: 0,

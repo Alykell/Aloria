@@ -113,6 +113,18 @@ export default function SettingsPage({ state: { settings, systemRamMb, update } 
         )}
       </div>
 
+      {window.aloria.platform === 'linux' && (
+        <div className="card">
+          <label className="card__row toggle">
+            <div>
+              <strong>{t('settings.gpu')}</strong>
+              <p>{t('settings.gpuHint')}</p>
+            </div>
+            <input type="checkbox" checked={settings.dedicatedGpu} onChange={(e) => update({ dedicatedGpu: e.target.checked })} />
+          </label>
+        </div>
+      )}
+
       <div className="card">
         <div className="card__row">
           <div>

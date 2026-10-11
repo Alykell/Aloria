@@ -1,8 +1,9 @@
 import { spawn, type ChildProcess } from 'node:child_process'
-import { closeSync, openSync } from 'node:fs'
+import { closeSync, existsSync, openSync, readdirSync } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import { delimiter, join } from 'node:path'
 import { paths } from './paths'
+import { getSettings } from '../settings'
 import { rulesAllow, type Features } from './rules'
 import type { InstalledVersion } from './install'
 import type { Argument } from './versions'
@@ -85,6 +86,25 @@ export function buildArguments(opts: LaunchOptions): string[] {
 }
 
 /**
+ * Linux : sur les PC à deux cartes graphiques, le jeu part sur la carte intégrée si on ne demande rien (Windows, lui,
+ * choisit seul). Pilote NVIDIA : « PRIME render offload » ; sinon (Mesa, AMD/Intel) DRI_PRIME, seulement s'il y a
+ * plusieurs cartes. Sans effet sur un PC à une seule carte.
+ */
+function gpuEnv(): Record<string, string> {
+  if (process.platform !== 'linux' || !getSettings().dedicatedGpu) return {}
+  if (existsSync('/proc/driver/nvidia/version')) {
+    return { __NV_PRIME_RENDER_OFFLOAD: '1', __GLX_VENDOR_LIBRARY_NAME: 'nvidia', __VK_LAYER_NV_optimus: 'NVIDIA_only' }
+  }
+  try {
+    const cards = readdirSync('/sys/class/drm').filter((d) => /^card\d+$/.test(d))
+    if (cards.length > 1) return { DRI_PRIME: '1' }
+  } catch {
+    // Pas de /sys/class/drm (conteneur…) : rien à choisir
+  }
+  return {}
+}
+
+/**
  * Lance le jeu comme processus indépendant : il continue même si le launcher est fermé.
  * Sa sortie va dans logs/aloria-launch.log (un tuyau vers le launcher casserait à sa fermeture).
  */
@@ -96,6 +116,7 @@ export async function launchGame(opts: LaunchOptions): Promise<{ child: ChildPro
   try {
     const child = spawn(opts.installed.javaPath, buildArguments(opts), {
       cwd: opts.gameDir,
+      env: { ...process.env, ...gpuEnv() },
       windowsHide: false,
       detached: true,
       stdio: ['ignore', fd, fd]
