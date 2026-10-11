@@ -9,6 +9,8 @@ import { getSettings } from '../settings'
 import { hudJvmArgs, syncAloriaHud } from './aloriaHud'
 import { installFabric } from './fabric'
 import { installForge } from './forge'
+import { installNeoForge } from './neoforge'
+import type { InstallerStep } from './processors'
 import { installVersion } from './install'
 import { launchGame } from './launch'
 import { getManifest, loadVersion, resolveVersionId } from './versions'
@@ -16,7 +18,7 @@ import { applyShared, collectShared } from '../shared/sync'
 import type { GameExit, GameStatus, VersionEntry } from '../../shared/types'
 import { tm } from '../i18n'
 
-const LOADER_NAMES = { vanilla: 'Minecraft', fabric: 'Fabric', forge: 'Forge' } as const
+const LOADER_NAMES = { vanilla: 'Minecraft', fabric: 'Fabric', forge: 'Forge', neoforge: 'NeoForge' } as const
 
 let status: GameStatus = { state: 'idle' }
 let target: WebContents | null = null
@@ -73,9 +75,21 @@ export async function play(sender: WebContents, profileId: string): Promise<void
     if (profile.loader === 'fabric') {
       setStatus({ state: 'preparing', label: tm('status.fabric') })
       versionId = await installFabric(gameVersion, profile.loaderVersion)
-    } else if (profile.loader === 'forge') {
-      setStatus({ state: 'preparing', label: tm('status.forge') })
-      versionId = await installForge(gameVersion, profile.loaderVersion)
+    } else if (profile.loader === 'forge' || profile.loader === 'neoforge') {
+      // Première fois en Forge récent / NeoForge : téléchargements puis « processors » (jeu patché), une minute environ
+      const name = LOADER_NAMES[profile.loader]
+      const onStep = (s: InstallerStep) => {
+        if (s.step === 'download') {
+          setStatus({ state: 'downloading', doneFiles: s.doneFiles, totalFiles: s.totalFiles, doneBytes: s.doneBytes, totalBytes: s.totalBytes })
+        } else if (s.step === 'processors') {
+          setStatus({ state: 'preparing', label: tm('status.loaderProcessors', { loader: name, done: Math.min(s.done + 1, s.total), total: s.total }) })
+        } else setStatus({ state: 'preparing', label: tm('status.loader', { loader: name }) })
+      }
+      onStep({ step: 'prepare' })
+      versionId =
+        profile.loader === 'forge'
+          ? await installForge(gameVersion, profile.loaderVersion, onStep)
+          : await installNeoForge(gameVersion, profile.loaderVersion, onStep)
     }
     const version = await loadVersion(versionId)
     const gameDir = gameDirOf(profile.id)

@@ -132,6 +132,7 @@ const api = {
     play: (profileId: string): Promise<Result<null>> => ipcRenderer.invoke('game:play', profileId),
     fabricLoaders: (gameVersion: string): Promise<Result<LoaderVersion[]>> => ipcRenderer.invoke('fabric:loaders', gameVersion),
     forgeLoaders: (gameVersion: string): Promise<Result<LoaderVersion[]>> => ipcRenderer.invoke('forge:loaders', gameVersion),
+    neoforgeLoaders: (gameVersion: string): Promise<Result<LoaderVersion[]>> => ipcRenderer.invoke('neoforge:loaders', gameVersion),
     onStatus: (cb: (s: GameStatus) => void) => subscribe('game:status', cb),
     onExit: (cb: (e: GameExit) => void) => subscribe('game:exit', cb)
   }

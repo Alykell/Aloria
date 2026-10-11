@@ -26,5 +26,6 @@ export function describeProfile(p: Pick<Profile, 'versionId' | 'loader'>): strin
       : p.versionId === 'latest-snapshot'
         ? t('profiles.latestSnapshot')
         : p.versionId
-  return p.loader === 'fabric' ? `Fabric · ${version}` : p.loader === 'forge' ? `Forge · ${version}` : version
+  const loader = { fabric: 'Fabric', forge: 'Forge', neoforge: 'NeoForge', vanilla: '' }[p.loader]
+  return loader ? `${loader} · ${version}` : version
 }

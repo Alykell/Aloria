@@ -52,8 +52,13 @@ Données du jeu : `%APPDATA%\.aloria` (profils, instances, `shared/` = serveurs 
 - Auto-test : profil `selftest189forge` (OptiFine M5 dans ses mods, pour vérifier la compatibilité) ; `selftest1122forge` = Forge seul.
 
 ## Forge dans le launcher
-- `src/main/game/forge.ts` : jusqu'à la 1.12.2 (installeur sans « processors ») ; JSON de version + jar de Forge extrait
-  de l'installeur, id `forge-<version maven>`. Proposé en premier avant Sodium/Iris (`src/shared/loaders.ts`).
+- `src/main/game/forge.ts` : jusqu'à la 1.12.2, JSON de version + jar de Forge extrait de l'installeur ; à partir de la
+  1.13, installeur récent exécuté par `processors.ts` (comme NeoForge). Id `forge-<version maven>`. Proposé en premier
+  avant Sodium/Iris (`prefersForge`, `src/shared/loaders.ts`).
+- NeoForge (1.20.2+) : `src/main/game/neoforge.ts` (« 21.1.259 » → 1.21.1, « 26.3.0.75 » → 26.3), id `neoforge-<version>`.
+  `processors.ts` fait tourner les « processors » de l'installeur (jeu patché) avec le Java de la version : ~1 min la première fois.
+  Le jar vanilla est copié sous `versions/<id>/<id>.jar` (`-DignoreList=…${version_name}.jar`). Pas d'Aloria HUD en NeoForge.
+- Auto-tests : `selftestneo1211` (NeoForge 1.21.1), `selftestforge1201` (Forge 1.20.1), en démo comme les autres.
 - OptiFine n'est pas redistribuable : le joueur le télécharge, « Ajouter OptiFine » (bibliothèque) le range dans `mods`.
 
 ## Créations (packs de textures, page « Créations »)

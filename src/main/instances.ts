@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path'
 import AdmZip from 'adm-zip'
 import { createProfile, deleteProfile, gameDirOf, getProfile } from './profiles'
 import { forgeVersion, safeJoin } from './modrinth/modpack'
-import { forgeSupported } from '../shared/loaders'
+import { forgeSupported, neoforgeSupported } from '../shared/loaders'
 import type { ExportOptions, Loader, Profile, ProfileInput } from '../shared/types'
 import { tm } from './i18n'
 
@@ -61,6 +61,7 @@ const entryText = (zip: AdmZip, path: string) => zip.getEntry(path)?.getData().t
 /** Vérifie que le chargeur est géré par Aloria et convertit la version de Forge au format du launcher */
 async function loaderInput(gameVersion: string, loader: string, version: string | null): Promise<Pick<ProfileInput, 'loader' | 'loaderVersion'>> {
   if (loader === 'vanilla' || loader === 'fabric') return { loader, loaderVersion: version }
+  if (loader === 'neoforge' && neoforgeSupported(gameVersion)) return { loader, loaderVersion: version }
   if (loader === 'forge') {
     if (!forgeSupported(gameVersion)) throw new Error(tm('err.modpackForge', { version: gameVersion }))
     return { loader, loaderVersion: version ? await forgeVersion(gameVersion, version) : null }
@@ -85,9 +86,11 @@ async function detect(zip: AdmZip, fallbackName: string): Promise<Detected> {
     const version = (uid: string) => components.find((c) => c.uid === uid)?.version ?? null
     const gameVersion = version('net.minecraft')
     if (!gameVersion) throw new Error(tm('err.instanceUnknown', { name: fallbackName }))
-    const other = version('net.neoforged') ? 'NeoForge' : version('org.quiltmc.quilt-loader') ? 'Quilt' : null
-    const loader = other ?? (version('net.fabricmc.fabric-loader') ? 'fabric' : version('net.minecraftforge') ? 'forge' : 'vanilla')
-    const loaderVersion = version('net.fabricmc.fabric-loader') ?? version('net.minecraftforge')
+    const other = version('org.quiltmc.quilt-loader') ? 'Quilt' : null
+    const loader =
+      other ??
+      (version('net.fabricmc.fabric-loader') ? 'fabric' : version('net.neoforged') ? 'neoforge' : version('net.minecraftforge') ? 'forge' : 'vanilla')
+    const loaderVersion = version('net.fabricmc.fabric-loader') ?? version('net.neoforged') ?? version('net.minecraftforge')
     const cfgName = entryText(zip, `${base}instance.cfg`)?.match(/^name=(.*)$/m)?.[1]?.trim()
     const root = names.some((n) => n.startsWith(`${base}.minecraft/`)) ? `${base}.minecraft/` : `${base}minecraft/`
     return {

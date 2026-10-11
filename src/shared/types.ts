@@ -125,7 +125,7 @@ export interface GameExit {
   crashLog: string | null
 }
 
-export type Loader = 'vanilla' | 'fabric' | 'forge'
+export type Loader = 'vanilla' | 'fabric' | 'forge' | 'neoforge'
 
 export interface LoaderVersion {
   version: string

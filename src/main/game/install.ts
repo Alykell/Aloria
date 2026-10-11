@@ -161,6 +161,17 @@ export async function installVersion(
   const missing = await filterMissing(tasks)
   if (missing.length > 0) await downloadAll(missing, (p) => onStep({ step: 'download', ...p }))
 
+  // Forge récent et NeoForge reconnaissent le jeu à son nom de fichier (-DignoreList=…,${version_name}.jar) :
+  // le jar vanilla doit porter le nom de leur version, comme le fait le launcher officiel
+  let gameJar = clientPath
+  if (version.id !== clientId && JSON.stringify(version.arguments?.jvm ?? []).includes('${version_name}.jar')) {
+    gameJar = paths.versionJar(version.id)
+    if (!existsSync(gameJar) || statSync(gameJar).size !== statSync(clientPath).size) {
+      await mkdir(dirname(gameJar), { recursive: true })
+      await copyFile(clientPath, gameJar)
+    }
+  }
+
   onStep({ step: 'extract' })
   const nativesDir = paths.natives(version.id)
   await mkdir(nativesDir, { recursive: true })
@@ -170,7 +181,7 @@ export async function installVersion(
   return {
     version,
     javaPath: java.executable,
-    classpath: [...libs.classpath, clientPath],
+    classpath: [...libs.classpath, gameJar],
     nativesDir,
     assetsRoot: paths.assets,
     legacyAssetsDir,

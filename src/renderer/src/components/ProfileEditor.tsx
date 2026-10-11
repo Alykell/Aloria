@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useVersions } from '../hooks/useVersions'
 import { hudAvailable, hudVersionsLabel } from '../../../shared/aloriaHud'
-import { forgeSupported, prefersForge } from '../../../shared/loaders'
+import { forgeSupported, neoforgeSupported, prefersForge } from '../../../shared/loaders'
 import type { Loader, LoaderVersion, Profile, ProfileInput, SettingsPreset } from '../../../shared/types'
 import Select from './Select'
 import { gb, presetName, t } from '../i18n'
@@ -19,7 +19,7 @@ interface Props {
   onClose: () => void
 }
 
-const LOADER_LABELS: Record<Loader, string> = { fabric: 'Fabric', forge: 'Forge', vanilla: 'Vanilla' }
+const LOADER_LABELS: Record<Loader, string> = { fabric: 'Fabric', forge: 'Forge', neoforge: 'NeoForge', vanilla: 'Vanilla' }
 
 const EMPTY: ProfileInput = {
   name: '',
@@ -72,18 +72,24 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
     setLoaderChosen(true)
     set({ loader, loaderVersion: null })
   }
-  // Forge n'est proposé que là où Aloria sait l'installer, et il y passe alors en premier
-  const loaderOrder: Loader[] = forgeAvailable
-    ? ['forge', 'fabric', 'vanilla']
-    : form.loader === 'forge'
-      ? ['fabric', 'forge', 'vanilla']
-      : ['fabric', 'vanilla']
+  // Forge passe en premier pour les anciennes versions (OptiFine), Fabric ensuite ; NeoForge à partir de la 1.20.2
+  const neoforgeAvailable = !!gameVersion && neoforgeSupported(gameVersion)
+  const loaderOrder: Loader[] = (
+    gameVersion && prefersForge(gameVersion)
+      ? ['forge', 'fabric', 'vanilla']
+      : ['fabric', ...(neoforgeAvailable || form.loader === 'neoforge' ? ['neoforge' as const] : []), ...(forgeAvailable || form.loader === 'forge' ? ['forge' as const] : []), 'vanilla']
+  ) as Loader[]
 
   // Versions du chargeur disponibles pour la version du jeu choisie
   useEffect(() => {
     if (form.loader === 'vanilla' || !gameVersion) return
     setLoaders(null)
-    const list = form.loader === 'forge' ? window.aloria.game.forgeLoaders(gameVersion) : window.aloria.game.fabricLoaders(gameVersion)
+    const list =
+      form.loader === 'forge'
+        ? window.aloria.game.forgeLoaders(gameVersion)
+        : form.loader === 'neoforge'
+          ? window.aloria.game.neoforgeLoaders(gameVersion)
+          : window.aloria.game.fabricLoaders(gameVersion)
     // Une réponse arrivée après un changement de chargeur ou de version est ignorée (sinon Fabric écrasait Forge)
     let current = true
     list.then((res) => current && setLoaders(res.ok ? res.value : []))
@@ -92,7 +98,7 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
     }
   }, [form.loader, gameVersion])
 
-  const loaderName = form.loader === 'forge' ? 'Forge' : 'Fabric'
+  const loaderName = LOADER_LABELS[form.loader]
   const loaderUnavailable = form.loader !== 'vanilla' && loaders !== null && loaders.length === 0
   const canSave = form.name.trim().length > 0 && !loaderUnavailable && !saving
 
@@ -154,7 +160,7 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
           </div>
         </div>
 
-        {form.loader !== 'vanilla' && (
+        {(form.loader === 'fabric' || form.loader === 'forge') && (
           <label className="toggle-line hud-toggle">
             <input
               type="checkbox"
@@ -167,7 +173,7 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
           </label>
         )}
 
-        {form.loader !== 'vanilla' && form.aloriaHud !== false && gameVersion && !hudAvailable(form.loader, gameVersion) && (
+        {(form.loader === 'fabric' || form.loader === 'forge') && form.aloriaHud !== false && gameVersion && !hudAvailable(form.loader, gameVersion) && (
           <small className="warning">
             {t('editor.hudMissing', {
               versions: hudVersionsLabel(form.loader, t('common.and')),

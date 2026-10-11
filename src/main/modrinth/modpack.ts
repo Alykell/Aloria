@@ -7,7 +7,7 @@ import { inflateRawSync } from 'node:zlib'
 import { downloadAll } from '../game/download'
 import { forgeLoaders } from '../game/forge'
 import { createProfile, deleteProfile, gameDirOf } from '../profiles'
-import { forgeSupported } from '../../shared/loaders'
+import { forgeSupported, neoforgeSupported } from '../../shared/loaders'
 import { getProject, getProjects, getVersion, listVersions, versionsByHash } from './api'
 import type { ContentType, ModpackEntry, ModpackPreview, ModpackProgress, ModpackSource, ModpackVersion, Profile } from '../../shared/types'
 import { tm } from '../i18n'
@@ -54,7 +54,10 @@ export async function modpackVersions(projectId: string): Promise<ModpackVersion
     gameVersions: v.game_versions,
     loaders: v.loaders,
     stable: v.version_type === 'release',
-    supported: v.loaders.includes('fabric') || (v.loaders.includes('forge') && v.game_versions.some(forgeSupported))
+    supported:
+      v.loaders.includes('fabric') ||
+      (v.loaders.includes('forge') && v.game_versions.some(forgeSupported)) ||
+      (v.loaders.includes('neoforge') && v.game_versions.some(neoforgeSupported))
   }))
 }
 
@@ -161,7 +164,14 @@ function loaderOf(index: MrpackIndex): { loader: string; loaderVersion: string |
       unsupported: forgeSupported(gameVersion) ? null : tm('err.modpackForge', { version: gameVersion })
     }
   }
-  const other = deps['neoforge'] ? 'NeoForge' : deps['quilt-loader'] ? 'Quilt' : null
+  if (deps.neoforge) {
+    return {
+      loader: 'neoforge',
+      loaderVersion: deps.neoforge,
+      unsupported: neoforgeSupported(gameVersion) ? null : tm('err.modpackLoader', { loader: 'NeoForge' })
+    }
+  }
+  const other = deps['quilt-loader'] ? 'Quilt' : null
   if (other) return { loader: other.toLowerCase(), loaderVersion: null, unsupported: tm('err.modpackLoader', { loader: other }) }
   return { loader: 'vanilla', loaderVersion: null, unsupported: null }
 }

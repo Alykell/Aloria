@@ -11,14 +11,18 @@ import { tm } from '../i18n'
 import { isInstanceZip } from '../instances'
 
 const FOLDERS: Record<ContentType, string> = { mod: 'mods', resourcepack: 'resourcepacks', shader: 'shaderpacks' }
-/** Chargeur Modrinth du contenu : mods du chargeur du profil, shaders pour Iris (Fabric) ou OptiFine (Forge) */
+/** Chargeur Modrinth du contenu : mods du chargeur du profil, shaders pour Iris (Fabric, NeoForge) ou OptiFine (Forge) */
 export function modrinthLoaders(type: ContentType, loader: Loader): string[] {
   if (type === 'resourcepack') return ['minecraft']
   if (type === 'shader') return loader === 'forge' ? ['optifine'] : ['iris']
-  return [loader === 'forge' ? 'forge' : 'fabric']
+  return [loader === 'vanilla' ? 'fabric' : loader]
 }
+
+/** Iris existe pour Fabric et NeoForge : il est ajouté avec les shaders */
+const usesIris = (loader: Loader) => loader === 'fabric' || loader === 'neoforge'
 const EXTENSIONS: Record<ContentType, string[]> = { mod: ['.jar'], resourcepack: ['.zip'], shader: ['.zip'] }
 const IRIS_PROJECT = 'YL57xq9U'
+const LOADER_NAMES: Record<Loader, string> = { vanilla: 'Minecraft', fabric: 'Fabric', forge: 'Forge', neoforge: 'NeoForge' }
 const DISABLED = '.disabled'
 
 type IndexEntry = Omit<InstalledContent, 'fileName' | 'enabled'>
@@ -82,7 +86,7 @@ function requireModLoader(ctx: Context, type: ContentType): void {
 
 export async function searchContent(q: SearchQuery): Promise<{ hits: SearchHit[]; total: number; gameVersion: string }> {
   const { gameVersion, profile } = await context(q.profileId)
-  const loaders = q.type === 'modpack' ? ['fabric', 'forge'] : modrinthLoaders(q.type, profile.loader)
+  const loaders = q.type === 'modpack' ? ['fabric', 'neoforge', 'forge'] : modrinthLoaders(q.type, profile.loader)
   return { ...(await search(q, gameVersion, loaders)), gameVersion }
 }
 
@@ -187,7 +191,7 @@ export async function installContent(profileId: string, projectId: string, type:
   try {
     await installOne(ctx, index, projectId, type, false, null, visited)
     // Les shaders ont besoin d'Iris (qui amène Sodium) ; sous Forge, c'est OptiFine, ajouté à la main
-    if (type === 'shader' && ctx.profile.loader === 'fabric') await installOne(ctx, index, IRIS_PROJECT, 'mod', true, null, visited)
+    if (type === 'shader' && usesIris(ctx.profile.loader)) await installOne(ctx, index, IRIS_PROJECT, 'mod', true, null, visited)
   } finally {
     // On garde la trace de ce qui a pu être installé, même en cas d'erreur en cours de route
     await writeIndex(ctx.gameDir, index)
@@ -248,11 +252,12 @@ function modInfo(zip: AdmZip): { loader: Loader | null; title?: string; version?
       return { loader: 'fabric' }
     }
   }
-  const toml = text('META-INF/mods.toml') ?? text('META-INF/neoforge.mods.toml')
+  const neo = text('META-INF/neoforge.mods.toml')
+  const toml = neo ?? text('META-INF/mods.toml')
   if (toml) {
     const field = (key: string) => toml.match(new RegExp(`^\\s*${key}\\s*=\\s*"([^"]*)"`, 'm'))?.[1]
     const version = field('version')
-    return { loader: 'forge', title: field('displayName'), version: version?.includes('$') ? undefined : version }
+    return { loader: neo ? 'neoforge' : 'forge', title: field('displayName'), version: version?.includes('$') ? undefined : version }
   }
   const mcmod = text('mcmod.info')
   if (mcmod) {
@@ -329,17 +334,19 @@ export async function importFiles(profileId: string, paths: string[]): Promise<I
         type = 'mod'
         requireModLoader(ctx, type)
         const info = modInfo(zip)
-        // Un mod Fabric dans un profil Forge (ou l'inverse) ferait planter le jeu au lancement
-        if (info.loader && info.loader !== ctx.profile.loader) {
-          throw new Error(tm('err.importWrongLoader', { name, loader: info.loader === 'fabric' ? 'Fabric' : 'Forge' }))
-        }
+        // Un mod Fabric dans un profil Forge (ou l'inverse) ferait planter le jeu au lancement. Forge et NeoForge
+        // restent proches (mods.toml) : on ne bloque qu'un mod NeoForge récent dans un profil Forge
+        const wrong =
+          !!info.loader &&
+          ((info.loader === 'fabric') !== (ctx.profile.loader === 'fabric') || (info.loader === 'neoforge' && ctx.profile.loader === 'forge'))
+        if (wrong) throw new Error(tm('err.importWrongLoader', { name, loader: LOADER_NAMES[info.loader!] }))
         meta = { type, title: info.title || name.replace(/\.jar$/i, ''), versionNumber: info.version }
       } else {
         const detected = detectType(zip, isDir ? path : null)
         if (!detected) throw new Error(tm('err.importUnknown', { name }))
         type = detected
         if (type === 'shader') requireModLoader(ctx, type)
-        if (type === 'shader' && ctx.profile.loader === 'fabric') needIris = true
+        if (type === 'shader' && usesIris(ctx.profile.loader)) needIris = true
       }
 
       const dir = join(ctx.gameDir, FOLDERS[type])

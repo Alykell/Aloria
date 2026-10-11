@@ -32,7 +32,7 @@ async function bundledJar(gameVersion: string, forge: boolean): Promise<string |
   return null
 }
 
-export const hudEnabled = (profile: Profile) => profile.loader !== 'vanilla' && profile.aloriaHud !== false
+export const hudEnabled = (profile: Profile) => (profile.loader === 'fabric' || profile.loader === 'forge') && profile.aloriaHud !== false
 
 /**
  * Met le mod dans le dossier mods du profil (avec Fabric API) ou l'en retire selon le réglage du profil.

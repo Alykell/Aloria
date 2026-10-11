@@ -6,14 +6,15 @@ import { fetchJson } from './download'
 import { mavenPath } from './install'
 import { paths } from './paths'
 import type { Library, VersionJson } from './versions'
+import { runModernInstaller, type InstallerStep, type ModernInstallProfile } from './processors'
 import { forgeSupported } from '../../shared/loaders'
 import type { LoaderVersion } from '../../shared/types'
 import { tm } from '../i18n'
 
 /**
- * Forge, pour les anciennes versions où l'on joue avec OptiFine (ni Sodium ni Iris avant 1.16.5).
- * Jusqu'à la 1.12.2, l'installeur de Forge se contente de copier son jar et d'écrire un JSON de version :
- * on refait ces deux étapes nous-mêmes. À partir de la 1.13, il recompile le jeu (« processors ») : pas encore géré.
+ * Forge : anciennes versions où l'on joue avec OptiFine (ni Sodium ni Iris avant 1.16.5), et versions récentes
+ * (modpacks). Jusqu'à la 1.12.2, l'installeur se contente de copier son jar et d'écrire un JSON de version : on refait
+ * ces deux étapes nous-mêmes. À partir de la 1.13, il recompile le jeu (« processors ») : voir processors.ts.
  */
 const MAVEN = 'https://maven.minecraftforge.net/'
 const FORGE_MAVEN = `${MAVEN}net/minecraftforge/forge/`
@@ -56,11 +57,6 @@ interface LegacyInstallProfile {
   versionInfo: Omit<VersionJson, 'libraries'> & { libraries: LegacyLibrary[] }
 }
 
-interface InstallProfile {
-  json: string
-  processors?: unknown[]
-}
-
 function extract(zip: AdmZip, entry: string, to: string): Promise<void> {
   const data = zip.getEntry(entry.replace(/^\//, ''))?.getData()
   if (!data) throw new Error(tm('err.forgeIncomplete', { entry }))
@@ -71,7 +67,11 @@ function extract(zip: AdmZip, entry: string, to: string): Promise<void> {
  * Installe Forge (JSON de version héritant de la version vanilla + jar de Forge) et renvoie l'id du profil.
  * Sans version imposée, on prend la recommandée.
  */
-export async function installForge(gameVersion: string, loaderVersion: string | null): Promise<string> {
+export async function installForge(
+  gameVersion: string,
+  loaderVersion: string | null,
+  onStep: (s: InstallerStep) => void = () => {}
+): Promise<string> {
   if (!forgeSupported(gameVersion)) throw new Error(tm('err.forgeUnsupported', { version: gameVersion }))
   let full = loaderVersion
   if (!full) {
@@ -87,8 +87,9 @@ export async function installForge(gameVersion: string, loaderVersion: string | 
   // Forge demande de ne pas automatiser son installation sans le soutenir : voir le lien dans la création de profil
   const res = await fetch(`${FORGE_MAVEN}${full}/forge-${full}-installer.jar`)
   if (!res.ok) throw new Error(tm('err.forgeDownload', { version: full, status: res.status }))
-  const zip = new AdmZip(Buffer.from(await res.arrayBuffer()))
-  const profile = JSON.parse(zip.readAsText('install_profile.json')) as LegacyInstallProfile | InstallProfile
+  const installer = Buffer.from(await res.arrayBuffer())
+  const zip = new AdmZip(installer)
+  const profile = JSON.parse(zip.readAsText('install_profile.json')) as LegacyInstallProfile | ModernInstallProfile
 
   let json: VersionJson
   if ('versionInfo' in profile) {
@@ -101,13 +102,8 @@ export async function installForge(gameVersion: string, loaderVersion: string | 
     }
     await extract(zip, profile.install.filePath, join(paths.libraries, mavenPath(profile.install.path)))
   } else {
-    if (profile.processors?.length) throw new Error(tm('err.forgeProcessors', { version: full }))
-    // Installeur récent sans compilation : JSON à part, jars de Forge rangés dans maven/ de l'installeur
-    json = JSON.parse(zip.readAsText(profile.json.replace(/^\//, ''))) as VersionJson
-    for (const lib of json.libraries) {
-      const artifact = lib.downloads?.artifact
-      if (artifact && !artifact.url) await extract(zip, `maven/${artifact.path ?? mavenPath(lib.name)}`, join(paths.libraries, artifact.path ?? mavenPath(lib.name)))
-    }
+    // Installeur récent : JSON à part, jars de Forge dans maven/ de l'installeur, jeu patché par les processors
+    json = await runModernInstaller(installer, profile, onStep)
   }
 
   // L'id du JSON doit correspondre à son dossier

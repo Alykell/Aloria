@@ -7,6 +7,7 @@ import { createPack, deletePack, installPack, listPacks, packVanilla, renamePack
 import { getStatus, isGameRunning, listVersions, play } from './game/controller'
 import { fabricLoaders } from './game/fabric'
 import { forgeLoaders } from './game/forge'
+import { neoforgeLoaders } from './game/neoforge'
 import { addOptiFine, importFiles, installContent, listInstalled, openContentFolder, removeContent, searchContent, setContentEnabled } from './modrinth/content'
 import { exportProfile, importInstance } from './instances'
 import { installModpack, modpackVersions, previewModpack } from './modrinth/modpack'
@@ -197,6 +198,7 @@ ipcMain.handle('profiles:import', (e, path: string | null) =>
 )
 ipcMain.handle('profiles:showFile', (_e, path: string) => shell.showItemInFolder(path))
 ipcMain.handle('fabric:loaders', (_e, gameVersion: string): Promise<Result<LoaderVersion[]>> => wrap(() => fabricLoaders(gameVersion)))
+ipcMain.handle('neoforge:loaders', (_e, gameVersion: string): Promise<Result<LoaderVersion[]>> => wrap(() => neoforgeLoaders(gameVersion)))
 ipcMain.handle('forge:loaders', (_e, gameVersion: string): Promise<Result<LoaderVersion[]>> => wrap(() => forgeLoaders(gameVersion)))
 
 ipcMain.handle('presets:list', () => listPresets())
@@ -408,6 +410,12 @@ async function captureScreens(win: BrowserWindow, dir: string): Promise<void> {
   await select('game-version', '1.8.9')
   await wait(2500)
   await writeFile(join(dir, 'nuit-profil-1.8.9.png'), (await snap()).toPNG())
+  // 1.21.1 : NeoForge proposé, avec la liste de ses versions
+  await select('game-version', '1.21.1')
+  await wait(800)
+  await click('NeoForge')
+  await wait(2500)
+  await writeFile(join(dir, 'nuit-profil-neoforge.png'), (await snap()).toPNG())
   await win.webContents.executeJavaScript(`document.querySelector('.overlay')?.click()`)
   await wait(400)
   await click(L('nav.library'))
