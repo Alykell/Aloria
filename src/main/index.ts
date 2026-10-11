@@ -439,6 +439,16 @@ async function captureScreens(win: BrowserWindow, dir: string): Promise<void> {
   await writeFile(join(dir, 'nuit-modpack-apercu.png'), (await snap()).toPNG())
   await click(L('common.cancel'))
   await wait(400)
+  // Modpack qui demande des mods CurseForge à télécharger à la main : expliqué et non installable
+  await win.webContents.executeJavaScript(`(() => { const i = document.querySelector('.search-bar input');
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, 'Better MC FORGE BMC4');
+    i.dispatchEvent(new Event('input', { bubbles: true })) })()`)
+  await wait(3000)
+  await click(L('library.view'))
+  await wait(8000)
+  await writeFile(join(dir, 'nuit-modpack-bloque.png'), (await snap()).toPNG())
+  await click(L('common.cancel'))
+  await wait(400)
   // Parties du launcher à masquer (Paramètres)
   await click(L('nav.settings'))
   await wait(600)

@@ -100,12 +100,37 @@ async function fetchRange(url: string, start: number, end: number): Promise<Buff
   return Buffer.from(await res.arrayBuffer())
 }
 
+/** Ce que l'aperçu lit d'un .mrpack : index, nombre de fichiers fournis, mods à télécharger à la main (null : aucun) */
+interface PackSummary {
+  index: MrpackIndex
+  overrides: number
+  manualMods: number | null
+}
+
+/**
+ * Modpacks qui comptent sur des mods CurseForge que Modrinth n'a pas le droit d'héberger : le mod « Missing Mods Checker »
+ * et sa liste (config/missing_mods_checker.json) font télécharger ces mods à la main, un par un, au premier lancement.
+ */
+const isCheckerList = (name: string) => /(^|\/)missing_mods_checker\.json$/i.test(name)
+const isCheckerJar = (name: string) => /(^|\/)mods\/missingmodschecker[^/]*\.jar$/i.test(name)
+
+/** Nombre de mods de la liste du vérificateur (0 si elle est illisible : on sait seulement qu'il en manque) */
+function countManual(raw: Buffer | undefined): number {
+  try {
+    const list = JSON.parse(raw?.toString('utf8') ?? '') as unknown
+    return Array.isArray(list) ? list.length : 0
+  } catch {
+    return 0
+  }
+}
+
 /**
  * Index et nombre de fichiers fournis d'un .mrpack distant, sans le télécharger en entier : on lit la fin du zip
- * (son sommaire), puis seulement modrinth.index.json. Certains modpacks pèsent plus de 100 Mo pour quelques Ko d'index.
+ * (son sommaire), puis seulement modrinth.index.json (et la liste des mods à télécharger à la main, s'il y en a une).
+ * Certains modpacks pèsent plus de 100 Mo pour quelques Ko d'index.
  * null si ce n'est pas possible (serveur, zip64…) : l'appelant télécharge alors le fichier complet.
  */
-async function remoteSummary(url: string, size: number): Promise<{ index: MrpackIndex; overrides: number } | null> {
+async function remoteSummary(url: string, size: number): Promise<PackSummary | null> {
   // Fin du sommaire (22 octets, plus un commentaire de 64 Ko au plus)
   const tailStart = Math.max(0, size - 65_557)
   const tail = await fetchRange(url, tailStart, size - 1)
@@ -118,30 +143,55 @@ async function remoteSummary(url: string, size: number): Promise<{ index: Mrpack
   const cd = cdOffset >= tailStart ? tail.subarray(cdOffset - tailStart, cdOffset - tailStart + cdSize) : await fetchRange(url, cdOffset, cdOffset + cdSize - 1)
   if (!cd) return null
 
+  type Entry = { method: number; compressedSize: number; offset: number }
   let overrides = 0
-  let indexEntry: { method: number; compressedSize: number; offset: number } | null = null
+  let indexEntry: Entry | null = null
+  let checkerList: Entry | null = null
+  let checkerJar = false
   for (let p = 0; p + 46 <= cd.length && cd.readUInt32LE(p) === 0x02014b50; ) {
     const nameLen = cd.readUInt16LE(p + 28)
     const name = cd.toString('utf8', p + 46, p + 46 + nameLen)
-    if (name === 'modrinth.index.json') {
-      indexEntry = { method: cd.readUInt16LE(p + 10), compressedSize: cd.readUInt32LE(p + 20), offset: cd.readUInt32LE(p + 42) }
-    } else if (!name.endsWith('/') && OVERRIDES.some((o) => name.startsWith(o))) overrides++
+    const entry = { method: cd.readUInt16LE(p + 10), compressedSize: cd.readUInt32LE(p + 20), offset: cd.readUInt32LE(p + 42) }
+    if (name === 'modrinth.index.json') indexEntry = entry
+    else if (!name.endsWith('/') && OVERRIDES.some((o) => name.startsWith(o))) {
+      overrides++
+      if (isCheckerList(name)) checkerList = entry
+      if (isCheckerJar(name)) checkerJar = true
+    }
     p += 46 + nameLen + cd.readUInt16LE(p + 30) + cd.readUInt16LE(p + 32)
   }
   if (!indexEntry) return null
 
   // En-tête local (30 octets + nom + extra) puis les données compressées
-  const head = await fetchRange(url, indexEntry.offset, indexEntry.offset + 29)
-  if (!head || head.readUInt32LE(0) !== 0x04034b50) return null
-  const start = indexEntry.offset + 30 + head.readUInt16LE(26) + head.readUInt16LE(28)
-  const data = indexEntry.compressedSize ? await fetchRange(url, start, start + indexEntry.compressedSize - 1) : Buffer.alloc(0)
-  if (!data) return null
-  const raw = indexEntry.method === 8 ? inflateRawSync(data) : data
-  return { index: JSON.parse(raw.toString('utf8')) as MrpackIndex, overrides }
+  const read = async (entry: Entry): Promise<Buffer | null> => {
+    const head = await fetchRange(url, entry.offset, entry.offset + 29)
+    if (!head || head.readUInt32LE(0) !== 0x04034b50) return null
+    const start = entry.offset + 30 + head.readUInt16LE(26) + head.readUInt16LE(28)
+    const data = entry.compressedSize ? await fetchRange(url, start, start + entry.compressedSize - 1) : Buffer.alloc(0)
+    if (!data) return null
+    return entry.method === 8 ? inflateRawSync(data) : data
+  }
+  const raw = await read(indexEntry)
+  if (!raw) return null
+  const index = JSON.parse(raw.toString('utf8')) as MrpackIndex
+  const listed = index.files.some((f) => isCheckerJar(f.path))
+  const manualMods = checkerList ? countManual((await read(checkerList)) ?? undefined) : checkerJar || listed ? 0 : null
+  return { index, overrides, manualMods }
 }
 
+/** Mods à télécharger à la main d'un .mrpack déjà sur le disque (null : aucun) */
+function localManual(zip: AdmZip, index: MrpackIndex): number | null {
+  const entries = zip.getEntries().filter((e) => OVERRIDES.some((o) => e.entryName.startsWith(o)))
+  const list = entries.find((e) => isCheckerList(e.entryName))
+  if (list) return countManual(list.getData())
+  return entries.some((e) => isCheckerJar(e.entryName)) || index.files.some((f) => isCheckerJar(f.path)) ? 0 : null
+}
+
+/** Explication montrée à la place du bouton d'installation */
+const manualMessage = (n: number) => (n > 0 ? tm('err.modpackManual', { n }) : tm('err.modpackManualSome'))
+
 /** Index et nombre de fichiers fournis, pour l'aperçu : lecture partielle quand c'est possible */
-async function packSummary(source: ModpackSource): Promise<{ index: MrpackIndex; overrides: number }> {
+async function packSummary(source: ModpackSource): Promise<PackSummary> {
   if (source.kind === 'modrinth' && !existsSync(join(cacheDir(), `${source.versionId}.mrpack`))) {
     const file = await packFile(source.versionId)
     const summary = await remoteSummary(file.url, file.size).catch(() => null)
@@ -149,7 +199,7 @@ async function packSummary(source: ModpackSource): Promise<{ index: MrpackIndex;
   }
   const { zip, index } = await openPack(source)
   const overrides = zip.getEntries().filter((e) => !e.isDirectory && OVERRIDES.some((o) => e.entryName.startsWith(o))).length
-  return { index, overrides }
+  return { index, overrides, manualMods: localManual(zip, index) }
 }
 
 /** Chargeur du modpack et raison de le refuser (Quilt, NeoForge, Forge moderne : Aloria ne sait pas les lancer) */
@@ -200,9 +250,11 @@ async function lookup(index: MrpackIndex): Promise<Map<string, { title: string; 
 const clientFiles = (index: MrpackIndex) => index.files.filter((f) => f.env?.client !== 'unsupported')
 
 export async function previewModpack(source: ModpackSource): Promise<ModpackPreview> {
-  const { index, overrides } = await packSummary(source)
+  const { index, overrides, manualMods } = await packSummary(source)
   const known = await lookup(index)
-  const { loader, loaderVersion, unsupported } = loaderOf(index)
+  const { loader, loaderVersion, unsupported: loaderProblem } = loaderOf(index)
+  // Mods à télécharger à la main : le jeu ne se lancerait pas sans eux (ou il faudrait en désactiver d'autres en cascade)
+  const unsupported = loaderProblem ?? (manualMods !== null ? manualMessage(manualMods) : null)
   const files: ModpackEntry[] = clientFiles(index).map((f) => {
     const info = known.get(f.hashes.sha1)
     return {
@@ -246,6 +298,8 @@ export async function installModpack(source: ModpackSource, onProgress: (p: Modp
   const { zip, index } = await openPack(source, (bytes) => onProgress({ doneFiles: 0, totalFiles: 0, packBytes: bytes }))
   const { loader, loaderVersion, unsupported } = loaderOf(index)
   if (unsupported) throw new Error(unsupported)
+  const manual = localManual(zip, index)
+  if (manual !== null) throw new Error(manualMessage(manual))
   const gameVersion = index.dependencies.minecraft
 
   const files = clientFiles(index)

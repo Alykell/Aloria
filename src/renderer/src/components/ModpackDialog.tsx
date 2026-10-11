@@ -164,7 +164,7 @@ export default function ModpackDialog({ target, onClose, onInstalled }: Props) {
           </button>
           {!done && (
             <button className="primary" disabled={!preview || !!preview.unsupported || installing} onClick={install}>
-              {installing ? t('library.installing') : t('modpack.install')}
+              {installing ? t('library.installing') : preview?.unsupported ? t('modpack.notInstallable') : t('modpack.install')}
             </button>
           )}
         </div>
