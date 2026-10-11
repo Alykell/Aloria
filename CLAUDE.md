@@ -20,6 +20,8 @@ Données du jeu : `%APPDATA%\.aloria` (profils, instances, `shared/` = serveurs 
   (brouillon créé avant l'envoi des fichiers, sinon doublons). `npm run dist` en local échoue (Windows bloque l'exe non signé).
 - Le commit de version s'écrit « vX.Y.Z : nouveauté, autre nouveauté » : la CI en tire l'annonce postée dans #annonces
   du Discord d'Aloria (secret `DISCORD_WEBHOOK_URL` ; bot et webhook : `%USERPROFILE%\.aloria-discord-token\`).
+  Mettre dans le corps du commit une ligne « - … » par nouveauté, en phrases simples pour les joueurs (pas de jargon) :
+  l'annonce les reprend telles quelles (sinon elle découpe le titre aux virgules hors parenthèses).
 - Le launcher installé se met à jour seul. Windows (contrôle intelligent des applications) bloque l'installeur non signé :
   mise à jour **légère** d'abord (`src/main/lightUpdate.ts` : app.asar + jars de `aloria-light.json`, remplacés par
   Aloria.exe en mode Node), l'installeur complet (electron-updater) seulement si Electron change.

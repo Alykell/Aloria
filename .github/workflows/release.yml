@@ -168,19 +168,23 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Annonce dans #annonces du Discord d'Aloria (webhook dans les secrets du dépôt ; étape ignorée sans lui).
-      # Le texte vient du message du commit de version : « vX.Y.Z : nouveautés, séparées par des virgules ».
+      # Le texte vient du message du commit de version : les lignes « - … » de son corps (phrases écrites pour les
+      # joueurs), sinon son titre « vX.Y.Z : nouveautés, séparées par des virgules » (hors parenthèses).
       - name: Annoncer la mise à jour sur Discord
         shell: bash
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
           [ -z "$DISCORD_WEBHOOK_URL" ] && { echo "Pas de webhook Discord : annonce ignorée"; exit 0; }
-          git log -1 --format=%s > subject.txt
+          git log -1 --format=%B > message.txt
           node -e '
             const fs = require("fs")
             const version = process.env.GITHUB_REF_NAME.replace(/^v/, "")
-            const subject = fs.readFileSync("subject.txt", "utf8").trim()
-            const news = subject.replace(/^v[\d.]+\s*:\s*/, "").split(/,\s*/).filter(Boolean)
+            const [subject, ...body] = fs.readFileSync("message.txt", "utf8").trim().split(/\r?\n/)
+            const lines = body.filter((l) => /^\s*[-•]\s+/.test(l)).map((l) => l.replace(/^\s*[-•]\s+/, "").trim())
+            const news = lines.length
+              ? lines
+              : subject.replace(/^v[\d.]+\s*:\s*/, "").split(/,\s*(?![^()]*\))/).map((n) => n.trim()).filter(Boolean)
             const notifs = "1557731017861636116"
             fs.writeFileSync("discord.json", JSON.stringify({
               content: `<@&${notifs}>`,
