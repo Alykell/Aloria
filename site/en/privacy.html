@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy — Aloria</title>
+  <meta name="description" content="What Aloria does with your data: nothing is collected, everything stays on your PC.">
+  <meta name="theme-color" content="#1a9bc7">
+  <link rel="alternate" hreflang="fr" href="https://alykell.github.io/Aloria/confidentialite.html">
+  <link rel="alternate" hreflang="en" href="https://alykell.github.io/Aloria/en/privacy.html">
+  <link rel="icon" href="../img/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Quicksand:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header class="nav">
+    <a class="nav__logo" href="./">
+      <img src="../img/icon.svg" alt="" width="32" height="32">
+      <span>Aloria</span>
+    </a>
+    <nav class="nav__links">
+      <a href="./">Home</a>
+      <a href="./#security">Security</a>
+    </nav>
+    <a class="nav__lang js-lang" href="../confidentialite.html" hreflang="fr" lang="fr" data-lang="fr">Français</a>
+  </header>
+
+  <main class="section legal">
+    <h1>Privacy</h1>
+    <p class="section__lead">In short: Aloria collects no data. No Aloria account, no analytics, no ads.</p>
+
+    <h2>What stays on your PC</h2>
+    <p>Your Microsoft accounts (sign-in tokens), profiles, settings, worlds and mods are only stored on your computer,
+      in <code>%APPDATA%\.aloria</code> and <code>%APPDATA%\Aloria</code> (on Linux: <code>~/.config/.aloria</code> and
+      <code>~/.config/Aloria</code>). Sign-in tokens are encrypted with Windows data protection (DPAPI), or the system keyring
+      on Linux when there is one. Aloria only sends them to the official services listed below.</p>
+
+    <h2>The services Aloria contacts</h2>
+    <p>Aloria only talks to these services, and only for what you need:</p>
+    <ul class="legal__list">
+      <li><strong>Microsoft, Xbox Live and Mojang</strong>: signing in to your account when you sign in, checking that you own
+        Minecraft, and the official download of the game and Java when you start a profile.
+        <a href="https://privacy.microsoft.com/en-us/privacystatement">Microsoft privacy statement</a>.</li>
+      <li><strong>Fabric</strong> (meta.fabricmc.net), <strong>Forge</strong> (maven.minecraftforge.net) and <strong>NeoForge</strong>
+        (maven.neoforged.net): downloading the mod loader for the profiles that use it.</li>
+      <li><strong>Modrinth</strong>: searching and downloading the mods, resource packs, shaders and modpacks you choose.
+        <a href="https://modrinth.com/legal/privacy">Modrinth privacy policy</a>.</li>
+      <li><strong>GitHub</strong>: at startup, Aloria checks whether there is a new version and downloads it.
+        No personal data is sent, only the download request.
+        <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub privacy statement</a>.</li>
+      <li><strong>Discord</strong>: if Discord is open on your PC, Aloria shows your game status (profile, version,
+        server, as you choose). This goes through Discord on your computer; you can turn it off in Aloria's Settings.
+        <a href="https://discord.com/privacy">Discord privacy policy</a>.</li>
+    </ul>
+
+    <p>This program will not transfer any information to other networked systems unless specifically requested by the user
+      or the person installing or operating it, except for the automatic update check described above.</p>
+
+    <h2>Uninstalling</h2>
+    <p>Uninstall Aloria from Windows (Settings → Apps). Your worlds and settings are kept in
+      <code>%APPDATA%\.aloria</code>: delete this folder to erase everything. On Linux, delete the AppImage (or
+      <code>sudo apt remove aloria</code> for the .deb), then <code>~/.config/.aloria</code> to erase everything.</p>
+  </main>
+
+  <footer class="footer">
+    <p><a href="https://github.com/Alykell/Aloria">GitHub</a> · <a href="./">Home</a> · Made by <a href="https://github.com/Alykell">Alykell</a></p>
+    <p class="footer__legal">Unofficial project, not affiliated with Mojang or Microsoft. Minecraft is a trademark of Mojang AB.</p>
+  </footer>
+  <script src="../main.js"></script>
+</body>
+</html>

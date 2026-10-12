@@ -4,11 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Aloria — Launcher Minecraft</title>
-  <meta name="description" content="Aloria, un launcher Minecraft: Java Edition au style plage et océan : profils Fabric, mods Modrinth, HUD intégré et mises à jour automatiques. Gratuit, pour Windows et Linux.">
+  <meta name="description" content="Aloria, un launcher Minecraft: Java Edition au style plage et océan : profils Fabric, Forge et NeoForge, mods et modpacks Modrinth, HUD intégré et mises à jour automatiques. Gratuit, pour Windows et Linux.">
   <meta name="theme-color" content="#1a9bc7">
   <meta property="og:title" content="Aloria — Launcher Minecraft">
-  <meta property="og:description" content="Ton launcher Minecraft, entre ciel et océan. Profils Fabric, mods Modrinth, HUD intégré.">
+  <meta property="og:description" content="Ton launcher Minecraft, entre ciel et océan. Fabric, Forge et NeoForge, mods et modpacks Modrinth, HUD intégré.">
   <meta property="og:image" content="img/launcher-accueil.png">
+  <link rel="alternate" hreflang="fr" href="https://alykell.github.io/Aloria/">
+  <link rel="alternate" hreflang="en" href="https://alykell.github.io/Aloria/en/">
+  <link rel="alternate" hreflang="x-default" href="https://alykell.github.io/Aloria/en/">
   <link rel="icon" href="img/icon.svg" type="image/svg+xml">
   <link rel="icon" href="img/icon.png" type="image/png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -29,6 +32,7 @@
       <a href="#faq">FAQ</a>
       <a href="https://discord.gg/V8HbUfJksC">Discord</a>
     </nav>
+    <a class="nav__lang js-lang" href="en/" hreflang="en" lang="en" data-lang="en">English</a>
   </header>
 
   <main>
@@ -72,13 +76,23 @@
         </article>
         <article class="feature">
           <span class="feature__icon">🧩</span>
-          <h3>Profils et Fabric</h3>
-          <p>Une version, un dossier et une quantité de RAM par profil, de la 1.8 aux dernières versions, avec Fabric en un clic.</p>
+          <h3>Profils, Fabric, Forge et NeoForge</h3>
+          <p>Une version, un dossier et une quantité de RAM par profil, de la 1.8 aux dernières versions, avec le chargeur de mods de ton choix en un clic.</p>
         </article>
         <article class="feature">
           <span class="feature__icon">🐚</span>
           <h3>Mods, packs et shaders</h3>
-          <p>Bibliothèque <a href="https://modrinth.com">Modrinth</a> intégrée : recherche, installation et dépendances automatiques.</p>
+          <p>Bibliothèque <a href="https://modrinth.com">Modrinth</a> intégrée : recherche, installation et dépendances automatiques. Tu peux aussi glisser tes propres fichiers.</p>
+        </article>
+        <article class="feature">
+          <span class="feature__icon">📦</span>
+          <h3>Modpacks et partage</h3>
+          <p>Installe un modpack Modrinth en un clic, en voyant ses mods avant. Exporte un profil en .zip pour tes amis, ou importe ceux de Prism Launcher et MultiMC.</p>
+        </article>
+        <article class="feature">
+          <span class="feature__icon">🎨</span>
+          <h3>Tes propres textures</h3>
+          <p>Crée ton pack pour le HUD du jeu (viseur, hotbar, cœurs, barre d'XP…) directement dans le launcher, sans logiciel de dessin.</p>
         </article>
         <article class="feature">
           <span class="feature__icon">🎮</span>
@@ -173,6 +187,12 @@
             <a href="https://github.com/Alykell/Aloria">code d'Aloria est public</a>), et sache qu'une fois désactivé, Windows ne
             permet pas toujours de le réactiver sans réinstallation. Une fois Aloria installé, ses mises à jour passent sans blocage.</p>
         </details>
+        <details>
+          <summary>Je peux installer des modpacks ?</summary>
+          <p>Oui : Bibliothèque → onglet Modpacks. Aloria installe les modpacks Fabric, Forge et NeoForge de Modrinth et montre
+            leurs mods avant l'installation. Quelques modpacks demandent de télécharger certains mods à la main sur CurseForge :
+            Aloria le signale et ne les installe pas, car ils planteraient sans ces mods.</p>
+        </details>
         <details id="linux">
           <summary>Comment installer Aloria sur Linux ?</summary>
           <p>Deux choix, pour toutes les distributions basées sur Ubuntu ou Debian (Zorin OS, Linux Mint, Pop!_OS…) :</p>
@@ -208,7 +228,7 @@
         <li><strong>Auteur et relecteur</strong> : <a href="https://github.com/Alykell">Alykell</a></li>
       </ul>
       <p>Confidentialité : Aloria ne collecte aucune donnée et ne contacte que les services nécessaires au jeu
-        (Microsoft, Mojang, Modrinth, Fabric, GitHub, Discord). Détails dans la <a href="confidentialite.html">politique de confidentialité</a>.
+        (Microsoft, Mojang, Modrinth, Fabric, Forge, NeoForge, GitHub, Discord). Détails dans la <a href="confidentialite.html">politique de confidentialité</a>.
         <em>This program will not transfer any information to other networked systems unless specifically requested by the user
         or the person installing or operating it</em>, except for the automatic update check.</p>
     </section>

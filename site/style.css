@@ -67,6 +67,16 @@ h1, h2, h3 { font-family: 'Quicksand', sans-serif; color: var(--sea-deep); line-
 .nav__logo:hover { text-decoration: none; }
 .nav__links { display: flex; gap: 22px; }
 .nav__links a { color: var(--text); font-weight: 700; font-size: 15px; }
+/* Lien vers l'autre langue (reste visible sur téléphone, contrairement aux autres liens) */
+.nav__lang {
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--sea-deep);
+  font-weight: 700;
+  font-size: 14px;
+}
+.nav__lang:hover { text-decoration: none; background: color-mix(in srgb, var(--sea) 12%, transparent); }
 
 /* ------------------------------------------------------------ accueil */
 

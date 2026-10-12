@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aloria — Minecraft Launcher</title>
+  <meta name="description" content="Aloria, a beach and ocean themed Minecraft: Java Edition launcher: Fabric, Forge and NeoForge profiles, Modrinth mods and modpacks, built-in HUD and automatic updates. Free, for Windows and Linux.">
+  <meta name="theme-color" content="#1a9bc7">
+  <meta property="og:title" content="Aloria — Minecraft Launcher">
+  <meta property="og:description" content="Your Minecraft launcher, between sky and ocean. Fabric, Forge and NeoForge, Modrinth mods and modpacks, built-in HUD.">
+  <meta property="og:image" content="../img/launcher-home.png">
+  <link rel="alternate" hreflang="fr" href="https://alykell.github.io/Aloria/">
+  <link rel="alternate" hreflang="en" href="https://alykell.github.io/Aloria/en/">
+  <link rel="alternate" hreflang="x-default" href="https://alykell.github.io/Aloria/en/">
+  <link rel="icon" href="../img/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="../img/icon.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Quicksand:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header class="nav">
+    <a class="nav__logo" href="#">
+      <img src="../img/icon.svg" alt="" width="32" height="32">
+      <span>Aloria</span>
+    </a>
+    <nav class="nav__links">
+      <a href="#features">Features</a>
+      <a href="#hud">Aloria HUD</a>
+      <a href="#install">Install</a>
+      <a href="#faq">FAQ</a>
+      <a href="https://discord.gg/V8HbUfJksC">Discord</a>
+    </nav>
+    <a class="nav__lang js-lang" href="../" hreflang="fr" lang="fr" data-lang="fr">Français</a>
+  </header>
+
+  <main>
+    <!-- Hero: beach illustration, title and download button -->
+    <section class="hero">
+      <div class="hero__scene" aria-hidden="true"></div>
+      <div class="hero__content">
+        <img class="hero__icon" src="../img/icon.svg" alt="" width="96" height="96">
+        <h1>Aloria</h1>
+        <p class="hero__tagline">Your Minecraft launcher, between sky and ocean.</p>
+        <a class="download" id="download" href="https://github.com/Alykell/Aloria/releases/latest/download/Aloria-Setup.exe">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 3a1 1 0 0 1 1 1v9.59l3.3-3.3a1 1 0 1 1 1.4 1.42l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.42l3.3 3.3V4a1 1 0 0 1 1-1Zm-8 15a1 1 0 0 1 1 1v1h14v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"/></svg>
+          <span>Download for Windows</span>
+        </a>
+        <p class="hero__meta" id="download-meta">Free · Windows 10 and 11</p>
+        <p class="hero__others" id="download-others">All systems:
+          <a href="https://github.com/Alykell/Aloria/releases/latest/download/Aloria-Setup.exe">Windows</a> ·
+          <a href="https://github.com/Alykell/Aloria/releases/latest/download/Aloria.AppImage">Linux (AppImage)</a> ·
+          <a href="https://github.com/Alykell/Aloria/releases/latest/download/Aloria.deb">Linux (.deb)</a></p>
+        <p class="hero__note">You need a Microsoft account that owns <strong>Minecraft: Java Edition</strong>.</p>
+      </div>
+    </section>
+
+    <section class="showcase">
+      <figure class="window">
+        <picture>
+          <source srcset="../img/launcher-home-night.png" media="(prefers-color-scheme: dark)">
+          <img src="../img/launcher-home.png" alt="Aloria launcher home screen" width="1378" height="853" loading="lazy">
+        </picture>
+      </figure>
+    </section>
+
+    <section class="section" id="features">
+      <h2>Everything you need to play</h2>
+      <p class="section__lead">A light, good-looking launcher, made so you have nothing to set up.</p>
+      <div class="features">
+        <article class="feature">
+          <span class="feature__icon">🔐</span>
+          <h3>Microsoft sign-in</h3>
+          <p>Official, secure sign-in with multiple accounts. Your credentials stay encrypted on your PC.</p>
+        </article>
+        <article class="feature">
+          <span class="feature__icon">🧩</span>
+          <h3>Profiles, Fabric, Forge and NeoForge</h3>
+          <p>One version, one folder and its own amount of RAM per profile, from 1.8 to the latest releases, with the mod loader of your choice in one click.</p>
+        </article>
+        <article class="feature">
+          <span class="feature__icon">🐚</span>
+          <h3>Mods, packs and shaders</h3>
+          <p>Built-in <a href="https://modrinth.com">Modrinth</a> library: search, install and automatic dependencies. You can also drop in your own files.</p>
+        </article>
+        <article class="feature">
+          <span class="feature__icon">📦</span>
+          <h3>Modpacks and sharing</h3>
+          <p>Install a Modrinth modpack in one click, seeing its mods first. Export a profile as a .zip for your friends, or import Prism Launcher and MultiMC ones.</p>
+        </article>
+        <article class="feature">
+          <span class="feature__icon">🎨</span>
+          <h3>Your own textures</h3>
+          <p>Create your own pack for the game HUD (crosshair, hotbar, hearts, XP bar…) right in the launcher, no drawing app needed.</p>
+        </article>
+        <article class="feature">
+          <span class="feature__icon">🎮</span>
+          <h3>Shared settings</h3>
+          <p>Controls, sound, field of view and accessibility options set once, applied to all your profiles.</p>
+        </article>
+        <article class="feature">
+          <span class="feature__icon">🌐</span>
+          <h3>Shared servers</h3>
+          <p>Your server list follows you from one profile to another, and your Discord status shows what you're playing.</p>
+        </article>
+        <article class="feature">
+          <span class="feature__icon">🌊</span>
+          <h3>Always up to date</h3>
+          <p>Java is installed automatically, and the launcher updates itself in the background.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section section--hud" id="hud">
+      <div class="split">
+        <div class="split__text">
+          <h2>Aloria HUD</h2>
+          <p class="section__lead">A customizable HUD, added automatically to your Fabric profiles: 1.8.9, and 1.20.1 to 26.3. In English or French, following the game's language.</p>
+          <ul class="checks">
+            <li>FPS, CPS, coordinates, speed, clock</li>
+            <li>Keystrokes, armor with durability, active effects</li>
+            <li>Targeted block or mob, with its details</li>
+            <li>Countdown above TNT and creepers</li>
+            <li>Hands, shield and totem: adjustable position and size</li>
+            <li>Fullbright and adjustable fog (water, lava, Nether…)</li>
+            <li>Fonts, colors, backgrounds and borders of your choice</li>
+            <li>Free placement with the mouse (Right Shift in game)</li>
+          </ul>
+        </div>
+        <figure class="window window--game">
+          <img src="../img/hud-jeu.png" alt="The Aloria HUD in game" width="1280" height="720" loading="lazy">
+        </figure>
+      </div>
+    </section>
+
+    <section class="section" id="install">
+      <h2>Install</h2>
+      <ol class="steps">
+        <li>
+          <span class="steps__num">1</span>
+          <h3>Download the installer</h3>
+          <p>Click <a href="https://github.com/Alykell/Aloria/releases/latest/download/Aloria-Setup.exe" class="js-download">Download for Windows</a> and open the <code>Aloria-Setup.exe</code> file.</p>
+        </li>
+        <li>
+          <span class="steps__num">2</span>
+          <h3>Get past the Windows warning</h3>
+          <p>The installer isn't signed (a certificate is expensive). If Windows SmartScreen shows up, click
+            <strong>More info</strong> then <strong>Run anyway</strong>.</p>
+        </li>
+        <li>
+          <span class="steps__num">3</span>
+          <h3>Sign in and play</h3>
+          <p>Sign in with your Microsoft account, create a profile and start the game. Minecraft downloads by itself.</p>
+        </li>
+      </ol>
+    </section>
+
+    <section class="section" id="faq">
+      <h2>FAQ</h2>
+      <div class="faq">
+        <details>
+          <summary>Is Aloria free?</summary>
+          <p>Yes, completely. You only need to own Minecraft: Java Edition on your Microsoft account.</p>
+        </details>
+        <details>
+          <summary>Does it work without buying Minecraft?</summary>
+          <p>No. Aloria has no "cracked" mode: it checks that your account owns the game, just like the official launcher.</p>
+        </details>
+        <details>
+          <summary>Is my account safe?</summary>
+          <p>Sign-in goes through Microsoft's official page: Aloria never sees your password.
+            Sign-in tokens are encrypted on your PC and only sent to Microsoft, Xbox Live and Mojang.
+            The code is <a href="https://github.com/Alykell/Aloria">public on GitHub</a>.</p>
+        </details>
+        <details>
+          <summary>Why does Windows show a warning?</summary>
+          <p>Because the installer isn't signed with a paid certificate. That's normal for a small project:
+            click "More info" then "Run anyway".</p>
+        </details>
+        <details>
+          <summary>Windows blocks the installation completely, with no "Run anyway" button</summary>
+          <p>That's Windows 11 <strong>Smart App Control</strong> (Windows Security → App &amp; browser control): when it's on,
+            it refuses every unsigned program, with no exception. It's mostly on for PCs where Windows was just installed.
+            You can turn it off there, but it's a Windows protection: only do it if you trust the program (the
+            <a href="https://github.com/Alykell/Aloria">Aloria code is public</a>), and know that once it's off, Windows doesn't
+            always let you turn it back on without reinstalling. Once Aloria is installed, its updates go through without being blocked.</p>
+        </details>
+        <details>
+          <summary>Can I install modpacks?</summary>
+          <p>Yes: Library → Modpacks tab. Aloria installs Fabric, Forge and NeoForge modpacks from Modrinth and shows their mods
+            before installing. A few modpacks ask you to download some mods by hand from CurseForge: Aloria tells you so and
+            doesn't install them, because they would crash without those mods.</p>
+        </details>
+        <details id="linux">
+          <summary>How do I install Aloria on Linux?</summary>
+          <p>Two options, for every Ubuntu or Debian based distribution (Zorin OS, Linux Mint, Pop!_OS…):</p>
+          <ul>
+            <li><a href="https://github.com/Alykell/Aloria/releases/latest/download/Aloria.AppImage"><strong>AppImage</strong></a> (recommended): a single file that
+              <strong>updates itself</strong>. Make it executable (right click → Properties → "Allow executing as program",
+              or <code>chmod +x Aloria.AppImage</code>) then double-click it. If it doesn't open,
+              install FUSE once: <code>sudo apt install libfuse2</code>. It also works on other distributions.</li>
+            <li><a href="https://github.com/Alykell/Aloria/releases/latest/download/Aloria.deb"><strong>.deb</strong></a>: classic install, Aloria shows up in the
+              applications menu. Open the file with the software installer, or <code>sudo apt install ./Aloria.deb</code>.</li>
+          </ul>
+          <p>For 1.8.9, the game needs <code>xrandr</code> (<code>x11-xserver-utils</code> package, already there on most desktops).</p>
+        </details>
+        <details>
+          <summary>What about Mac?</summary>
+          <p>Not for now: Aloria is available for Windows and Linux.</p>
+        </details>
+        <details>
+          <summary>Do I lose my worlds if I uninstall?</summary>
+          <p>No, your worlds, profiles and accounts are kept in <code>%APPDATA%\.aloria</code> on Windows,
+            and in <code>~/.config/.aloria</code> on Linux.</p>
+        </details>
+      </div>
+    </section>
+    <section class="section legal" id="security">
+      <h2>Security</h2>
+      <p>The Aloria installer isn't signed yet (a code signing certificate is expensive for a free project).
+        Instead, everything is transparent: the Windows and Linux installers are built automatically by
+        <a href="https://github.com/Alykell/Aloria/actions">GitHub Actions</a> from the
+        <a href="https://github.com/Alykell/Aloria">public source code</a> (<a href="https://github.com/Alykell/Aloria/blob/main/LICENSE">MIT</a> license),
+        and every update is checked by its fingerprint (SHA-512) before being installed.</p>
+      <ul class="legal__list">
+        <li><strong>Author and reviewer</strong>: <a href="https://github.com/Alykell">Alykell</a></li>
+      </ul>
+      <p>Privacy: Aloria collects no data and only contacts the services the game needs
+        (Microsoft, Mojang, Modrinth, Fabric, Forge, NeoForge, GitHub, Discord). Details in the <a href="privacy.html">privacy policy</a>.
+        This program will not transfer any information to other networked systems unless specifically requested by the user
+        or the person installing or operating it, except for the automatic update check.</p>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>
+      <a href="https://discord.gg/V8HbUfJksC">Discord</a> ·
+      <a href="https://github.com/Alykell/Aloria">GitHub</a> ·
+      <a href="https://github.com/Alykell/Aloria/releases">All versions</a> ·
+      <a href="privacy.html">Privacy</a> ·
+      <a href="#security">Security</a> ·
+      <a href="https://github.com/Alykell/Aloria/blob/main/LICENSE">MIT</a> license ·
+      Made by <a href="https://github.com/Alykell">Alykell</a>
+    </p>
+    <p class="footer__legal">Unofficial project, not affiliated with Mojang or Microsoft. Minecraft is a trademark of Mojang AB.</p>
+  </footer>
+
+  <script src="../main.js"></script>
+</body>
+</html>
