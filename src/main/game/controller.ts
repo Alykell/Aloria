@@ -7,6 +7,7 @@ import { getValidSession, listAccounts } from '../auth/accounts'
 import { gameDirOf, getProfile, markPlayed } from '../profiles'
 import { getSettings } from '../settings'
 import { hudJvmArgs, syncAloriaHud } from './aloriaHud'
+import { syncFriends } from './friends'
 import { installFabric } from './fabric'
 import { installForge } from './forge'
 import { installNeoForge } from './neoforge'
@@ -54,7 +55,15 @@ export async function listVersions(includeSnapshots: boolean): Promise<VersionEn
  * Il faut un compte Microsoft qui possède Minecraft. Seule exception : les tests automatiques en
  * développement (ALORIA_TEST_DEMO=1) lancent la démo officielle, sans compte.
  */
-export async function play(sender: WebContents, profileId: string): Promise<void> {
+/** Arguments pour arriver directement sur un serveur : quickPlay depuis la 1.20, --server avant */
+function joinArgs(gameVersion: string, join: { host: string; port: number }): string[] {
+  const [major, minor] = gameVersion.split('.').map(Number)
+  const quickPlay = major >= 26 || (major === 1 && minor >= 20)
+  return quickPlay ? ['--quickPlayMultiplayer', `${join.host}:${join.port}`] : ['--server', join.host, '--port', String(join.port)]
+}
+
+/** `join` : serveur à rejoindre dès l'ouverture du jeu (bouton « Rejoindre » de la page Serveurs) */
+export async function play(sender: WebContents, profileId: string, join?: { host: string; port: number }): Promise<void> {
   if (status.state !== 'idle') throw new Error(tm('err.alreadyLaunching'))
   target = sender
 
@@ -100,6 +109,9 @@ export async function play(sender: WebContents, profileId: string): Promise<void
       setStatus({ state: 'preparing', label: tm('status.hud') })
       const warning = await syncAloriaHud(profile, gameVersion, gameDir)
       if (warning) console.warn('[aloria-hud]', warning)
+      // Jouer avec des amis (e4mc) : sans internet ou sans version pour ce jeu, on joue quand même
+      setStatus({ state: 'preparing', label: tm('status.friends') })
+      await syncFriends(profile, gameVersion).catch((e) => console.warn('[e4mc]', e))
     }
 
     const installed = await installVersion(version, gameDir, (step) => {
@@ -123,7 +135,10 @@ export async function play(sender: WebContents, profileId: string): Promise<void
       // Réglages du HUD communs à tous les profils, puis arguments de test en développement
       // (ex. ALORIA_EXTRA_GAME_ARGS="--quickPlaySingleplayer Demo_World")
       extraJvmArgs: [...(await hudJvmArgs(profile)), ...(app.isPackaged ? [] : splitArgs(process.env.ALORIA_EXTRA_JVM_ARGS))],
-      extraGameArgs: app.isPackaged ? [] : splitArgs(process.env.ALORIA_EXTRA_GAME_ARGS)
+      extraGameArgs: [
+        ...(join ? joinArgs(gameVersion, join) : []),
+        ...(app.isPackaged ? [] : splitArgs(process.env.ALORIA_EXTRA_GAME_ARGS))
+      ]
     })
 
     let stopWatching = () => {}

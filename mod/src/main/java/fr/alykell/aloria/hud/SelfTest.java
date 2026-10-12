@@ -562,6 +562,23 @@ public final class SelfTest {
 		});
 		add("capture chat ouvert", 10, () -> screenshot(mc, "11-chat-ouvert"));
 		addVisualSteps(mc);
+		// « Jouer avec des amis » (e4mc, ajouté par le launcher) : le monde ouvert en LAN reçoit une adresse publique
+		if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("e4mc")) {
+			add("ouvrir au réseau local (e4mc)", 2, () -> {
+				command(mc, "publish");
+				return true;
+			});
+			add("capture adresse e4mc", 200, () -> {
+				check("le monde est ouvert au réseau local", mc.getSingleplayerServer().isPublished());
+				//#if MC >= 12109
+				mc.gui.setScreen(new net.minecraft.client.gui.screens.ChatScreen("", false));
+				//#else
+				//$$ mc.gui.setScreen(new net.minecraft.client.gui.screens.ChatScreen(""));
+				//#endif
+				return true;
+			});
+			add("capture e4mc", 10, () -> screenshot(mc, "20-e4mc"));
+		}
 		add("retirer la TNT", 20, () -> removeExplosives(mc, true));
 		add("fin", 5, () -> {
 			log(failures == 0 ? "TERMINÉ : tout est OK" : "TERMINÉ : " + failures + " échec(s)");

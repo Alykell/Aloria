@@ -13,7 +13,7 @@
 	},
 	"license": "MIT",
 	"icon": "assets/aloriahud/icon.png",
-	"environment": "client",
+	"environment": "*",
 	"entrypoints": {
 		"client": [
 			"fr.alykell.aloria.hud.AloriaHud"
@@ -26,6 +26,7 @@
 		"fabric-api": "*"
 	},
 	"mixins": [
-		"aloriahud.mixins.json"
+		{ "config": "aloriahud.mixins.json", "environment": "client" },
+		"aloriahud.compat.mixins.json"
 	]
 }

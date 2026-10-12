@@ -25,6 +25,7 @@ function portable(p: Profile): ProfileInput {
     ramMb: p.ramMb,
     aloriaHud: p.aloriaHud,
     shareServers: p.shareServers,
+    playWithFriends: p.playWithFriends,
     modpack: p.modpack
   }
 }

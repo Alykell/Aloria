@@ -144,7 +144,7 @@ processResources {
 	inputs.property "minecraft", mc
 	inputs.property "java", java
 
-	filesMatching(["fabric.mod.json", "aloriahud.mixins.json"]) {
+	filesMatching(["fabric.mod.json", "aloriahud.mixins.json", "aloriahud.compat.mixins.json"]) {
 		expand "version": version, "minecraft": mc, "java": java
 	}
 

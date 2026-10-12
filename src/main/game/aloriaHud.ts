@@ -17,7 +17,7 @@ const JAR_NAME = 'aloria-hud.jar'
  * Jar du mod pour cette version du jeu (aloria-hud-<version>+<minecraft>.jar). Il est livré avec le launcher ;
  * en développement on prend celui que Gradle vient de construire.
  */
-async function bundledJar(gameVersion: string, forge: boolean): Promise<string | null> {
+export async function bundledJar(gameVersion: string, forge: boolean): Promise<string | null> {
   // En développement : mod moderne (mod/), mod 1.8.9 (mod-legacy/) et sa version Forge (mod-forge/) construits par Gradle
   const dirs = app.isPackaged
     ? [join(process.resourcesPath, 'mods')]

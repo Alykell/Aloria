@@ -19,6 +19,13 @@ import { getUpdateStatus, initUpdater, installUpdate } from './updater'
 import { initDiscord, refreshDiscord } from './discord'
 import { processPending } from './shared/pending'
 import { saveKeyboardLayout } from './shared/options'
+import { e4mcSupported } from '../shared/aloriaHud'
+import { createServer, deleteServer, freePort, getServer, lanAddress, listServers, openServerFolder, serverDirOf, updateServer } from './server/store'
+import { deleteTunnel, linkPlayit, playitLinked, unlinkPlayit } from './server/playit'
+import { deleteBackup, listBackups, openBackupFolder, restoreBackup } from './server/backups'
+import { editPlayersOffline, listPlayers, playerCommand, readProperties, writeProperties } from './server/manage'
+import { installServerContent, listServerContent, removeServerContent, searchServerContent } from './server/content'
+import { backupServer, connectTunnel, anyServerRunning, isServerAlive, killServer, restartServer, sendCommand, serverLog, serverStatuses, setServerTarget, startServer, stopAllServers, stopServer } from './server/runner'
 import type {
   ExportOptions,
   ModpackSource,
@@ -30,6 +37,9 @@ import type {
   PublicAccount,
   Result,
   SearchQuery,
+  ServerInfo,
+  ServerInput,
+  ServerPlayerAction,
   Settings,
   VersionEntry
 } from '../shared/types'
@@ -66,11 +76,11 @@ function createWindow(): BrowserWindow {
   win.on('resize', fitZoom)
   win.webContents.on('did-finish-load', fitZoom)
 
-  // Fermer la fenêtre pendant une partie la cache seulement : le statut Discord et la récupération
+  // Fermer la fenêtre pendant une partie (ou avec un serveur allumé) la cache seulement : le statut Discord et la récupération
   // des réglages continuent, et le launcher quitte quand le jeu se ferme
   win.on('close', (event) => {
     // Sauf si le launcher quitte vraiment (ex. « Redémarrer pour installer » une mise à jour)
-    if (quitting || !isGameRunning()) return
+    if (quitting || (!isGameRunning() && !anyServerRunning())) return
     event.preventDefault()
     win.hide()
   })
@@ -136,9 +146,9 @@ ipcMain.handle('game:versions', async (_e, snapshots: boolean): Promise<Result<V
   }
 })
 ipcMain.handle('game:status', () => getStatus())
-ipcMain.handle('game:play', async (e, profileId: string): Promise<Result<null>> => {
+ipcMain.handle('game:play', async (e, profileId: string, join?: { host: string; port: number }): Promise<Result<null>> => {
   try {
-    await play(e.sender, profileId)
+    await play(e.sender, profileId, join)
     return { ok: true, value: null }
   } catch (err) {
     const { code, message } = toAuthError(err)
@@ -283,6 +293,63 @@ ipcMain.handle('packs:delete', (_e, id: string) => wrap(() => deletePack(id)))
 ipcMain.handle('packs:setScale', (_e, id: string, scale: number) => wrap(() => setPackScale(id, scale)))
 ipcMain.handle('packs:saveImage', (_e, id: string, element: PackElement, image: string | null) => wrap(() => savePackImage(id, element, image)))
 ipcMain.handle('packs:vanilla', (_e, target: { profileId?: string; gameVersion?: string }) => wrap(() => packVanilla(target)))
+ipcMain.handle('servers:list', () => ({ servers: listServers(), statuses: serverStatuses(), freePort: freePort(), lanAddress: lanAddress() }))
+ipcMain.handle('servers:create', (_e, input: ServerInput) => wrap(() => createServer(input)))
+ipcMain.handle('servers:update', (_e, id: string, patch: Partial<ServerInfo>) => wrap(() => updateServer(id, patch)))
+ipcMain.handle('servers:delete', (_e, id: string) =>
+  wrap(async () => {
+    await stopServer(id)
+    await deleteTunnel(getServer(id))
+    await deleteServer(id)
+  })
+)
+ipcMain.handle('servers:openFolder', (_e, id: string) => openServerFolder(id))
+ipcMain.handle('servers:start', (_e, id: string) => wrap(() => startServer(id)))
+ipcMain.handle('servers:stop', (_e, id: string) => wrap(() => stopServer(id)))
+ipcMain.handle('servers:kill', (_e, id: string) => killServer(id))
+ipcMain.handle('servers:restart', (_e, id: string) => wrap(() => restartServer(id)))
+ipcMain.handle('servers:command', (_e, id: string, command: string) => sendCommand(id, command))
+ipcMain.handle('servers:log', (_e, id: string) => serverLog(id))
+ipcMain.handle('servers:tunnel', (_e, id: string) => connectTunnel(id))
+ipcMain.handle('servers:backups', (_e, id: string) => wrap(() => listBackups(id)))
+ipcMain.handle('servers:backup', (_e, id: string) => wrap(() => backupServer(id, 'manual')))
+ipcMain.handle('servers:restoreBackup', (_e, id: string, file: string) =>
+  wrap(async () => {
+    if (isServerAlive(id)) throw new Error(tm('err.serverRestoreRunning'))
+    await restoreBackup(id, file)
+  })
+)
+ipcMain.handle('servers:deleteBackup', (_e, id: string, file: string) => wrap(() => deleteBackup(id, file)))
+ipcMain.handle('servers:openBackups', (_e, id: string) => openBackupFolder(id))
+ipcMain.handle('servers:properties', (_e, id: string) => wrap(() => readProperties(id)))
+ipcMain.handle('servers:setProperties', (_e, id: string, patch: Record<string, string>) => wrap(() => writeProperties(id, patch)))
+ipcMain.handle('servers:players', (_e, id: string) => wrap(() => listPlayers(id)))
+ipcMain.handle('servers:player', (_e, id: string, action: ServerPlayerAction, name: string) =>
+  wrap(async () => {
+    const clean = name.trim()
+    if (!/^\w{1,16}$/.test(clean)) throw new Error(tm('err.serverPlayerName'))
+    if (isServerAlive(id)) {
+      // Le serveur réécrit lui-même ses fichiers : on lui laisse un instant avant de les relire
+      sendCommand(id, playerCommand(action, clean))
+      await new Promise((r) => setTimeout(r, 800))
+    } else await editPlayersOffline(id, action, clean)
+  })
+)
+ipcMain.handle('servers:whitelist', (_e, id: string, on: boolean) =>
+  wrap(async () => {
+    if (isServerAlive(id)) {
+      sendCommand(id, `whitelist ${on ? 'on' : 'off'}`)
+      await new Promise((r) => setTimeout(r, 800))
+    } else await writeProperties(id, { 'white-list': String(on) })
+  })
+)
+ipcMain.handle('servers:contentSearch', (_e, id: string, query: string) => wrap(() => searchServerContent(id, query)))
+ipcMain.handle('servers:content', (_e, id: string) => wrap(() => listServerContent(id)))
+ipcMain.handle('servers:contentInstall', (_e, id: string, projectId: string) => wrap(() => installServerContent(id, projectId)))
+ipcMain.handle('servers:contentRemove', (_e, id: string, fileName: string) => wrap(() => removeServerContent(id, fileName)))
+ipcMain.handle('playit:linked', () => playitLinked())
+ipcMain.handle('playit:link', () => wrap(() => linkPlayit()))
+ipcMain.handle('playit:unlink', () => unlinkPlayit())
 ipcMain.handle('packs:install', (_e, id: string, profileId: string, files: Record<string, string>) => wrap(() => installPack(id, profileId, files)))
 
 // Tests en développement : dossier de données séparé, pour ne pas croiser le launcher installé
@@ -290,8 +357,13 @@ if (!app.isPackaged && process.env.ALORIA_USER_DATA) app.setPath('userData', pro
 
 /** Vrai dès que le launcher quitte (app.quit) : la fenêtre doit alors se fermer, même pendant une partie */
 let quitting = false
-app.on('before-quit', () => {
+app.on('before-quit', (event) => {
   quitting = true
+  // Serveurs allumés : on les arrête proprement (le monde est sauvegardé) avant de quitter
+  if (anyServerRunning()) {
+    event.preventDefault()
+    stopAllServers().finally(() => app.quit())
+  }
 })
 
 // Une seule fenêtre Aloria : relancer le raccourci ramène celle déjà ouverte au premier plan
@@ -307,6 +379,7 @@ app.on('second-instance', () => {
 
 app.whenReady().then(() => {
   const win = createWindow()
+  setServerTarget(win.webContents)
   initUpdater(win)
   initDiscord()
   // Réglages des parties terminées pendant que le launcher était fermé
@@ -330,6 +403,161 @@ app.whenReady().then(() => {
       } catch (err) {
         console.log('[game] erreur', err)
       }
+    })
+  }
+  // Test des serveurs en développement : ALORIA_TEST_SERVER="fabric:26.3,paper:1.21.11" crée chaque serveur, le démarre,
+  // attend qu'il soit en ligne (et son adresse e4mc), l'arrête, le supprime, puis quitte
+  if (!app.isPackaged && process.env.ALORIA_TEST_SERVER) {
+    win.webContents.once('did-finish-load', async () => {
+      for (const item of process.env.ALORIA_TEST_SERVER!.split(',').filter(Boolean)) {
+        const [type, gameVersion] = item.split(':') as [ServerInput['type'], string]
+        const server = await createServer({
+          name: `Test ${item}`,
+          icon: '🧪',
+          type,
+          gameVersion,
+          loaderVersion: null,
+          ramMb: 2048,
+          port: freePort(),
+          tunnel: e4mcSupported(type, gameVersion) ? 'e4mc' : 'none'
+        })
+        // Rejoindre depuis le profil de démo (sans compte) : le serveur ne doit pas vérifier les comptes
+        if (process.env.ALORIA_TEST_SERVER_JOIN) await writeProperties(server.id, { 'online-mode': 'false', 'white-list': 'false' })
+        const started = Date.now()
+        try {
+          await startServer(server.id)
+          let status = serverStatuses().find((s) => s.id === server.id)
+          while (Date.now() - started < 600_000) {
+            status = serverStatuses().find((s) => s.id === server.id)
+            const ready = status?.state === 'running' && (server.tunnel !== 'e4mc' || status.publicAddress)
+            if (ready || status?.state === 'stopped') break
+            await new Promise((r) => setTimeout(r, 1000))
+          }
+          console.log(`[server-test] ${item} : ${status?.state} en ${Math.round((Date.now() - started) / 1000)} s, adresse ${status?.publicAddress ?? '-'}`)
+          if (status?.state !== 'running') console.log(`[server-test] ${item} : ÉCHEC\n${serverLog(server.id).slice(-15).join('\n')}`)
+          // ALORIA_TEST_SERVER_BACKUP=1 : sauvegarde pendant que le serveur tourne
+          if (process.env.ALORIA_TEST_SERVER_BACKUP && status?.state === 'running') {
+            const file = await backupServer(server.id, 'manual')
+            console.log(`[server-test] ${item} : sauvegarde ${file}`, JSON.stringify(await listBackups(server.id)))
+          }
+          // ALORIA_TEST_SERVER_JOIN=<profil> : lance ce profil, qui doit arriver sur le serveur (mode crack pour la démo)
+          const joinProfile = process.env.ALORIA_TEST_SERVER_JOIN
+          if (joinProfile && status?.state === 'running') {
+            sendCommand(server.id, 'whitelist off')
+            await play(win.webContents, joinProfile, { host: 'localhost', port: server.port })
+            const end = Date.now() + 240_000
+            while (Date.now() < end && !serverLog(server.id).some((l) => /joined the game/.test(l))) await new Promise((r) => setTimeout(r, 2000))
+            const joined = serverLog(server.id).find((l) => /joined the game|lost connection|Disconnecting/.test(l))
+            console.log(`[server-test] ${item} : rejoindre → ${joined ?? 'personne'}`)
+          }
+          // ALORIA_TEST_SERVER_COMMAND="e4mc" : commande envoyée une fois en ligne (la vérification de permission d'e4mc
+          // plantait en 26.x à la connexion d'un joueur)
+          const command = process.env.ALORIA_TEST_SERVER_COMMAND
+          if (command && status?.state === 'running') {
+            sendCommand(server.id, command)
+            await new Promise((r) => setTimeout(r, 4000))
+            const errors = serverLog(server.id).filter((l) => /NoSuchMethodError|Exception/.test(l))
+            console.log(`[server-test] ${item} : commande ${command} → ${errors.length === 0 ? 'OK' : 'ÉCHEC'}\n${serverLog(server.id).slice(-6).join('\n')}`)
+          }
+        } catch (err) {
+          console.log(`[server-test] ${item} : ÉCHEC`, err)
+        }
+        await stopServer(server.id)
+        // Restauration de la sauvegarde faite plus haut, serveur éteint
+        if (process.env.ALORIA_TEST_SERVER_BACKUP) {
+          const [last] = await listBackups(server.id)
+          if (last) {
+            await restoreBackup(server.id, last.file)
+            const after = await listBackups(server.id)
+            const { existsSync } = await import('node:fs')
+            console.log(`[server-test] ${item} : restauration → monde ${existsSync(join(serverDirOf(server.id), 'world', 'level.dat')) ? 'présent' : 'ABSENT'}, sauvegardes ${after.map((b) => b.kind).join(', ')}`)
+          }
+        }
+        if (!process.env.ALORIA_TEST_SERVER_KEEP) await deleteServer(server.id)
+      }
+      app.quit()
+    })
+  }
+  // Captures de la page Serveurs en développement : ALORIA_CAPTURE_SERVERS=<dossier> crée un serveur Fabric de test,
+  // le démarre et photographie la liste, la fiche (console, adresse) et la fenêtre de création, puis le supprime
+  if (!app.isPackaged && process.env.ALORIA_CAPTURE_SERVERS) {
+    const dir = process.env.ALORIA_CAPTURE_SERVERS
+    // Fenêtre pas au premier plan pendant le test : sans ça, elle se redessine au ralenti et les captures ont du retard
+    win.webContents.setBackgroundThrottling(false)
+    win.webContents.once('did-finish-load', async () => {
+      const { mkdir, writeFile } = await import('node:fs/promises')
+      await mkdir(dir, { recursive: true })
+      const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
+      const lang = getSettings().language ?? 'fr'
+      const click = (label: string) =>
+        win.webContents.executeJavaScript(
+          `[...document.querySelectorAll('button, .profile-card')].find((b) => b.textContent.includes(${JSON.stringify(label)}))?.click()`
+        )
+      const snap = async (name: string) => {
+        win.webContents.invalidate()
+        await wait(300)
+        await writeFile(join(dir, `${name}.png`), (await win.webContents.capturePage()).toPNG())
+      }
+      // ALORIA_CAPTURE_SERVERS_TYPE="paper:1.21.11:playit" : autre type de serveur (Fabric 26.3 avec e4mc sinon)
+      const [type, gameVersion, tunnel] = (process.env.ALORIA_CAPTURE_SERVERS_TYPE ?? 'fabric:26.3:e4mc').split(':') as [
+        ServerInput['type'],
+        string,
+        ServerInput['tunnel']
+      ]
+      const server = await createServer({
+        name: 'Survie entre potes',
+        icon: '🏰',
+        type,
+        gameVersion,
+        loaderVersion: null,
+        ramMb: 3072,
+        port: freePort(),
+        tunnel
+      })
+      await wait(2500)
+      await click(translate(lang, 'nav.servers'))
+      await wait(800)
+      await snap('1-liste')
+      await click('Survie entre potes')
+      await wait(500)
+      // Joueurs et contenu préparés serveur éteint (fichiers modifiés directement)
+      await editPlayersOffline(server.id, 'whitelist-add', 'Alykell83').catch((e) => console.log('[capture] liste blanche', e))
+      if (type !== 'vanilla') {
+        const hits = await searchServerContent(server.id, type === 'paper' ? 'luckperms' : 'lithium')
+        console.log('[capture] recherche', hits.slice(0, 3).map((h) => h.title))
+        if (hits[0]) await installServerContent(server.id, hits[0].projectId).catch((e) => console.log('[capture] installation', e))
+        console.log('[capture] installé', (await listServerContent(server.id)).map((c) => c.title))
+      }
+      startServer(server.id).catch(() => {})
+      for (let i = 0; i < 300; i++) {
+        const st = serverStatuses().find((s) => s.id === server.id)
+        if (st?.publicAddress || (st?.state === 'running' && st.tunnelError) || (st?.state === 'running' && tunnel === 'none')) break
+        await wait(1000)
+      }
+      // Laisse le temps aux mesures (mémoire, processeur, TPS)
+      await wait(9000)
+      await snap('2-fiche')
+      for (const [key, name] of [['server.tab.players', '2b-joueurs'], ['server.tab.settings', '2c-reglages'], [type === 'paper' ? 'server.tab.plugins' : 'server.tab.mods', '2d-contenu'], ['server.tab.backups', '2e-sauvegardes']] as const) {
+        if (name === '2e-sauvegardes') await backupServer(server.id, 'manual')
+        await click(translate(lang, key))
+        await wait(2500)
+        await snap(name)
+      }
+      console.log('[capture] joueurs', JSON.stringify(await listPlayers(server.id)))
+      await click(translate(lang, 'server.tab.console'))
+      await wait(300)
+      await click(`← ${translate(lang, 'server.back')}`)
+      await wait(500)
+      await snap('3-liste-en-ligne')
+      await click(translate(lang, 'server.new'))
+      await wait(1500)
+      await snap('4-creation')
+      await win.webContents.executeJavaScript(`document.querySelector('.dialog.editor').scrollTop = 99999`)
+      await wait(400)
+      await snap('5-creation-bas')
+      await stopServer(server.id)
+      await deleteServer(server.id)
+      app.quit()
     })
   }
   app.on('activate', () => {

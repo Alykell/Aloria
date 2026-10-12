@@ -13,6 +13,7 @@ import { useGame } from './hooks/useGame'
 import { useProfiles } from './hooks/useProfiles'
 import { DISCORD_INVITE } from '../../shared/links'
 import CreationsPage from './components/CreationsPage'
+import ServersPage from './components/ServersPage'
 import SkinDialog from './components/SkinDialog'
 import { useTheme } from './hooks/useTheme'
 import LanguagePicker from './components/LanguagePicker'
@@ -20,6 +21,10 @@ import { setLang, t } from './i18n'
 
 export default function App() {
   const [page, setPage] = useState<Page>('home')
+  // Recliquer sur une page du menu la remet à zéro (ex. la fiche d'un serveur revient à la liste)
+  const [navTick, setNavTick] = useState(0)
+  // Panneau d'un serveur ouvert : plein écran, sans le menu de gauche
+  const [focused, setFocused] = useState(false)
   const [version, setVersion] = useState('')
   const [pageError, setPageError] = useState<string | null>(null)
   const [skinOpen, setSkinOpen] = useState(false)
@@ -66,8 +71,19 @@ export default function App() {
       <div className="backdrop" style={{ backgroundImage: `url(${backdrop})` }} />
       <TitleBar />
       <div className="app__body">
-        <Sidebar page={page} hidden={hiddenPages} onChange={setPage} accounts={accounts} onSkin={() => setSkinOpen(true)} />
-        <main className="content">
+        {!focused && (
+          <Sidebar
+            page={page}
+            hidden={hiddenPages}
+            onChange={(p) => {
+              setPage(p)
+              setNavTick((n) => n + 1)
+            }}
+            accounts={accounts}
+            onSkin={() => setSkinOpen(true)}
+          />
+        )}
+        <main className={'content' + (focused ? ' content--focused' : '')}>
           {error && (
             <div className="toast" role="alert">
               <span>{error}</span>
@@ -82,6 +98,7 @@ export default function App() {
           )}
           {page === 'gamesettings' && <GameSettingsPage onError={setPageError} />}
           {page === 'creations' && <CreationsPage profiles={profiles} onError={setPageError} />}
+          {page === 'servers' && <ServersPage key={navTick} settings={settings} onError={setPageError} onFocus={setFocused} />}
           {page === 'settings' && <SettingsPage state={settings} />}
           {page === 'library' && (
             <LibraryPage

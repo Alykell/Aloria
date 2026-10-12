@@ -4,12 +4,13 @@ import type { AccountsState } from '../hooks/useAccounts'
 import { t } from '../i18n'
 import type { MessageKey } from '../../../shared/i18n'
 
-export type Page = 'home' | 'library' | 'creations' | 'profiles' | 'gamesettings' | 'settings'
+export type Page = 'home' | 'library' | 'creations' | 'servers' | 'profiles' | 'gamesettings' | 'settings'
 
 const ITEMS: { id: Page; label: MessageKey; icon: string }[] = [
   { id: 'home', label: 'nav.home', icon: '🏝️' },
   { id: 'library', label: 'nav.library', icon: '🐚' },
   { id: 'creations', label: 'nav.creations', icon: '🎨' },
+  { id: 'servers', label: 'nav.servers', icon: '🖥️' },
   { id: 'profiles', label: 'nav.profiles', icon: '⚓' },
   { id: 'gamesettings', label: 'nav.gamesettings', icon: '🎮' },
   { id: 'settings', label: 'nav.settings', icon: '⚙️' }

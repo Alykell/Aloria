@@ -63,6 +63,16 @@ Données du jeu : `%APPDATA%\.aloria` (profils, instances, `shared/` = serveurs 
 - Auto-tests : `selftestneo1211` (NeoForge 1.21.1), `selftestforge1201` (Forge 1.20.1), en démo comme les autres.
 - OptiFine n'est pas redistribuable : le joueur le télécharge, « Ajouter OptiFine » (bibliothèque) le range dans `mods`.
 
+## Serveurs (page « Serveurs »)
+- `src/main/server/` : `store` (servers.json, `%APPDATA%\.aloria\servers\<id>`), `install` (Vanilla, Fabric, Paper via fill.papermc.io,
+  Forge/NeoForge via `--installServer`), `runner` (processus, console, TPS par `/tick query` caché, sauvegardes), `stats` (RAM/CPU),
+  `playit` (API api.playit.gg + programme playit v1.0.12), `manage` (server.properties, joueurs), `content` (mods/plugins Modrinth), `backups`.
+- e4mc (adresse gratuite, Fabric/Forge/NeoForge ≥ 1.17) plante en 26.x (`hasPermission(int)` retiré) : `CommandPermissionCompatMixin`
+  d'Aloria HUD le corrige ; le mod est donc aussi copié sur les serveurs Fabric 26.x (`fabric.mod.json` environment `*`).
+- Tests : `ALORIA_TEST_SERVER="fabric:26.3,paper:1.21.11"` (+ `_COMMAND`, `_BACKUP=1`, `_JOIN=selftest` avec `ALORIA_TEST_DEMO=1`,
+  `_KEEP=1`) ; captures : `ALORIA_CAPTURE_SERVERS=<dossier>` (+ `ALORIA_CAPTURE_SERVERS_TYPE="paper:1.21.11:playit"`).
+  Ne pas toucher aux serveurs de l'utilisateur (« Survie entre pote », « dfvdfv »).
+
 ## Créations (packs de textures, page « Créations »)
 - Packs dans `%APPDATA%\.aloria\packs\<id>` (pack.json + PNG au format commun : viseur 15×15, hotbar 182×22, sélection
   24×24, totem 16×16). `src/main/packs.ts` (stockage, jar du jeu, zip, activation dans options.txt) ;

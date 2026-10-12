@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useVersions } from '../hooks/useVersions'
-import { hudAvailable, hudVersionsLabel } from '../../../shared/aloriaHud'
+import { e4mcSupported, friendsUsable, hudAvailable, hudVersionsLabel } from '../../../shared/aloriaHud'
 import { forgeSupported, neoforgeSupported, prefersForge } from '../../../shared/loaders'
 import type { Loader, LoaderVersion, Profile, ProfileInput, SettingsPreset } from '../../../shared/types'
 import Select from './Select'
@@ -181,6 +181,20 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
               version: gameVersion
             })}
           </small>
+        )}
+
+        {gameVersion && e4mcSupported(form.loader, gameVersion) && (
+          <label className="toggle-line">
+            <input
+              type="checkbox"
+              disabled={!friendsUsable(form, gameVersion)}
+              checked={form.playWithFriends === true && friendsUsable(form, gameVersion)}
+              onChange={(ev) => set({ playWithFriends: ev.target.checked })}
+            />
+            <span>
+              {t('editor.friends')} <small className="muted">{t('editor.friendsHint')}</small>
+            </span>
+          </label>
         )}
 
         {form.loader === 'forge' && (

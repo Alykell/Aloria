@@ -99,7 +99,7 @@ export interface Settings {
 }
 
 /** Parties du launcher qu'on peut masquer : pages du menu, et l'onglet Modpacks de la Bibliothèque */
-export type AppModule = 'library' | 'modpacks' | 'creations' | 'gamesettings'
+export type AppModule = 'library' | 'modpacks' | 'creations' | 'servers' | 'gamesettings'
 
 export type DiscordGameName = 'aloria' | 'minecraft'
 
@@ -148,6 +148,8 @@ export interface ProfileInput {
   aloriaHud?: boolean
   /** Liste de serveurs commune à tous les profils (absent = oui) */
   shareServers?: boolean
+  /** Jouer avec des amis : e4mc rend le monde ouvert en LAN joignable par internet (absent = non, false = retiré) */
+  playWithFriends?: boolean
   /** Jeu de réglages appliqué au lancement (absent = « Mes réglages », null = réglages propres au profil) */
   settingsPreset?: string | null
   /** Modpack d'origine du profil (installé depuis Modrinth ou un fichier .mrpack) */
@@ -277,3 +279,101 @@ export type UpdateStatus =
   | { state: 'checking' }
   | { state: 'downloading'; version: string; percent: number }
   | { state: 'ready'; version: string }
+
+// ---------------------------------------------------------------- serveurs (page Serveurs)
+
+export type ServerType = 'vanilla' | 'fabric' | 'paper' | 'forge' | 'neoforge'
+
+/** Adresse publique sans ouvrir de ports : e4mc (mod, Fabric/Forge/NeoForge) ou playit.gg ; none = réseau local seulement */
+export type ServerTunnel = 'e4mc' | 'playit' | 'none'
+
+export interface ServerInput {
+  name: string
+  icon: string
+  type: ServerType
+  /** Version du jeu (numéro exact : un serveur ne suit pas « dernière version » tout seul) */
+  gameVersion: string
+  /** Version du chargeur (Fabric, Forge, NeoForge) ou build de Paper ; null = dernière stable à l'installation */
+  loaderVersion: string | null
+  ramMb: number
+  port: number
+  tunnel: ServerTunnel
+}
+
+export interface ServerInfo extends ServerInput {
+  id: string
+  createdAt: number
+  lastStarted: number | null
+  /** Sauvegarde automatique du monde toutes les N heures pendant que le serveur tourne (absent = 6, 0 = jamais) */
+  backupHours?: number
+  /** Nombre de sauvegardes gardées (absent = 10) */
+  backupKeep?: number
+  /** Version du chargeur réellement installée (pour savoir s'il faut réinstaller) */
+  installed?: { gameVersion: string; loaderVersion: string | null }
+}
+
+export type ServerState = 'stopped' | 'installing' | 'starting' | 'running' | 'stopping'
+
+export interface ServerStatus {
+  id: string
+  state: ServerState
+  /** Étape en cours pendant l'installation */
+  label?: string
+  /** 0 à 1 pendant un téléchargement */
+  progress?: number
+  /** Adresse publique (e4mc, playit) une fois connue */
+  publicAddress: string | null
+  /** Joueurs connectés */
+  players: string[]
+  /** Dernière erreur (crash, installation ratée) */
+  error?: string
+  /** playit.gg : IP:port du relais, en secours si le nom de domaine ne marche pas encore chez un ami */
+  fallbackAddress?: string
+  /** Adresse publique impossible à obtenir (ex. compte playit.gg pas encore relié) */
+  tunnelError?: string
+  /** Mesures en direct pendant que le serveur tourne (TPS seulement depuis la 1.20.3) */
+  stats?: { ramMb?: number; ramMaxMb?: number; cpu?: number; tps?: number; mspt?: number }
+}
+
+/** Action sur un joueur (commande si le serveur est allumé, fichier sinon) */
+export type ServerPlayerAction = 'whitelist-add' | 'whitelist-remove' | 'op' | 'deop' | 'ban' | 'pardon' | 'kick'
+
+export interface ServerPlayers {
+  whitelistOn: boolean
+  whitelist: string[]
+  ops: string[]
+  banned: string[]
+}
+
+/** Occasion d'une sauvegarde : à la main, automatique, avant un changement de version ou une restauration */
+export type ServerBackupKind = 'manual' | 'auto' | 'version' | 'restore'
+
+export interface ServerBackup {
+  file: string
+  kind: ServerBackupKind
+  date: number
+  sizeMb: number
+}
+
+/** Mod ou plugin trouvé sur Modrinth pour un serveur */
+export interface ServerContentHit {
+  projectId: string
+  title: string
+  description: string
+  iconUrl: string | null
+  downloads: number
+  /** Mod à installer aussi chez les joueurs */
+  clientRequired: boolean
+}
+
+/** Mod ou plugin présent dans le dossier du serveur */
+export interface ServerContent {
+  fileName: string
+  title: string
+  iconUrl: string | null
+}
+
+export interface ServerLogLine {
+  id: string
+  line: string
+}

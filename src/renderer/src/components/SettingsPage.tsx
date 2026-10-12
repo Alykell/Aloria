@@ -19,6 +19,7 @@ const MODULES: { id: AppModule; label: MessageKey; hint: MessageKey; icon: strin
   { id: 'library', label: 'nav.library', hint: 'settings.moduleLibrary', icon: '🐚' },
   { id: 'modpacks', label: 'library.tabModpacks', hint: 'settings.moduleModpacks', icon: '📦' },
   { id: 'creations', label: 'nav.creations', hint: 'settings.moduleCreations', icon: '🎨' },
+  { id: 'servers', label: 'nav.servers', hint: 'settings.moduleServers', icon: '🖥️' },
   { id: 'gamesettings', label: 'nav.gamesettings', hint: 'settings.moduleGameSettings', icon: '🎮' }
 ]
 

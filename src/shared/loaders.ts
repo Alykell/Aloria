@@ -27,3 +27,9 @@ export function prefersForge(gameVersion: string): boolean {
   const v = parse(gameVersion)
   return !!v && v[0] === 1 && v[1] <= 12
 }
+
+/** e4mc (« Jouer avec des amis ») existe à partir de la 1.17 */
+export function friendsSupported(gameVersion: string): boolean {
+  const v = parse(gameVersion)
+  return !!v && (v[0] >= 26 || (v[0] === 1 && v[1] >= 17))
+}

@@ -1,0 +1,11 @@
+{
+	"required": true,
+	"package": "fr.alykell.aloria.hud.mixin",
+	"compatibilityLevel": "JAVA_${java}",
+	"mixins": [
+		"CommandPermissionCompatMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}
