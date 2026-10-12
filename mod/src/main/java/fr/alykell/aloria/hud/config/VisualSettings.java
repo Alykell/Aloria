@@ -1,6 +1,6 @@
 package fr.alykell.aloria.hud.config;
 
-/** Réglages de l'écran Visuel : mains, bouclier, totem, luminosité et brouillard. */
+/** Réglages de l'écran Visuel : mains, bouclier, totem, luminosité, citrouille et brouillard. */
 public class VisualSettings {
 	/** Décalage et taille d'un objet tenu en vue à la première personne (valeurs neutres = jeu normal) */
 	public static class HandTransform {
@@ -25,6 +25,8 @@ public class VisualSettings {
 	public float totemScale = 1f;
 	/** Voir comme avec l'effet Vision nocturne */
 	public boolean fullbright = false;
+	/** Cacher le contour de la citrouille portée sur la tête */
+	public boolean hidePumpkin = false;
 	/** Brouillard en pourcentage : 100 = normal, 0 = aucun */
 	public int fogOverworld = 100;
 	public int fogNether = 100;

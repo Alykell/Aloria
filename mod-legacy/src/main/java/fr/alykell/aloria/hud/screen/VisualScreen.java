@@ -44,7 +44,7 @@ public class VisualScreen extends AloriaScreen {
 
 	private int rows() {
 		if (tab.equals("hands")) return 5;
-		if (tab.equals("light")) return 2;
+		if (tab.equals("light")) return 4;
 		return 5;
 	}
 
@@ -131,6 +131,11 @@ public class VisualScreen extends AloriaScreen {
 		toggle("fullbright", g, x + w - PAD - 24, y + 1, v().fullbright, () -> v().fullbright = !v().fullbright);
 		y += ROW_H;
 		text(g, Tr.tr("visual.fullbrightHint"), x + PAD, y + 2, Theme.TEXT_SOFT, false);
+		y += ROW_H;
+		text(g, Tr.tr("visual.hidePumpkin"), x + PAD, y + 2, Theme.FOAM, false);
+		toggle("hidePumpkin", g, x + w - PAD - 24, y + 1, v().hidePumpkin, () -> v().hidePumpkin = !v().hidePumpkin);
+		y += ROW_H;
+		text(g, Tr.tr("visual.hidePumpkinHint"), x + PAD, y + 2, Theme.TEXT_SOFT, false);
 	}
 
 	private void drawFog(G g, int mouseX, int mouseY, int x, int y, int w) {

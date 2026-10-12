@@ -1,6 +1,7 @@
 package fr.alykell.aloria.hud.screen;
 
 import fr.alykell.aloria.hud.AloriaHud;
+import fr.alykell.aloria.hud.RedstonePack;
 import fr.alykell.aloria.hud.Theme;
 import fr.alykell.aloria.hud.Tr;
 import fr.alykell.aloria.hud.Visual;
@@ -16,7 +17,7 @@ import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 
 /**
- * Écran Visuel : mains, bouclier, totem, luminosité et brouillard.
+ * Écran Visuel : mains, bouclier, totem, autres (luminosité, citrouille, pack redstone) et brouillard.
  * Petit panneau en haut de l'écran, sans assombrir le jeu, pour voir chaque réglage en direct.
  */
 public class VisualScreen extends AloriaScreen {
@@ -49,7 +50,7 @@ public class VisualScreen extends AloriaScreen {
 			case "hands" -> 6;
 			case "shield" -> 6;
 			case "totem" -> 3;
-			case "light" -> 2;
+			case "light" -> 6;
 			default -> 6;
 		};
 	}
@@ -163,11 +164,28 @@ public class VisualScreen extends AloriaScreen {
 		buttonWithId("totem:reset", g, mouseX, mouseY, x + PAD + w(preview) + 22, y, w(reset) + 16, 13, reset, false, () -> v().totemScale = 1f);
 	}
 
+	/** Onglet Autres : luminosité, citrouille et pack redstone */
 	private void drawLight(GuiGraphicsExtractor g, int x, int y, int w) {
 		text(g, Tr.tr("visual.fullbright"), x + PAD, y + 2, Theme.FOAM, false);
 		toggle("fullbright", g, x + w - PAD - 24, y + 1, v().fullbright, () -> v().fullbright = !v().fullbright);
 		y += ROW_H;
 		text(g, Tr.tr("visual.fullbrightHint"), x + PAD, y + 2, Theme.TEXT_SOFT, false);
+		y += ROW_H;
+		text(g, Tr.tr("visual.hidePumpkin"), x + PAD, y + 2, Theme.FOAM, false);
+		toggle("hidePumpkin", g, x + w - PAD - 24, y + 1, v().hidePumpkin, () -> v().hidePumpkin = !v().hidePumpkin);
+		y += ROW_H;
+		text(g, Tr.tr("visual.hidePumpkinHint"), x + PAD, y + 2, Theme.TEXT_SOFT, false);
+		y += ROW_H;
+		text(g, Tr.tr("visual.redstone"), x + PAD, y + 2, Theme.FOAM, false);
+		toggle("redstonePack", g, x + w - PAD - 24, y + 1, RedstonePack.active(), RedstonePack::toggle);
+		y += ROW_H;
+		String hint = switch (RedstonePack.status()) {
+			case DOWNLOADING -> Tr.tr("visual.redstone.downloading");
+			case FAILED -> Tr.tr("visual.redstone.failed");
+			case UNAVAILABLE -> Tr.tr("visual.redstone.unavailable");
+			default -> Tr.tr("visual.redstoneHint");
+		};
+		text(g, hint, x + PAD, y + 2, RedstonePack.status() == RedstonePack.Status.FAILED ? Theme.CORAL : Theme.TEXT_SOFT, false);
 	}
 
 	private void drawFog(GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int y, int w) {

@@ -635,6 +635,54 @@ public final class SelfTest {
 			check("l'interrupteur Luminosité max fonctionne", visual().fullbright);
 			return screenshot(mc, "17-nuit-luminosite-max");
 		});
+		add("citrouille sur la tête", 2, () -> {
+			visual().fullbright = false;
+			command(mc, "time set noon");
+			command(mc, "item replace entity @p armor.head with minecraft:carved_pumpkin");
+			return true;
+		});
+		add("capture citrouille", 15, () -> screenshot(mc, "17b-citrouille"));
+		add("contour de la citrouille caché", 2, () -> click(mc, "hidePumpkin"));
+		add("capture citrouille cachée", 10, () -> {
+			check("l'interrupteur Citrouille fonctionne", visual().hidePumpkin);
+			return screenshot(mc, "17c-citrouille-cachee");
+		});
+		add("blocs de redstone", 2, () -> {
+			command(mc, "item replace entity @p armor.head with minecraft:air");
+			visual().hidePumpkin = false;
+			var server = mc.getSingleplayerServer();
+			var uuid = mc.player.getUUID();
+			var facing = mc.player.getDirection();
+			server.execute(() -> {
+				var player = server.getPlayerList().getPlayer(uuid);
+				if (player == null) return;
+				var level = player.level();
+				var front = player.blockPosition().relative(facing, 3);
+				var blocks = new java.util.LinkedHashMap<net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState>();
+				blocks.put(front.above(), net.minecraft.world.level.block.Blocks.OBSERVER.defaultBlockState());
+				blocks.put(front.relative(facing.getClockWise()), net.minecraft.world.level.block.Blocks.HOPPER.defaultBlockState());
+				blocks.put(front.relative(facing.getCounterClockWise()), net.minecraft.world.level.block.Blocks.DROPPER.defaultBlockState());
+				blocks.put(front.relative(facing.getCounterClockWise()).above(), net.minecraft.world.level.block.Blocks.DISPENSER.defaultBlockState());
+				blocks.forEach((pos, state) -> {
+					REPLACED.put(pos, level.getBlockState(pos));
+					level.setBlock(pos, state, 3);
+				});
+			});
+			return true;
+		});
+		add("capture redstone (sans pack)", 15, () -> screenshot(mc, "17d-redstone-normal"));
+		add("pack redstone activé", 2, () -> click(mc, "redstonePack"));
+		add("pack redstone téléchargé", 200, () -> {
+			if (RedstonePack.status() == RedstonePack.Status.DOWNLOADING) return false;
+			return check("le pack Redstone Tweaks est téléchargé et activé (" + RedstonePack.status() + ")", RedstonePack.active());
+		});
+		add("capture redstone (avec pack)", 40, () -> screenshot(mc, "17e-redstone-pack"));
+		add("pack redstone retiré", 2, () -> {
+			REPLACED.forEach((pos, state) -> mc.getSingleplayerServer().execute(() -> mc.getSingleplayerServer().overworld().setBlock(pos, state, 3)));
+			REPLACED.clear();
+			return click(mc, "redstonePack");
+		});
+		add("pack redstone désactivé", 40, () -> check("l'interrupteur retire le pack", !RedstonePack.active()));
 		add("de l'eau sur la tête", 2, () -> {
 			visual().fullbright = false;
 			command(mc, "time set noon");

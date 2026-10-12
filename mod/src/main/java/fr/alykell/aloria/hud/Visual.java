@@ -9,6 +9,7 @@ import net.minecraft.client.multiplayer.ClientLevel;
 //#if MC >= 12106
 import net.minecraft.client.renderer.fog.FogData;
 //#endif
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.HumanoidArm;
@@ -20,7 +21,7 @@ import net.minecraft.world.level.material.FogType;
 import net.minecraft.util.Mth;
 import org.jspecify.annotations.Nullable;
 
-/** Effets de l'écran Visuel, appliqués par les mixins (mains, totem, luminosité, brouillard). */
+/** Effets de l'écran Visuel, appliqués par les mixins (mains, totem, luminosité, citrouille, brouillard). */
 public final class Visual {
 	/** Point d'ancrage d'un objet tenu (position du jeu de base) : la taille change autour de ce point */
 	private static final float ANCHOR_X = 0.56f;
@@ -78,6 +79,13 @@ public final class Visual {
 				// Méthode absente dans cette version : on essaie l'autre
 			}
 		}
+	}
+
+	// ---------------------------------------------------------------- citrouille
+
+	/** Image plein écran à ne pas dessiner : le contour de la citrouille portée, si l'option est activée */
+	public static boolean hidesOverlay(Identifier texture) {
+		return settings().hidePumpkin && texture.getPath().endsWith("pumpkinblur.png");
 	}
 
 	// ---------------------------------------------------------------- brouillard

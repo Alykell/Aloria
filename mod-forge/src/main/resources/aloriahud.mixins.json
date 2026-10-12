@@ -17,6 +17,7 @@
 		"KeyBindingMixin",
 		"MinecraftClientMixin",
 		"MouseInputMixin",
+		"PumpkinMixin",
 		"VisualRendererMixin"
 	],
 	"injectors": {

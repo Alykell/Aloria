@@ -340,6 +340,20 @@ public final class SelfTest {
 			check("l'interrupteur active la luminosité max", Visual.settings().fullbright);
 			return screenshot(mc, "11-visuel-luminosite");
 		});
+		add("citrouille sur la tête", 2, () -> {
+			Visual.settings().fullbright = false;
+			server(mc, (world, player) -> player.inventory.armor[3] = new ItemStack(net.minecraft.block.Blocks.PUMPKIN));
+			return true;
+		});
+		add("capture citrouille", 10, () -> screenshot(mc, "11b-citrouille"));
+		add("contour de la citrouille caché", 2, () -> click(mc, "hidePumpkin"));
+		add("capture citrouille cachée", 5, () -> {
+			check("l'interrupteur Citrouille fonctionne", Visual.settings().hidePumpkin);
+			screenshot(mc, "11c-citrouille-cachee");
+			Visual.settings().hidePumpkin = false;
+			server(mc, (world, player) -> player.inventory.armor[3] = new ItemStack(Items.IRON_HELMET));
+			return true;
+		});
 		add("brouillard coupé", 2, () -> {
 			Visual.settings().fullbright = false;
 			((VisualScreen) mc.currentScreen).openTab("fog");
