@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { shell } from 'electron'
 import { downloadAll } from '../game/download'
 import { paths } from '../game/paths'
-import type { ServerInfo } from '../../shared/types'
+import type { PlayitUsage, ServerInfo } from '../../shared/types'
 import { tm } from '../i18n'
 
 /**
@@ -102,7 +102,7 @@ interface RunData {
     custom_domain: string | null
     port: { from: number }
   }[]
-  pending: { id: string }[]
+  pending: { id: string; name: string | null }[]
 }
 
 const tunnelName = (server: ServerInfo) => `aloria-${server.id}`
@@ -154,23 +154,27 @@ export async function ensureTunnel(server: ServerInfo): Promise<TunnelAddress> {
     tunnel = undefined
   }
   if (!tunnel) {
-    const created = await withRetry(() =>
-      call<{ id: string }>(
-        '/tunnels/create',
-        {
-          name: tunnelName(server),
-          tunnel_type: 'minecraft-java',
-          port_type: 'tcp',
-          port_count: 1,
-          origin: { type: 'agent', data: { agent_id: run.agent_id, local_ip: '127.0.0.1', local_port: server.port } },
-          enabled: true,
-          alloc: null,
-          firewall_id: null,
-          proxy_protocol: null
-        },
-        secret
-      )
-    )
+    // Déjà demandé à un démarrage précédent, toujours en attente : on l'attend au lieu d'en demander un autre
+    const pending = run.pending.find((p) => p.name === tunnelName(server))
+    const created =
+      pending ??
+      (await withRetry(() =>
+        call<{ id: string }>(
+          '/tunnels/create',
+          {
+            name: tunnelName(server),
+            tunnel_type: 'minecraft-java',
+            port_type: 'tcp',
+            port_count: 1,
+            origin: { type: 'agent', data: { agent_id: run.agent_id, local_ip: '127.0.0.1', local_port: server.port } },
+            enabled: true,
+            alloc: null,
+            firewall_id: null,
+            proxy_protocol: null
+          },
+          secret
+        )
+      ))
     // Le tunnel reçoit son adresse en quelques secondes
     const end = Date.now() + 60_000
     while (!tunnel && Date.now() < end) {
@@ -178,10 +182,32 @@ export async function ensureTunnel(server: ServerInfo): Promise<TunnelAddress> {
       run = await call<RunData>('/agents/rundata', {}, secret)
       tunnel = run.tunnels.find((t) => t.id === created.id)
     }
-    if (!tunnel) throw new Error(tm('err.playitTunnelTimeout'))
+    if (!tunnel) {
+      // Toujours en attente : le compte gratuit de playit.gg n'accepte que 4 tunnels
+      throw new Error(
+        tm(run.tunnels.length >= PLAYIT_FREE_TUNNELS ? 'err.playitTunnelLimit' : 'err.playitTunnelTimeout', { n: run.tunnels.length })
+      )
+    }
   }
   const domain = tunnel.custom_domain ?? tunnel.assigned_domain
   return { address: domain, fallback: await fallbackAddress(tunnel.assigned_domain, tunnel.port.from) }
+}
+
+/** Places du compte gratuit de playit.gg (le 5e tunnel reste en attente pour toujours) */
+export const PLAYIT_FREE_TUNNELS = 4
+
+/** Adresses utilisées sur le compte (pour griser playit.gg quand il est plein) */
+export async function playitUsage(): Promise<PlayitUsage> {
+  const secret = config()?.secretKey
+  if (!secret) return { linked: false, used: 0, max: PLAYIT_FREE_TUNNELS, serverIds: [] }
+  const run = await call<RunData>('/agents/rundata', {}, secret)
+  const names = [...new Set([...run.tunnels, ...run.pending].map((t) => t.name ?? ''))]
+  return {
+    linked: true,
+    used: run.tunnels.length,
+    max: PLAYIT_FREE_TUNNELS,
+    serverIds: names.filter((n) => n.startsWith('aloria-')).map((n) => n.slice('aloria-'.length))
+  }
 }
 
 /** Supprime le tunnel d'un serveur supprimé (sans erreur si playit n'est pas relié ou injoignable) */
@@ -190,8 +216,9 @@ export async function deleteTunnel(server: ServerInfo): Promise<void> {
   if (!secret) return
   try {
     const run = await call<RunData>('/agents/rundata', {}, secret)
-    const tunnel = run.tunnels.find((t) => t.name === tunnelName(server))
-    if (tunnel) await call('/tunnels/delete', { tunnel_id: tunnel.id }, secret)
+    // Le tunnel actif, et les demandes encore en attente (compte plein)
+    const ids = [...run.tunnels, ...run.pending].filter((t) => t.name === tunnelName(server)).map((t) => t.id)
+    for (const id of ids) await call('/tunnels/delete', { tunnel_id: id }, secret)
   } catch {
     // Le tunnel restera visible sur le site de playit, où on peut le supprimer à la main
   }
@@ -222,7 +249,15 @@ export async function acquireAgent(serverId: string, onStep: (label: string, pro
   users.add(serverId)
   if (agent) return
   const exe = await agentExecutable(onStep)
-  const child = spawn(exe, ['--secret', secret, '--log-path', join(dir, 'playit.log')], { cwd: dir, windowsHide: true })
+  const args = ['--secret', secret, '--log-path', join(dir, 'playit.log')]
+  // Sous Linux, son socket par défaut (/run/playit) n'existe qu'une fois playit installé en service : on le met chez nous,
+  // sans celui d'un programme mal arrêté (sinon « Address in use »)
+  if (process.platform !== 'win32') {
+    const socket = join(dir, 'playitd.sock')
+    await rm(socket, { force: true })
+    args.push('--socket-path', socket)
+  }
+  const child = spawn(exe, args, { cwd: dir, windowsHide: true })
   let output = ''
   const keep = (chunk: Buffer) => {
     output = (output + chunk.toString()).slice(-1000)

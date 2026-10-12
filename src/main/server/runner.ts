@@ -91,6 +91,7 @@ export async function connectTunnel(id: string): Promise<void> {
     await acquireAgent(id, () => {})
     r.cleanup.push(() => releaseAgent(id))
     const { address, fallback } = await ensureTunnel(server)
+    if (server.lastAddress !== address) updateServer(id, { lastAddress: address })
     setStatus(r, { publicAddress: address, fallbackAddress: fallback ?? undefined })
   } catch (err) {
     setStatus(r, { tunnelError: err instanceof Error ? err.message : String(err) })

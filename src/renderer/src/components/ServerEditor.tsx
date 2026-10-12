@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useVersions } from '../hooks/useVersions'
 import { forgeSupported, neoforgeSupported } from '../../../shared/loaders'
 import { e4mcSupported } from '../../../shared/aloriaHud'
-import type { LoaderVersion, ServerInfo, ServerInput, ServerTunnel, ServerType } from '../../../shared/types'
+import type { LoaderVersion, PlayitUsage, ServerInfo, ServerInput, ServerTunnel, ServerType } from '../../../shared/types'
 import Select from './Select'
 import { gb, t } from '../i18n'
 
@@ -47,6 +47,10 @@ export default function ServerEditor({ server, defaultPort, maxRamMb, onSave, on
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [loaders, setLoaders] = useState<LoaderVersion[] | null>(null)
+  const [playit, setPlayit] = useState<PlayitUsage | null>(null)
+  useEffect(() => {
+    window.aloria.servers.playitUsage().then((res) => res.ok && setPlayit(res.value))
+  }, [])
   const set = (patch: Partial<ServerInput>) => setForm((f) => ({ ...f, ...patch }))
 
   // Nouveau serveur : dernière version du jeu par défaut
@@ -91,9 +95,20 @@ export default function ServerEditor({ server, defaultPort, maxRamMb, onSave, on
     setSaving(false)
   }
 
+  // Compte gratuit de playit.gg : 4 adresses ; plein, playit.gg est grisé (sauf pour un serveur qui a déjà la sienne)
+  const playitFull = !!playit?.linked && playit.used >= playit.max && !(server && playit.serverIds.includes(server.id))
   const tunnels: { id: ServerTunnel; label: string; hint: string; disabled?: boolean }[] = [
     { id: 'e4mc', label: t('server.tunnel.e4mc'), hint: t('server.tunnel.e4mcHint'), disabled: !supportsE4mc(form.type, version) },
-    { id: 'playit', label: t('server.tunnel.playit'), hint: t('server.tunnel.playitHint') },
+    {
+      id: 'playit',
+      label: t('server.tunnel.playit'),
+      hint: playitFull
+        ? t('server.tunnel.playitFull', { used: playit!.used, max: playit!.max })
+        : playit?.linked
+          ? t('server.tunnel.playitUsage', { used: playit.used, max: playit.max })
+          : t('server.tunnel.playitHint'),
+      disabled: playitFull
+    },
     { id: 'none', label: t('server.tunnel.none'), hint: t('server.tunnel.noneHint') }
   ]
 
@@ -115,7 +130,13 @@ export default function ServerEditor({ server, defaultPort, maxRamMb, onSave, on
 
         <label className="field">
           <span>{t('editor.name')}</span>
-          <input autoFocus value={form.name} maxLength={32} placeholder={t('server.namePlaceholder')} onChange={(e) => set({ name: e.target.value })} />
+          <input
+            autoFocus
+            value={form.name}
+            maxLength={32}
+            placeholder={t('server.namePlaceholder')}
+            onChange={(e) => set({ name: e.target.value })}
+          />
         </label>
 
         <div className="field">
@@ -125,7 +146,12 @@ export default function ServerEditor({ server, defaultPort, maxRamMb, onSave, on
             value={version}
             onChange={(v) => {
               const type = typeAvailable(form.type, v) ? form.type : 'fabric'
-              set({ gameVersion: v, loaderVersion: null, type, tunnel: form.tunnel === 'none' ? 'none' : form.tunnel === 'playit' ? 'playit' : tunnelFor(type, v) })
+              set({
+                gameVersion: v,
+                loaderVersion: null,
+                type,
+                tunnel: form.tunnel === 'none' ? 'none' : form.tunnel === 'playit' ? 'playit' : tunnelFor(type, v)
+              })
             }}
             options={versions.filter((v) => v.type === 'release').map((v) => ({ value: v.id, label: v.id }))}
           />

@@ -114,39 +114,130 @@ function Stat(props: { label: string; value: string; hint?: string; ratio?: numb
   )
 }
 
-/** « Rejoindre » : lance un profil de la même version, qui arrive directement sur le serveur */
-function JoinServer({ server, running, onError }: { server: ServerInfo; running: boolean; onError: (message: string) => void }) {
+/**
+ * « Rejoindre ». Serveur moddé : un seul bouton ; la première fois, on nomme le profil du serveur, créé avec tous ses mods ;
+ * ensuite ses mods sont remis à jour avant chaque lancement. Paper et Vanilla : n'importe quel profil de la même version.
+ * Le jeu arrive directement sur le serveur.
+ */
+function JoinServer(props: { server: ServerInfo; running: boolean; onError: (message: string) => void; onChanged: () => void }) {
+  const { server, running, onError, onChanged } = props
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [choice, setChoice] = useState('')
-  const [launching, setLaunching] = useState(false)
+  const [busy, setBusy] = useState<'launch' | 'pack' | null>(null)
+  const [done, setDone] = useState<string | null>(null)
+  // Fenêtre « nom du profil » (première fois sur un serveur moddé)
+  const [naming, setNaming] = useState<string | null>(null)
   const { latestRelease } = useVersions(false)
+  const modded = server.type === 'fabric' || server.type === 'forge' || server.type === 'neoforge'
+  const loadProfiles = () => window.aloria.profiles.list().then((res) => setProfiles(res.profiles))
   useEffect(() => {
-    window.aloria.profiles.list().then((res) => setProfiles(res.profiles))
+    loadProfiles()
   }, [])
   const versionOf = (p: Profile) => (p.versionId === 'latest-release' ? latestRelease : p.versionId)
   const matching = profiles.filter((p) => versionOf(p) === server.gameVersion)
   useEffect(() => {
     if (!matching.some((p) => p.id === choice)) setChoice(matching[0]?.id ?? '')
   }, [matching.map((p) => p.id).join()])
+  const linked = profiles.find((p) => p.id === server.profileId) ?? null
 
-  if (matching.length === 0) return <small className="muted">{t('server.join.noProfile', { version: server.gameVersion })}</small>
-  const join = async () => {
-    setLaunching(true)
-    const res = await window.aloria.game.play(choice, { host: 'localhost', port: server.port })
-    setLaunching(false)
+  const play = async (profileId: string) => {
+    const res = await window.aloria.game.play(profileId, { host: 'localhost', port: server.port })
     if (!res.ok) onError(res.error)
   }
+  /** Serveur moddé : crée (avec ce nom) ou met à jour le profil du serveur, puis lance le jeu */
+  const joinModded = async (name?: string) => {
+    setNaming(null)
+    setBusy('launch')
+    setDone(null)
+    const res = await window.aloria.servers.createProfile(server.id, name)
+    if (!res.ok) {
+      setBusy(null)
+      return onError(res.error)
+    }
+    if (!linked) {
+      setDone(t('server.join.profileCreated', { name: res.value.name }))
+      loadProfiles()
+      onChanged()
+    }
+    await play(res.value.id)
+    setBusy(null)
+  }
+  const joinVanilla = async () => {
+    setBusy('launch')
+    await play(choice)
+    setBusy(null)
+  }
+  const exportPack = async () => {
+    setBusy('pack')
+    const res = await window.aloria.servers.exportPack(server.id)
+    setBusy(null)
+    if (!res.ok) onError(res.error)
+    else if (res.value) setDone(t('server.pack.saved'))
+  }
+
+  const joinButton = (onClick: () => void, disabled = false) => (
+    <button
+      className="primary"
+      disabled={!running || busy !== null || disabled}
+      title={running ? undefined : t('server.join.offline')}
+      onClick={onClick}
+    >
+      {busy === 'launch' ? t('server.join.launching') : `🎮 ${t('server.join.button')}`}
+    </button>
+  )
+
   return (
-    <div className="server-join">
-      <Select value={choice} onChange={setChoice} options={matching.map((p) => ({ value: p.id, label: `${p.icon} ${p.name}` }))} />
-      <button
-        className="primary"
-        disabled={!running || !choice || launching}
-        title={running ? undefined : t('server.join.offline')}
-        onClick={join}
-      >
-        🎮 {t('server.join.button')}
-      </button>
+    <div className="server-join-box">
+      {modded ? (
+        !server.installed ? (
+          <small className="muted">{t('server.join.startFirst')}</small>
+        ) : (
+          <>
+            <div className="server-join">
+              <span className="server-join__profile">{linked ? `${linked.icon} ${linked.name}` : t('server.join.newProfile')}</span>
+              {joinButton(() => (linked ? joinModded() : setNaming(server.name)))}
+            </div>
+            <small className="muted">{t(linked ? 'server.join.moddedHint' : 'server.join.firstHint')}</small>
+            <div className="server-join__tools">
+              <button className="secondary" disabled={busy !== null} title={t('server.pack.hint')} onClick={exportPack}>
+                {busy === 'pack' ? t('common.loading') : `📦 ${t('server.pack.button')}`}
+              </button>
+            </div>
+          </>
+        )
+      ) : matching.length > 0 ? (
+        <div className="server-join">
+          <Select value={choice} onChange={setChoice} options={matching.map((p) => ({ value: p.id, label: `${p.icon} ${p.name}` }))} />
+          {joinButton(joinVanilla, !choice)}
+        </div>
+      ) : (
+        <small className="muted">{t('server.join.noProfile', { version: server.gameVersion })}</small>
+      )}
+      {done && <small className="server-join__done">✓ {done}</small>}
+
+      {naming !== null && (
+        <div className="overlay" onClick={() => setNaming(null)}>
+          <div className="dialog files-prompt" onClick={(e) => e.stopPropagation()}>
+            <h3>{t('server.join.nameTitle')}</h3>
+            <p className="muted">{t('server.join.nameText', { version: server.gameVersion, loader: SERVER_TYPE_LABELS[server.type] })}</p>
+            <input
+              autoFocus
+              value={naming}
+              maxLength={32}
+              onChange={(e) => setNaming(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && naming.trim() && joinModded(naming)}
+            />
+            <div className="dialog__actions">
+              <button className="secondary" onClick={() => setNaming(null)}>
+                {t('common.cancel')}
+              </button>
+              <button className="primary" disabled={!naming.trim()} onClick={() => joinModded(naming)}>
+                🎮 {t('server.join.createAndJoin')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -442,7 +533,7 @@ export default function ServersPage({ settings, onError, onFocus }: Props) {
               )}
               <strong>{t('server.addressYou')}</strong>
               <Copyable value={local} />
-              <JoinServer server={open} running={running} onError={onError} />
+              <JoinServer server={open} running={running} onError={onError} onChanged={refresh} />
               {lan && (
                 <>
                   <strong>{t('server.addressLan')}</strong>

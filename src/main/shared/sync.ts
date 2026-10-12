@@ -7,7 +7,7 @@ import { fromLegacy, isLegacyVersion, isSyncedKey, legacyName, modernName, parse
 import { getPreset, MAIN_PRESET, sharedDir, updatePresetOptions } from './presets'
 import type { Profile } from '../../shared/types'
 
-const sharedServers = join(sharedDir, 'servers.dat')
+export const sharedServers = join(sharedDir, 'servers.dat')
 
 /** Ce qui a été appliqué au lancement, pour savoir quoi récupérer à la fermeture du jeu */
 export interface SyncSession {

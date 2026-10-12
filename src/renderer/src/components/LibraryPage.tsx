@@ -145,7 +145,7 @@ export default function LibraryPage({ profiles, showModpacks, onError, onOpenPro
     for (const path of res.value.instances) {
       const imported = await window.aloria.profiles.importZip(path)
       if (!imported.ok) onError(imported.error)
-      else if (imported.value) created = imported.value
+      else if (imported.value && 'id' in imported.value) created = imported.value
     }
     if (created) await modpackInstalled(created)
   }

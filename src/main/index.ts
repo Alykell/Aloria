@@ -13,7 +13,7 @@ import { exportProfile, importInstance } from './instances'
 import { installModpack, modpackVersions, previewModpack } from './modrinth/modpack'
 import { createPreset, deletePreset, getPreset, listPresets, MAIN_PRESET, renamePreset, updatePresetOptions } from './shared/presets'
 import { gameLangOf, translate, type Lang, type MessageKey } from '../shared/i18n'
-import { createProfile, deleteProfile, listProfiles, openProfileFolder, selectProfile, updateProfile } from './profiles'
+import { createProfile, deleteProfile, gameDirOf, listProfiles, openProfileFolder, selectProfile, updateProfile } from './profiles'
 import { getSettings, systemRamMb, updateSettings } from './settings'
 import { getUpdateStatus, initUpdater, installUpdate } from './updater'
 import { initDiscord, refreshDiscord } from './discord'
@@ -21,7 +21,8 @@ import { processPending } from './shared/pending'
 import { saveKeyboardLayout } from './shared/options'
 import { e4mcSupported } from '../shared/aloriaHud'
 import { createServer, deleteServer, freePort, getServer, lanAddress, listServers, openServerFolder, serverDirOf, updateServer } from './server/store'
-import { deleteTunnel, linkPlayit, playitLinked, unlinkPlayit } from './server/playit'
+import { deleteTunnel, linkPlayit, playitLinked, playitUsage, unlinkPlayit } from './server/playit'
+import { createServerProfile, exportServerPack, writeServerPack } from './server/profile'
 import { deleteBackup, listBackups, openBackupFolder, restoreBackup } from './server/backups'
 import { editPlayersOffline, listPlayers, playerCommand, readProperties, writeProperties } from './server/manage'
 import { installServerContent, listServerContent, missingDependencies, removeServerContent, searchServerContent } from './server/content'
@@ -197,13 +198,15 @@ ipcMain.handle('profiles:import', (e, path: string | null) =>
       const options = {
         title: tm('dialog.importProfile'),
         defaultPath: app.getPath('downloads'),
-        filters: [{ name: tm('dialog.importProfileFilter'), extensions: ['zip'] }],
+        filters: [{ name: tm('dialog.importProfileFilter'), extensions: ['zip', 'mrpack'] }],
         properties: ['openFile' as const]
       }
       const res = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
       if (res.canceled || res.filePaths.length === 0) return null
       path = res.filePaths[0]
     }
+    // Modpack Modrinth : le renderer l'affiche (aperçu) avant de l'installer dans un nouveau profil
+    if (path.toLowerCase().endsWith('.mrpack')) return { modpack: path }
     return importInstance(path)
   })
 )
@@ -363,6 +366,9 @@ ipcMain.handle('servers:uploadFiles', (e, id: string, rel: string) => wrap(() =>
 ipcMain.handle('servers:downloadFile', (e, id: string, rel: string) => wrap(() => downloadFile(BrowserWindow.fromWebContents(e.sender), id, rel)))
 ipcMain.handle('servers:contentRemove', (_e, id: string, fileName: string) => wrap(() => removeServerContent(id, fileName)))
 ipcMain.handle('playit:linked', () => playitLinked())
+ipcMain.handle('playit:usage', () => wrap(() => playitUsage()))
+ipcMain.handle('servers:createProfile', (_e, id: string, name?: string) => wrap(() => createServerProfile(id, name)))
+ipcMain.handle('servers:exportPack', (e, id: string) => wrap(() => exportServerPack(BrowserWindow.fromWebContents(e.sender), id)))
 ipcMain.handle('playit:link', () => wrap(() => linkPlayit()))
 ipcMain.handle('playit:unlink', () => unlinkPlayit())
 ipcMain.handle('packs:install', (_e, id: string, profileId: string, files: Record<string, string>) => wrap(() => installPack(id, profileId, files)))
@@ -472,6 +478,20 @@ app.whenReady().then(() => {
             const joined = serverLog(server.id).find((l) => /joined the game|lost connection|Disconnecting/.test(l))
             console.log(`[server-test] ${item} : rejoindre → ${joined ?? 'personne'}`)
           }
+          // ALORIA_TEST_SERVER_PROFILE=1 : profil du serveur (avec ses mods) et pack pour les amis réimporté, puis effacés
+          if (process.env.ALORIA_TEST_SERVER_PROFILE && status?.state === 'running') {
+            if (type === 'fabric') await installServerContent(server.id, 'lithium', true)
+            const profile = await createServerProfile(server.id)
+            const { readdir: list } = await import('node:fs/promises')
+            const readdir = (dir: string) => list(dir).catch(() => [] as string[])
+            console.log(`[server-test] ${item} : profil ${profile.name} ${profile.loader} ${profile.versionId}, mods ${(await readdir(join(gameDirOf(profile.id), 'mods'))).join(', ')}`)
+            const pack = join(app.getPath('temp'), 'aloria-test-pack.zip')
+            await writeServerPack(server.id, pack)
+            const friend = await importInstance(pack)
+            console.log(`[server-test] ${item} : pack importé → ${friend.name} ${friend.loader} ${friend.versionId}, mods ${(await readdir(join(gameDirOf(friend.id), 'mods'))).join(', ')}`)
+            await deleteProfile(friend.id, true)
+            await deleteProfile(profile.id, true)
+          }
           // ALORIA_TEST_SERVER_COMMAND="e4mc" : commande envoyée une fois en ligne (la vérification de permission d'e4mc
           // plantait en 26.x à la connexion d'un joueur)
           const command = process.env.ALORIA_TEST_SERVER_COMMAND
@@ -572,6 +592,14 @@ app.whenReady().then(() => {
       // Laisse le temps aux mesures (mémoire, processeur, TPS)
       await wait(9000)
       await snap('2-fiche')
+      // « Rejoindre » sur un serveur moddé sans profil : fenêtre du nom du profil
+      if (type !== 'paper' && type !== 'vanilla') {
+        await click(`🎮 ${translate(lang, 'server.join.button')}`)
+        await wait(800)
+        await snap('2a-nom-profil')
+        await click(translate(lang, 'common.cancel'))
+        await wait(300)
+      }
       for (const [key, name] of [['server.tab.players', '2b-joueurs'], ['server.tab.settings', '2c-reglages'], [type === 'paper' ? 'server.tab.plugins' : 'server.tab.mods', '2d-contenu'], ['server.tab.backups', '2e-sauvegardes'], ['server.tab.files', '2f-fichiers']] as const) {
         if (name === '2e-sauvegardes') await backupServer(server.id, 'manual')
         await click(translate(lang, key))

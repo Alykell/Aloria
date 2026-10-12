@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import ProfileEditor from './ProfileEditor'
+import ModpackDialog from './ModpackDialog'
 import { describeProfile } from '../hooks/useVersions'
 import type { ProfilesState } from '../hooks/useProfiles'
 import type { SettingsState } from '../hooks/useSettings'
@@ -25,23 +26,67 @@ export default function ProfilesPage({ profiles, settings, onPlay, onError }: Pr
   // undefined = fermé, null = création, Profile = modification
   const [editing, setEditing] = useState<Profile | null | undefined>(undefined)
   const [importing, setImporting] = useState(false)
-  // Profil exporté (Aloria, Prism, MultiMC) : il devient un nouveau profil, sélectionné
-  const importProfile = async () => {
+  const [modpack, setModpack] = useState<string | null>(null)
+  const [dragging, setDragging] = useState(false)
+  const dragDepth = useRef(0)
+  // Profil exporté (Aloria, Prism, MultiMC) : il devient un nouveau profil ; modpack .mrpack : aperçu avant installation
+  const importProfile = async (file: File | null) => {
+    if (importing) return
     setImporting(true)
-    const res = await window.aloria.profiles.importZip(null)
+    const res = await window.aloria.profiles.importZip(file)
     setImporting(false)
     if (!res.ok) onError(res.error)
-    else if (res.value) await profiles.refresh()
+    else if (res.value && 'id' in res.value) {
+      await profiles.refresh()
+      profiles.select(res.value.id)
+    } else if (res.value) setModpack(res.value.modpack)
+  }
+  const modpackInstalled = async (created: Profile) => {
+    await profiles.refresh()
+    profiles.select(created.id)
+  }
+
+  const isFileDrag = (e: React.DragEvent) => e.dataTransfer.types.includes('Files')
+  const dropHandlers = {
+    onDragEnter: (e: React.DragEvent) => {
+      if (!isFileDrag(e)) return
+      dragDepth.current++
+      setDragging(true)
+    },
+    onDragOver: (e: React.DragEvent) => {
+      if (!isFileDrag(e)) return
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'copy'
+    },
+    onDragLeave: (e: React.DragEvent) => {
+      if (!isFileDrag(e)) return
+      dragDepth.current = Math.max(0, dragDepth.current - 1)
+      if (dragDepth.current === 0) setDragging(false)
+    },
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault()
+      dragDepth.current = 0
+      setDragging(false)
+      const file = e.dataTransfer.files[0]
+      if (file) importProfile(file)
+    }
   }
   const s = settings.settings
   if (!s) return null
   const maxRamMb = Math.max(1024, Math.floor((settings.systemRamMb - 2048) / 512) * 512)
 
   return (
-    <section className="page wide">
+    <section className="page wide library" {...dropHandlers}>
+      {modpack && <ModpackDialog target={{ file: modpack }} onClose={() => setModpack(null)} onInstalled={modpackInstalled} />}
+      {dragging && (
+        <div className="library__drop">
+          <strong>📥 {t('profiles.drop')}</strong>
+          <span>{t('profiles.dropHint')}</span>
+        </div>
+      )}
       <div className="library__header">
         <h2>{t('profiles.title')}</h2>
-        <button className="secondary" disabled={importing} title={t('profiles.importHint')} onClick={importProfile}>
+        <button className="secondary" disabled={importing} title={t('profiles.importHint')} onClick={() => importProfile(null)}>
           📥 {importing ? t('profiles.importing') : t('profiles.import')}
         </button>
       </div>

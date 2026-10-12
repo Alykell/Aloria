@@ -304,6 +304,10 @@ export interface ServerInfo extends ServerInput {
   id: string
   createdAt: number
   lastStarted: number | null
+  /** Dernière adresse playit.gg obtenue (fixe) : mise dans le pack pour les amis même serveur éteint */
+  lastAddress?: string
+  /** Profil créé pour rejoindre ce serveur (« Créer le profil du serveur ») */
+  profileId?: string
   /** Sauvegarde automatique du monde toutes les N heures pendant que le serveur tourne (absent = 6, 0 = jamais) */
   backupHours?: number
   /** Nombre de sauvegardes gardées (absent = 10) */
@@ -333,6 +337,15 @@ export interface ServerStatus {
   tunnelError?: string
   /** Mesures en direct pendant que le serveur tourne (TPS seulement depuis la 1.20.3) */
   stats?: { ramMb?: number; ramMaxMb?: number; cpu?: number; tps?: number; mspt?: number }
+}
+
+/** Compte playit.gg : adresses utilisées (le compte gratuit en a 4 au plus) */
+export interface PlayitUsage {
+  linked: boolean
+  used: number
+  max: number
+  /** Serveurs qui ont déjà leur adresse (ou une demande en attente) */
+  serverIds: string[]
 }
 
 /** Action sur un joueur (commande si le serveur est allumé, fichier sinon) */

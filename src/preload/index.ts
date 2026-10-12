@@ -31,6 +31,7 @@ import type {
   ServerContentHit,
   ServerContentDependency,
   ServerFile,
+  PlayitUsage,
   ServerPlayerAction,
   ServerPlayers,
   ServerStatus,
@@ -82,8 +83,8 @@ const api = {
     openFolder: (id: string): Promise<void> => ipcRenderer.invoke('profiles:openFolder', id),
     /** Chemin du zip créé, null si annulé */
     exportZip: (id: string, options: ExportOptions): Promise<Result<string | null>> => ipcRenderer.invoke('profiles:export', id, options),
-    /** Sans fichier : fenêtre de choix (null si annulée) */
-    importZip: (file: File | string | null): Promise<Result<Profile | null>> =>
+    /** Sans fichier : fenêtre de choix (null si annulée). Un .mrpack n'est pas importé : son chemin revient pour l'aperçu */
+    importZip: (file: File | string | null): Promise<Result<Profile | { modpack: string } | null>> =>
       ipcRenderer.invoke('profiles:import', file instanceof File ? webUtils.getPathForFile(file) : file),
     showFile: (path: string): Promise<void> => ipcRenderer.invoke('profiles:showFile', path)
   },
@@ -155,6 +156,11 @@ const api = {
     /** Ouvre la page de playit.gg et attend que le joueur accepte */
     playitLink: (): Promise<Result<void>> => ipcRenderer.invoke('playit:link'),
     playitUnlink: (): Promise<void> => ipcRenderer.invoke('playit:unlink'),
+    playitUsage: (): Promise<Result<PlayitUsage>> => ipcRenderer.invoke('playit:usage'),
+    /** Profil prêt à rejoindre le serveur (même version, chargeur et mods) ; remet ses mods à jour s'il existe */
+    createProfile: (id: string, name?: string): Promise<Result<Profile>> => ipcRenderer.invoke('servers:createProfile', id, name),
+    /** Zip pour les amis (nom, version, mods), importable dans la page Profils ; chemin ou null si annulé */
+    exportPack: (id: string): Promise<Result<string | null>> => ipcRenderer.invoke('servers:exportPack', id),
     backups: (id: string): Promise<Result<ServerBackup[]>> => ipcRenderer.invoke('servers:backups', id),
     backup: (id: string): Promise<Result<string | null>> => ipcRenderer.invoke('servers:backup', id),
     restoreBackup: (id: string, file: string): Promise<Result<void>> => ipcRenderer.invoke('servers:restoreBackup', id, file),

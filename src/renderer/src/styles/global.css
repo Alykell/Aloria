@@ -969,3 +969,8 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .code-editor { flex: 1; min-height: 300px; border-radius: var(--radius); overflow: hidden; border: 1px solid rgba(92, 200, 224, 0.2); }
 .code-editor .cm-editor { height: 100%; }
 .code-editor .cm-editor.cm-focused { outline: none; }
+.server-join-box { display: flex; flex-direction: column; gap: 6px; }
+.server-join__tools { display: flex; flex-wrap: wrap; gap: 6px; }
+.server-join__tools .secondary { padding: 6px 10px; font-size: 12.5px; }
+.server-join__done { color: var(--success); font-weight: 600; }
+.server-join__profile { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 10px; background: var(--foam); font-weight: 700; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { mkdir, readdir, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import AdmZip from 'adm-zip'
 import { createProfile, deleteProfile, gameDirOf, getProfile } from './profiles'
@@ -7,6 +7,8 @@ import { forgeVersion, safeJoin } from './modrinth/modpack'
 import { forgeSupported, neoforgeSupported } from '../shared/loaders'
 import type { ExportOptions, Loader, Profile, ProfileInput } from '../shared/types'
 import { tm } from './i18n'
+import { addServerEntry } from './shared/nbt'
+import { sharedServers } from './shared/sync'
 
 /** Fichier décrivant le profil dans un zip exporté par Aloria */
 const PROFILE_FILE = 'aloria-profile.json'
@@ -68,6 +70,19 @@ async function loaderInput(gameVersion: string, loader: string, version: string 
     return { loader, loaderVersion: version ? await forgeVersion(gameVersion, version) : null }
   }
   throw new Error(tm('err.modpackLoader', { loader }))
+}
+
+/** Pack d'un serveur Aloria : son adresse est ajoutée à la liste Multijoueur (commune, ou celle du profil s'il n'y en a pas) */
+async function addPackServer(zip: AdmZip, gameDir: string): Promise<void> {
+  const text = entryText(zip, PROFILE_FILE)
+  const server = text ? (JSON.parse(text) as { server?: { name: string; address: string } }).server : undefined
+  if (!server?.address) return
+  const file = existsSync(sharedServers) ? sharedServers : join(gameDir, 'servers.dat')
+  const updated = addServerEntry(existsSync(file) ? await readFile(file) : null, server.name, server.address)
+  if (updated) {
+    await mkdir(dirname(file), { recursive: true })
+    await writeFile(file, updated)
+  }
 }
 
 async function detect(zip: AdmZip, fallbackName: string): Promise<Detected> {
@@ -147,6 +162,7 @@ export async function importInstance(path: string): Promise<Profile> {
       await mkdir(dirname(dest), { recursive: true })
       await writeFile(dest, entry.getData())
     }
+    await addPackServer(zip, gameDir)
   } catch (err) {
     await deleteProfile(profile.id, true).catch(() => {})
     throw err
