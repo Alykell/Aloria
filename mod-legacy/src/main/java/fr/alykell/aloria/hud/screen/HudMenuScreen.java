@@ -132,6 +132,7 @@ public class HudMenuScreen extends AloriaScreen {
 		text(g, bold("✦ ALORIA HUD"), x + 2, y - 22, Theme.WHITE, true);
 		button(g, mx, my, x + w - 22, y - 26, 22, 18, "✕", false, this::closeAll);
 		button(g, mx, my, x + w - 126, y - 26, 100, 18, Tr.tr("menu.layout"), true, () -> client.setScreen(new HudLayoutScreen(this)));
+		button(g, mx, my, x + w - 126 - 6 - 80, y - 26, 80, 18, Tr.tr("menu.visual"), true, () -> client.setScreen(new VisualScreen(this)));
 
 		round(g, x, y, w, h, Theme.WINDOW);
 		roundOutline(g, x, y, w, h, Theme.BORDER);

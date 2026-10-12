@@ -10,6 +10,8 @@ import net.minecraft.util.math.BlockPos;
 import fr.alykell.aloria.hud.screen.AloriaScreen;
 import fr.alykell.aloria.hud.screen.HudLayoutScreen;
 import fr.alykell.aloria.hud.screen.HudMenuScreen;
+import fr.alykell.aloria.hud.screen.VisualScreen;
+import fr.alykell.aloria.hud.config.VisualSettings;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.TitleScreen;
 import net.minecraft.client.util.ScreenshotUtils;
@@ -312,6 +314,42 @@ public final class SelfTest {
 		add("onglet Général", 3, () -> click(mc, "tab:general"));
 		add("capture onglet Général", 3, () -> {
 			screenshot(mc, "09-general");
+			mc.setScreen(null);
+			return true;
+		});
+		// Écran Visuel : main déplacée et agrandie, luminosité max, brouillard coupé (réglages remis ensuite)
+		add("menu pour l'écran Visuel", 3, () -> {
+			mc.setScreen(new HudMenuScreen(null));
+			return true;
+		});
+		add("bouton Visuel", 3, () -> click(mc, "btn:" + Tr.tr("menu.visual")));
+		add("main déplacée", 3, () -> {
+			check("le bouton Visuel ouvre l'écran", mc.currentScreen instanceof VisualScreen);
+			Visual.settings().mainHand.side = -0.3f;
+			Visual.settings().mainHand.scale = 1.4f;
+			return true;
+		});
+		add("capture Visuel main", 3, () -> screenshot(mc, "10-visuel-main"));
+		add("onglet Luminosité", 2, () -> {
+			Visual.settings().mainHand = new VisualSettings.HandTransform();
+			((VisualScreen) mc.currentScreen).openTab("light");
+			return true;
+		});
+		add("luminosité max", 2, () -> click(mc, "fullbright"));
+		add("capture luminosité", 5, () -> {
+			check("l'interrupteur active la luminosité max", Visual.settings().fullbright);
+			return screenshot(mc, "11-visuel-luminosite");
+		});
+		add("brouillard coupé", 2, () -> {
+			Visual.settings().fullbright = false;
+			((VisualScreen) mc.currentScreen).openTab("fog");
+			Visual.settings().fogOverworld = 0;
+			return true;
+		});
+		add("capture brouillard", 5, () -> {
+			check("le brouillard de l'air est réglé à 0 %", Visual.linearFog(100f, 128f) > 1e6f);
+			screenshot(mc, "12-visuel-brouillard");
+			Visual.settings().fogOverworld = 100;
 			mc.setScreen(null);
 			return true;
 		});

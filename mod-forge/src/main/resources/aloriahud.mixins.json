@@ -11,11 +11,13 @@
 		"FovMixin",
 		"GameMenuScreenMixin",
 		"GameOptionsMixin",
+		"HeldItemMixin",
 		"InGameHudMixin",
 		"InteractionManagerAccessor",
 		"KeyBindingMixin",
 		"MinecraftClientMixin",
-		"MouseInputMixin"
+		"MouseInputMixin",
+		"VisualRendererMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
