@@ -1,9 +1,10 @@
 import { app } from 'electron'
 import { existsSync } from 'node:fs'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, rename, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import AdmZip from 'adm-zip'
 import { inflateRawSync } from 'node:zlib'
+import { createHash } from 'node:crypto'
 import { downloadAll } from '../game/download'
 import { forgeLoaders } from '../game/forge'
 import { createProfile, deleteProfile, gameDirOf } from '../profiles'
@@ -72,15 +73,35 @@ async function packFile(versionId: string) {
   return file
 }
 
-async function openPack(source: ModpackSource, onDownload?: (bytes: number) => void): Promise<{ zip: AdmZip; index: MrpackIndex }> {
+/** Télécharge un gros fichier en suivant sa progression (octets reçus), SHA-1 vérifié avant de le garder */
+async function downloadWithProgress(url: string, path: string, sha1: string, size: number, onBytes: (done: number) => void): Promise<void> {
+  const res = await fetch(url)
+  if (!res.ok || !res.body) throw new Error(tm('err.download', { url, reason: `HTTP ${res.status}` }))
+  const hash = createHash('sha1')
+  const chunks: Buffer[] = []
+  let done = 0
+  for await (const chunk of res.body as unknown as AsyncIterable<Uint8Array>) {
+    const buf = Buffer.from(chunk)
+    chunks.push(buf)
+    hash.update(buf)
+    done += buf.length
+    onBytes(Math.min(done, size))
+  }
+  if (hash.digest('hex') !== sha1) throw new Error(tm('err.corrupted'))
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(`${path}.part`, Buffer.concat(chunks))
+  await rename(`${path}.part`, path)
+}
+
+async function openPack(source: ModpackSource, onDownload?: (done: number, total: number) => void): Promise<{ zip: AdmZip; index: MrpackIndex }> {
   let path: string
   if (source.kind === 'file') path = source.path
   else {
     path = join(cacheDir(), `${source.versionId}.mrpack`)
     if (!existsSync(path)) {
       const file = await packFile(source.versionId)
-      onDownload?.(file.size)
-      await downloadAll([{ url: file.url, path, sha1: file.hashes.sha1, size: file.size }], () => {})
+      if (onDownload) await downloadWithProgress(file.url, path, file.hashes.sha1, file.size, (done) => onDownload(done, file.size))
+      else await downloadAll([{ url: file.url, path, sha1: file.hashes.sha1, size: file.size }], () => {})
     }
   }
   try {
@@ -294,8 +315,17 @@ export async function forgeVersion(gameVersion: string, forge: string): Promise<
  * Installe un modpack dans un nouveau profil : chargeur et version du jeu du modpack, fichiers téléchargés (SHA-1 vérifié),
  * puis overrides copiés par-dessus. En cas d'échec, le profil à moitié installé est supprimé.
  */
-export async function installModpack(source: ModpackSource, onProgress: (p: ModpackProgress) => void): Promise<Profile> {
-  const { zip, index } = await openPack(source, (bytes) => onProgress({ doneFiles: 0, totalFiles: 0, packBytes: bytes }))
+export async function installModpack(source: ModpackSource, report: (p: ModpackProgress) => void): Promise<Profile> {
+  // Au plus une dizaine de messages par seconde vers la fenêtre (le téléchargement en produit des milliers)
+  let last = { step: '', time: 0 }
+  const onProgress = (p: ModpackProgress) => {
+    const now = Date.now()
+    if (p.step === last.step && now - last.time < 100 && p.done < p.total) return
+    last = { step: p.step, time: now }
+    report(p)
+  }
+  onProgress({ step: 'prepare', done: 0, total: 0 })
+  const { zip, index } = await openPack(source, (done, total) => onProgress({ step: 'pack', done, total }))
   const { loader, loaderVersion, unsupported } = loaderOf(index)
   if (unsupported) throw new Error(unsupported)
   const manual = localManual(zip, index)
@@ -336,17 +366,23 @@ export async function installModpack(source: ModpackSource, onProgress: (p: Modp
       sha1: f.hashes.sha1,
       size: f.fileSize
     }))
-    await downloadAll(tasks, (p) => onProgress({ doneFiles: p.doneFiles, totalFiles: p.totalFiles }))
+    await downloadAll(tasks, (p) =>
+      onProgress({ step: 'files', done: p.doneBytes, total: p.totalBytes, doneFiles: p.doneFiles, totalFiles: p.totalFiles })
+    )
 
     // Configs, réglages, packs fournis tels quels ; client-overrides passe après (spécifique au jeu, pas au serveur)
-    for (const prefix of OVERRIDES) {
-      for (const entry of zip.getEntries()) {
-        if (entry.isDirectory || !entry.entryName.startsWith(prefix)) continue
-        const dest = safeJoin(gameDir, entry.entryName.slice(prefix.length))
-        await mkdir(dirname(dest), { recursive: true })
-        await writeFile(dest, entry.getData())
-      }
+    const provided = OVERRIDES.flatMap((prefix) =>
+      zip.getEntries().filter((e) => !e.isDirectory && e.entryName.startsWith(prefix)).map((entry) => ({ entry, prefix }))
+    )
+    let copied = 0
+    onProgress({ step: 'overrides', done: 0, total: provided.length })
+    for (const { entry, prefix } of provided) {
+      const dest = safeJoin(gameDir, entry.entryName.slice(prefix.length))
+      await mkdir(dirname(dest), { recursive: true })
+      await writeFile(dest, entry.getData())
+      onProgress({ step: 'overrides', done: ++copied, total: provided.length })
     }
+    onProgress({ step: 'finish', done: 0, total: 0 })
 
     // Bibliothèque : les fichiers du modpack apparaissent avec leur nom et leur icône dans « Installés »
     const known = await lookup(index)

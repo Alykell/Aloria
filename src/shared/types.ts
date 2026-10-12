@@ -245,11 +245,16 @@ export interface ModpackPreview {
   overrides: number
 }
 
+/**
+ * Avancement de l'installation d'un modpack, étape par étape : fichier du modpack (octets), mods et fichiers
+ * (octets, et nombre de fichiers), configs fournies (nombre de fichiers), puis derniers réglages
+ */
 export interface ModpackProgress {
-  doneFiles: number
-  totalFiles: number
-  /** Taille du fichier du modpack pendant son téléchargement (avant les mods) */
-  packBytes?: number
+  step: 'prepare' | 'pack' | 'files' | 'overrides' | 'finish'
+  done: number
+  total: number
+  doneFiles?: number
+  totalFiles?: number
 }
 
 export interface InstalledContent {

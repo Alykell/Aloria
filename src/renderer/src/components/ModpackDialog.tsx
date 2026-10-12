@@ -77,7 +77,22 @@ export default function ModpackDialog({ target, onClose, onInstalled }: Props) {
 
   const title = preview?.name ?? ('title' in target ? target.title : '…')
   const iconUrl = 'iconUrl' in target ? target.iconUrl : null
-  const percent = progress && progress.totalFiles > 0 ? Math.round((progress.doneFiles / progress.totalFiles) * 100) : 0
+  // Étape en cours : numéro, texte et pourcentage (barre animée tant qu'on ne connaît pas la quantité)
+  const STEPS = ['pack', 'files', 'overrides'] as const
+  const stepIndex = progress ? STEPS.indexOf(progress.step as (typeof STEPS)[number]) : -1
+  const percent = progress && progress.total > 0 ? Math.min(100, Math.floor((progress.done / progress.total) * 100)) : null
+  const mb = (bytes: number) => (bytes / 1e6).toFixed(bytes < 1e7 ? 1 : 0)
+  const stepLabel = !progress
+    ? t('modpack.installing')
+    : progress.step === 'pack'
+      ? t('modpack.stepPack', { done: mb(progress.done), total: mb(progress.total) })
+      : progress.step === 'files'
+        ? t('modpack.stepFiles', { done: progress.doneFiles ?? 0, total: progress.totalFiles ?? 0 })
+        : progress.step === 'overrides'
+          ? t('modpack.stepOverrides', { done: progress.done, total: progress.total })
+          : progress.step === 'finish'
+            ? t('modpack.stepFinish')
+            : t('modpack.installing')
 
   return (
     <div className="overlay" onClick={installing ? undefined : onClose}>
@@ -144,14 +159,13 @@ export default function ModpackDialog({ target, onClose, onInstalled }: Props) {
           <div className="progress">
             <div className="progress__label">
               <span>
-                {progress?.packBytes
-                  ? t('modpack.downloadingPack', { size: Math.round(progress.packBytes / 1e6) })
-                  : t('modpack.installing')}
+                {stepIndex >= 0 && <strong>{t('modpack.step', { n: stepIndex + 1, total: STEPS.length })} · </strong>}
+                {stepLabel}
               </span>
-              <span>{progress && !progress.packBytes ? `${progress.doneFiles} / ${progress.totalFiles}` : ''}</span>
+              <span>{percent !== null ? `${percent} %` : ''}</span>
             </div>
-            <div className={'progress__bar' + (!progress || progress.packBytes ? ' indeterminate' : '')}>
-              <div className="progress__fill" style={progress && !progress.packBytes ? { width: `${percent}%` } : undefined} />
+            <div className={'progress__bar' + (percent === null ? ' indeterminate' : '')}>
+              <div className="progress__fill" style={percent !== null ? { width: `${percent}%` } : undefined} />
             </div>
           </div>
         )}
