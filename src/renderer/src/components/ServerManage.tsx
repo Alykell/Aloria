@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import Select from './Select'
-import type { ServerBackup, ServerContent, ServerContentHit, ServerInfo, ServerPlayerAction, ServerPlayers } from '../../../shared/types'
+import type {
+  ServerBackup,
+  ServerContent,
+  ServerContentDependency,
+  ServerContentHit,
+  ServerInfo,
+  ServerPlayerAction,
+  ServerPlayers
+} from '../../../shared/types'
 import { compactNumber, t } from '../i18n'
 
 /** Onglets du panneau d'un serveur, à côté de la console : joueurs, réglages, mods ou plugins */
@@ -291,7 +299,10 @@ export function ContentTab({ server, alive, onError, onRestart }: TabProps & { o
   const [hits, setHits] = useState<ServerContentHit[] | null>(null)
   const [installing, setInstalling] = useState<string | null>(null)
   const [changedWhileOn, setChangedWhileOn] = useState(false)
+  // Mod demandé dont les dépendances manquent : on demande avant de tout installer
+  const [deps, setDeps] = useState<{ hit: ServerContentHit; list: ServerContentDependency[] } | null>(null)
   const plugins = server.type === 'paper'
+  const installedIds = new Set(installed.map((c) => c.projectId).filter(Boolean))
 
   const refresh = useCallback(async () => {
     const res = await window.aloria.servers.content(server.id)
@@ -317,14 +328,36 @@ export function ContentTab({ server, alive, onError, onRestart }: TabProps & { o
   }, [server.id, query])
 
   if (server.type === 'vanilla') return <div className="manage-tab card muted">{t('server.content.vanilla')}</div>
+  // Avant le premier démarrage, le serveur n'a pas encore créé ses dossiers ni ses fichiers de réglages
+  if (!server.installed && !alive) {
+    return (
+      <div className="manage-tab">
+        <div className="card manage-locked">
+          <span className="manage-locked__icon">🔒</span>
+          <strong>{t('server.content.lockedTitle')}</strong>
+          <small className="muted">{t(plugins ? 'server.content.lockedPlugins' : 'server.content.lockedMods')}</small>
+        </div>
+      </div>
+    )
+  }
 
-  const install = async (hit: ServerContentHit) => {
+  const install = async (hit: ServerContentHit, withDeps = true) => {
+    setDeps(null)
     setInstalling(hit.projectId)
-    const res = await window.aloria.servers.contentInstall(server.id, hit.projectId)
+    const res = await window.aloria.servers.contentInstall(server.id, hit.projectId, withDeps)
     setInstalling(null)
     if (!res.ok) onError(res.error)
     else if (alive) setChangedWhileOn(true)
     refresh()
+  }
+  // Dépendances à installer aussi : on les montre d'abord
+  const askInstall = async (hit: ServerContentHit) => {
+    setInstalling(hit.projectId)
+    const res = await window.aloria.servers.contentDeps(server.id, hit.projectId)
+    setInstalling(null)
+    if (!res.ok) return onError(res.error)
+    if (res.value.length > 0) setDeps({ hit, list: res.value })
+    else install(hit)
   }
   const remove = async (c: ServerContent) => {
     const res = await window.aloria.servers.contentRemove(server.id, c.fileName)
@@ -388,13 +421,46 @@ export function ContentTab({ server, alive, onError, onRestart }: TabProps & { o
                   {h.clientRequired && <small className="warning">{t('server.content.clientRequired')}</small>}
                 </span>
               </span>
-              <button className="primary" disabled={installing !== null} onClick={() => install(h)}>
-                {installing === h.projectId ? t('common.loading') : t('server.content.install')}
-              </button>
+              {installedIds.has(h.projectId) ? (
+                <button className="secondary installed-btn" disabled>
+                  ✓ {t('server.content.installed')}
+                </button>
+              ) : (
+                <button className="primary" disabled={installing !== null} onClick={() => askInstall(h)}>
+                  {installing === h.projectId ? t('common.loading') : t('server.content.install')}
+                </button>
+              )}
             </div>
           ))
         )}
       </div>
+      {deps && (
+        <div className="overlay" onClick={() => setDeps(null)}>
+          <div className="dialog files-prompt" onClick={(e) => e.stopPropagation()}>
+            <h3>{t('server.content.depsTitle', { name: deps.hit.title })}</h3>
+            <p className="muted">{t('server.content.depsText')}</p>
+            <div className="manage-list">
+              {deps.list.map((d) => (
+                <span key={d.projectId} className="manage-content">
+                  {d.iconUrl ? <img src={d.iconUrl} alt="" /> : <span className="manage-content__blank">🧩</span>}
+                  <strong>{d.title}</strong>
+                </span>
+              ))}
+            </div>
+            <div className="dialog__actions">
+              <button className="secondary" onClick={() => setDeps(null)}>
+                {t('common.cancel')}
+              </button>
+              <button className="secondary" onClick={() => install(deps.hit, false)}>
+                {t('server.content.depsWithout')}
+              </button>
+              <button className="primary" onClick={() => install(deps.hit, true)}>
+                {t('server.content.depsWith', { n: deps.list.length })}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

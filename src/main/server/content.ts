@@ -2,9 +2,9 @@ import { existsSync } from 'node:fs'
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { downloadAll } from '../game/download'
-import { listVersions } from '../modrinth/api'
+import { getProjects, listVersions } from '../modrinth/api'
 import { getServer, serverDirOf } from './store'
-import type { ServerContent, ServerContentHit, ServerInfo } from '../../shared/types'
+import type { ServerContent, ServerContentDependency, ServerContentHit, ServerInfo } from '../../shared/types'
 import { tm } from '../i18n'
 
 /**
@@ -71,26 +71,47 @@ export async function listServerContent(id: string): Promise<ServerContent[]> {
     .filter((f) => f.endsWith('.jar') && !MANAGED.test(f))
     .map((fileName) => ({
       fileName,
+      projectId: index[fileName]?.projectId ?? null,
       title: index[fileName]?.title ?? fileName.replace(/\.jar$/, ''),
       iconUrl: index[fileName]?.iconUrl ?? null
     }))
     .sort((a, b) => a.title.localeCompare(b.title))
 }
 
-/** Installe la dernière version compatible, et ses dépendances obligatoires */
-export async function installServerContent(id: string, projectId: string): Promise<void> {
+/** Version à installer pour ce serveur (la dernière stable compatible) */
+async function pickVersion(server: ServerInfo, project: string) {
+  const versions = await listVersions(project, loadersOf(server), [server.gameVersion])
+  return versions.find((v) => v.version_type === 'release') ?? versions[0] ?? null
+}
+
+/**
+ * Dépendances obligatoires pas encore installées (un niveau, assez pour les proposer au joueur avant l'installation)
+ */
+export async function missingDependencies(id: string, projectId: string): Promise<ServerContentDependency[]> {
+  const server = getServer(id)
+  const index = await readIndex(join(serverDirOf(id), folderOf(server)))
+  const installed = new Set(Object.values(index).map((e) => e.projectId))
+  const version = await pickVersion(server, projectId)
+  if (!version) throw new Error(tm('err.serverContentMissing', { version: server.gameVersion }))
+  const ids = [...new Set(version.dependencies.filter((d) => d.dependency_type === 'required' && d.project_id).map((d) => d.project_id!))]
+  const missing = ids.filter((d) => !installed.has(d))
+  if (missing.length === 0) return []
+  const projects = await getProjects(missing)
+  return projects.map((p) => ({ projectId: p.id, title: p.title, iconUrl: p.icon_url }))
+}
+
+/** Installe la dernière version compatible ; avec `withDeps`, aussi ses dépendances obligatoires */
+export async function installServerContent(id: string, projectId: string, withDeps = true): Promise<void> {
   const server = getServer(id)
   const dir = join(serverDirOf(id), folderOf(server))
   await mkdir(dir, { recursive: true })
   const index = await readIndex(dir)
   const installed = new Set(Object.values(index).map((e) => e.projectId))
-  const loaders = loadersOf(server)
 
   const install = async (project: string, required: boolean): Promise<void> => {
     if (installed.has(project)) return
     installed.add(project)
-    const versions = await listVersions(project, loaders, [server.gameVersion])
-    const version = versions.find((v) => v.version_type === 'release') ?? versions[0]
+    const version = await pickVersion(server, project)
     const file = version?.files.find((f) => f.primary) ?? version?.files[0]
     if (!version || !file) {
       if (required) throw new Error(tm('err.serverContentMissing', { version: server.gameVersion }))
@@ -102,6 +123,7 @@ export async function installServerContent(id: string, projectId: string): Promi
       icon_url: string | null
     }
     index[file.filename] = { projectId: project, title: meta.title, iconUrl: meta.icon_url }
+    if (!withDeps) return
     for (const dep of version.dependencies) {
       if (dep.dependency_type === 'required' && dep.project_id) await install(dep.project_id, false)
     }

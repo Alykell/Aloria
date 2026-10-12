@@ -69,7 +69,7 @@ Données du jeu : `%APPDATA%\.aloria` (profils, instances, `shared/` = serveurs 
   `playit` (API api.playit.gg + programme playit v1.0.12), `manage` (server.properties, joueurs), `content` (mods/plugins Modrinth), `backups`.
 - e4mc (adresse gratuite, Fabric/Forge/NeoForge ≥ 1.17) plante en 26.x (`hasPermission(int)` retiré) : `CommandPermissionCompatMixin`
   d'Aloria HUD le corrige ; le mod est donc aussi copié sur les serveurs Fabric 26.x (`fabric.mod.json` environment `*`).
-- Tests : `ALORIA_TEST_SERVER="fabric:26.3,paper:1.21.11"` (+ `_COMMAND`, `_BACKUP=1`, `_JOIN=selftest` avec `ALORIA_TEST_DEMO=1`,
+- Tests : `ALORIA_TEST_SERVER="fabric:26.3,paper:1.21.11"` (+ `_COMMAND`, `_BACKUP=1`, `_EARLYSTOP=1`, `_BREAK=1`, `_JOIN=selftest` avec `ALORIA_TEST_DEMO=1`,
   `_KEEP=1`) ; captures : `ALORIA_CAPTURE_SERVERS=<dossier>` (+ `ALORIA_CAPTURE_SERVERS_TYPE="paper:1.21.11:playit"`).
   Ne pas toucher aux serveurs de l'utilisateur (« Survie entre pote », « dfvdfv »).
 

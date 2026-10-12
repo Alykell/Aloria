@@ -366,9 +366,26 @@ export interface ServerContentHit {
   clientRequired: boolean
 }
 
+/** Dépendance obligatoire d'un mod ou plugin, proposée avant l'installation */
+export interface ServerContentDependency {
+  projectId: string
+  title: string
+  iconUrl: string | null
+}
+
+/** Élément de l'onglet Fichiers */
+export interface ServerFile {
+  name: string
+  dir: boolean
+  size: number
+  modified: number
+}
+
 /** Mod ou plugin présent dans le dossier du serveur */
 export interface ServerContent {
   fileName: string
+  /** Projet Modrinth (null pour un fichier mis à la main) */
+  projectId: string | null
   title: string
   iconUrl: string | null
 }

@@ -15,6 +15,12 @@ import { tm } from '../i18n'
 const MAX_LINES = 2000
 /** Après « stop », temps laissé au serveur pour sauvegarder le monde avant de le forcer à s'arrêter */
 const STOP_TIMEOUT_MS = 60_000
+/** Erreur fatale au démarrage : certains serveurs (Paper) l'écrivent puis restent figés au lieu de se fermer */
+const FATAL_START = /can't proceed with server load|Failed to start the minecraft server|Encountered an unexpected exception|Exception in server tick loop/
+/** Temps laissé à un serveur qui a écrit une erreur fatale pour se fermer tout seul, avant de le couper */
+const FATAL_GRACE_MS = 15_000
+/** Arrêt demandé pendant le démarrage : on attend qu'il soit prêt (au plus ce temps) pour ne pas abîmer un monde en création */
+const START_WAIT_MS = 5 * 60_000
 /** Mesure des TPS (/tick query, réponse cachée de la console) */
 const TPS_INTERVAL_MS = 5000
 
@@ -32,6 +38,8 @@ interface Running {
   waiters: ((line: string) => boolean)[]
   /** Sauvegarde en cours (une seule à la fois) */
   backingUp: boolean
+  /** Erreur fatale vue au démarrage (affichée si le serveur s'arrête ensuite) */
+  fatal?: string
 }
 
 const servers = new Map<string, Running>()
@@ -96,6 +104,15 @@ export const anyServerRunning = (): boolean => [...servers.values()].some((r) =>
 
 /** Ce que la console du serveur nous apprend : prêt, adresse e4mc, joueurs qui arrivent ou partent */
 function parse(r: Running, line: string): void {
+  // Erreur fatale avant d'être prêt : le serveur est coupé s'il ne se ferme pas tout seul
+  if (r.status.state === 'starting' && FATAL_START.test(line) && !r.fatal) {
+    // Préfixe de la console retiré : « [18:31:07] [Server thread/ERROR]: » (vanilla) ou « [18:31:07 WARN]: » (Paper)
+    r.fatal = line.replace(/^\[[^\]]*\](?: \[[^\]]*\])?: /, '')
+    const child = r.child
+    setTimeout(() => {
+      if (child && r.child === child) child.kill()
+    }, FATAL_GRACE_MS)
+  }
   if (r.status.state === 'starting' && /\]: Done \(/.test(line)) {
     setStatus(r, { state: 'running' })
     startTpsQueries(r)
@@ -247,9 +264,12 @@ export async function startServer(id: string): Promise<void> {
     child.on('exit', (code) => {
       r.child = null
       for (const stop of r.cleanup.splice(0)) stop()
-      const crashed = !r.stopping && code !== 0
+      // Erreur fatale au démarrage : on la montre, même si le serveur a été coupé (code 1) ou s'est fermé (code 0)
+      const fatal = r.fatal
+      r.fatal = undefined
+      const crashed = (!r.stopping && code !== 0) || !!fatal
       addLine(id, r, `> ${tm('server.console.stopped', { code: String(code ?? '?') })}`)
-      setStatus(r, { ...idle(id), error: crashed ? tm('err.serverCrashed', { code: String(code ?? '?') }) : undefined })
+      setStatus(r, { ...idle(id), error: fatal ? tm('err.serverStartFailed', { reason: fatal }) : crashed ? tm('err.serverCrashed', { code: String(code ?? '?') }) : undefined })
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
@@ -270,12 +290,21 @@ export function sendCommand(id: string, command: string): void {
 }
 
 /** Arrêt propre (« stop » sauvegarde le monde) ; forcé si le serveur ne répond plus */
-export function stopServer(id: string): Promise<void> {
+export async function stopServer(id: string): Promise<void> {
   const r = servers.get(id)
   const child = r?.child
-  if (!r || !child) return Promise.resolve()
+  if (!r || !child) return
+  // Encore en démarrage (monde peut-être en création) : « stop » maintenant peut laisser un monde incomplet
+  if (r.status.state === 'starting' && !r.fatal) {
+    r.stopping = true
+    setStatus(r, { state: 'stopping', label: tm('server.step.waitReady') })
+    const ready = waitForLine(r, /\]: Done \(/, START_WAIT_MS)
+    const exited = new Promise<boolean>((resolve) => child.once('exit', () => resolve(true)))
+    await Promise.race([ready, exited])
+    if (r.child !== child) return
+  }
   r.stopping = true
-  setStatus(r, { state: 'stopping' })
+  setStatus(r, { state: 'stopping', label: undefined })
   return new Promise((resolve) => {
     const timer = setTimeout(() => child.kill(), STOP_TIMEOUT_MS)
     child.once('exit', () => {

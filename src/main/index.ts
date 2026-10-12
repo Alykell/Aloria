@@ -24,7 +24,8 @@ import { createServer, deleteServer, freePort, getServer, lanAddress, listServer
 import { deleteTunnel, linkPlayit, playitLinked, unlinkPlayit } from './server/playit'
 import { deleteBackup, listBackups, openBackupFolder, restoreBackup } from './server/backups'
 import { editPlayersOffline, listPlayers, playerCommand, readProperties, writeProperties } from './server/manage'
-import { installServerContent, listServerContent, removeServerContent, searchServerContent } from './server/content'
+import { installServerContent, listServerContent, missingDependencies, removeServerContent, searchServerContent } from './server/content'
+import { createEntry, deleteEntries, downloadFile, listFiles, quickFiles, readTextFile, renameEntry, unzipEntry, uploadFiles, writeTextFile, zipEntries } from './server/files'
 import { backupServer, connectTunnel, anyServerRunning, isServerAlive, killServer, restartServer, sendCommand, serverLog, serverStatuses, setServerTarget, startServer, stopAllServers, stopServer } from './server/runner'
 import type {
   ExportOptions,
@@ -345,7 +346,21 @@ ipcMain.handle('servers:whitelist', (_e, id: string, on: boolean) =>
 )
 ipcMain.handle('servers:contentSearch', (_e, id: string, query: string) => wrap(() => searchServerContent(id, query)))
 ipcMain.handle('servers:content', (_e, id: string) => wrap(() => listServerContent(id)))
-ipcMain.handle('servers:contentInstall', (_e, id: string, projectId: string) => wrap(() => installServerContent(id, projectId)))
+ipcMain.handle('servers:contentInstall', (_e, id: string, projectId: string, withDeps: boolean) =>
+  wrap(() => installServerContent(id, projectId, withDeps))
+)
+ipcMain.handle('servers:contentDeps', (_e, id: string, projectId: string) => wrap(() => missingDependencies(id, projectId)))
+ipcMain.handle('servers:files', (_e, id: string, rel: string) => wrap(() => listFiles(id, rel)))
+ipcMain.handle('servers:quickFiles', (_e, id: string) => quickFiles(id))
+ipcMain.handle('servers:readFile', (_e, id: string, rel: string) => wrap(() => readTextFile(id, rel)))
+ipcMain.handle('servers:writeFile', (_e, id: string, rel: string, text: string) => wrap(() => writeTextFile(id, rel, text)))
+ipcMain.handle('servers:createEntry', (_e, id: string, rel: string, name: string, folder: boolean) => wrap(() => createEntry(id, rel, name, folder)))
+ipcMain.handle('servers:renameEntry', (_e, id: string, rel: string, name: string) => wrap(() => renameEntry(id, rel, name)))
+ipcMain.handle('servers:deleteEntries', (_e, id: string, rels: string[]) => wrap(() => deleteEntries(id, rels)))
+ipcMain.handle('servers:zipEntries', (_e, id: string, rels: string[], name: string) => wrap(() => zipEntries(id, rels, name)))
+ipcMain.handle('servers:unzipEntry', (_e, id: string, rel: string) => wrap(() => unzipEntry(id, rel)))
+ipcMain.handle('servers:uploadFiles', (e, id: string, rel: string) => wrap(() => uploadFiles(BrowserWindow.fromWebContents(e.sender), id, rel)))
+ipcMain.handle('servers:downloadFile', (e, id: string, rel: string) => wrap(() => downloadFile(BrowserWindow.fromWebContents(e.sender), id, rel)))
 ipcMain.handle('servers:contentRemove', (_e, id: string, fileName: string) => wrap(() => removeServerContent(id, fileName)))
 ipcMain.handle('playit:linked', () => playitLinked())
 ipcMain.handle('playit:link', () => wrap(() => linkPlayit()))
@@ -425,6 +440,13 @@ app.whenReady().then(() => {
         if (process.env.ALORIA_TEST_SERVER_JOIN) await writeProperties(server.id, { 'online-mode': 'false', 'white-list': 'false' })
         const started = Date.now()
         try {
+          // ALORIA_TEST_SERVER_EARLYSTOP=1 : arrêt demandé en plein démarrage (monde en création), puis redémarrage
+          if (process.env.ALORIA_TEST_SERVER_EARLYSTOP) {
+            await startServer(server.id)
+            await new Promise((r) => setTimeout(r, 3000))
+            await stopServer(server.id)
+            console.log(`[server-test] ${item} : arrêt pendant le démarrage → ${serverLog(server.id).some((l) => /\]: Done \(/.test(l)) ? 'attendu la fin du démarrage' : 'PAS attendu'}`)
+          }
           await startServer(server.id)
           let status = serverStatuses().find((s) => s.id === server.id)
           while (Date.now() - started < 600_000) {
@@ -463,6 +485,19 @@ app.whenReady().then(() => {
           console.log(`[server-test] ${item} : ÉCHEC`, err)
         }
         await stopServer(server.id)
+        // ALORIA_TEST_SERVER_BREAK=1 : monde abîmé (réglages de génération retirés) : le serveur doit être coupé avec un message
+        if (process.env.ALORIA_TEST_SERVER_BREAK) {
+          const { rm } = await import('node:fs/promises')
+          await rm(join(serverDirOf(server.id), 'world', 'dimensions', 'minecraft', 'overworld', 'data', 'minecraft', 'world_gen_settings.dat'), { force: true })
+          const t0 = Date.now()
+          await startServer(server.id)
+          let st = serverStatuses().find((x) => x.id === server.id)
+          while (Date.now() - t0 < 180_000 && st?.state !== 'stopped') {
+            await new Promise((r) => setTimeout(r, 1000))
+            st = serverStatuses().find((x) => x.id === server.id)
+          }
+          console.log(`[server-test] ${item} : monde abîmé → ${st?.state} en ${Math.round((Date.now() - t0) / 1000)} s, erreur : ${st?.error}`)
+        }
         // Restauration de la sauvegarde faite plus haut, serveur éteint
         if (process.env.ALORIA_TEST_SERVER_BACKUP) {
           const [last] = await listBackups(server.id)
@@ -537,11 +572,32 @@ app.whenReady().then(() => {
       // Laisse le temps aux mesures (mémoire, processeur, TPS)
       await wait(9000)
       await snap('2-fiche')
-      for (const [key, name] of [['server.tab.players', '2b-joueurs'], ['server.tab.settings', '2c-reglages'], [type === 'paper' ? 'server.tab.plugins' : 'server.tab.mods', '2d-contenu'], ['server.tab.backups', '2e-sauvegardes']] as const) {
+      for (const [key, name] of [['server.tab.players', '2b-joueurs'], ['server.tab.settings', '2c-reglages'], [type === 'paper' ? 'server.tab.plugins' : 'server.tab.mods', '2d-contenu'], ['server.tab.backups', '2e-sauvegardes'], ['server.tab.files', '2f-fichiers']] as const) {
         if (name === '2e-sauvegardes') await backupServer(server.id, 'manual')
         await click(translate(lang, key))
         await wait(2500)
         await snap(name)
+      }
+      // Éditeur : server.properties depuis l'accès rapide
+      await click('server.properties')
+      await wait(1500)
+      await snap('2g-editeur')
+      await click(translate(lang, 'common.close'))
+      await wait(500)
+      await click(type === 'paper' ? 'paper-global.yml' : 'server.properties')
+      await wait(1500)
+      await snap('2h-editeur-yml')
+      await click(translate(lang, 'common.close'))
+      await wait(300)
+      if (type === 'paper') {
+        console.log('[capture] dépendances de WorldGuard', JSON.stringify(await missingDependencies(server.id, 'worldguard').catch((e) => String(e))))
+        await click(translate(lang, 'server.tab.plugins'))
+        await wait(800)
+        await win.webContents.executeJavaScript(
+          `(() => { const i = document.querySelector('.manage-search'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(i, 'luckperms'); i.dispatchEvent(new Event('input', { bubbles: true })) })()`
+        )
+        await wait(2500)
+        await snap('2i-installe')
       }
       console.log('[capture] joueurs', JSON.stringify(await listPlayers(server.id)))
       await click(translate(lang, 'server.tab.console'))

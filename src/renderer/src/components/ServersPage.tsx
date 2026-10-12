@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import ServerEditor, { SERVER_TYPE_LABELS } from './ServerEditor'
 import { BackupsTab, ContentTab, PlayersTab, SettingsTab } from './ServerManage'
+import ServerFiles from './ServerFiles'
 import Select from './Select'
 import { useVersions } from '../hooks/useVersions'
 import type { SettingsState } from '../hooks/useSettings'
@@ -46,7 +47,14 @@ function useServers() {
 
   useEffect(() => {
     refresh()
-    return window.aloria.servers.onStatus((s) => setStatuses((all) => ({ ...all, [s.id]: s })))
+    const last: Record<string, string> = {}
+    return window.aloria.servers.onStatus((s) => {
+      setStatuses((all) => ({ ...all, [s.id]: s }))
+      // Démarrage terminé ou arrêt : la fiche du serveur a changé (version installée, dernier démarrage). L'état revient
+      // toutes les 2 s avec les mesures : on ne relit la liste qu'au changement
+      if (last[s.id] !== s.state && (s.state === 'running' || s.state === 'stopped')) refresh()
+      last[s.id] = s.state
+    })
   }, [refresh])
 
   return {
@@ -205,7 +213,7 @@ export default function ServersPage({ settings, onError, onFocus }: Props) {
   const { servers, freePort, lanAddress, refresh, status } = useServers()
   const [openId, setOpenId] = useState<string | null>(null)
   // Onglet du panneau d'un serveur (la console par défaut)
-  const [tab, setTab] = useState<'console' | 'players' | 'settings' | 'content' | 'backups'>('console')
+  const [tab, setTab] = useState<'console' | 'players' | 'settings' | 'content' | 'files' | 'backups'>('console')
   // undefined = fermé, null = création, ServerInfo = modification
   const [editing, setEditing] = useState<ServerInfo | null | undefined>(undefined)
   const maxRamMb = Math.max(1024, Math.floor((settings.systemRamMb - 2048) / 512) * 512)
@@ -347,7 +355,7 @@ export default function ServersPage({ settings, onError, onFocus }: Props) {
           </div>
         </header>
 
-        {st.state === 'installing' && (
+        {(st.state === 'installing' || (st.state === 'stopping' && st.label)) && (
           <div className="card server-progress">
             <span>{st.label}</span>
             {st.progress !== undefined && (
@@ -364,7 +372,7 @@ export default function ServersPage({ settings, onError, onFocus }: Props) {
         <div className="server-panel__body">
           <div className="server-main">
             <div className="segmented server-tabs">
-              {(['console', 'players', 'settings', 'content', 'backups'] as const).map((id) => (
+              {(['console', 'players', 'settings', 'content', 'files', 'backups'] as const).map((id) => (
                 <button key={id} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}>
                   {id === 'content' ? t(open.type === 'paper' ? 'server.tab.plugins' : 'server.tab.mods') : t(`server.tab.${id}`)}
                 </button>
@@ -374,6 +382,7 @@ export default function ServersPage({ settings, onError, onFocus }: Props) {
             {tab === 'players' && <PlayersTab server={open} alive={alive} online={st.players} onError={onError} />}
             {tab === 'settings' && <SettingsTab server={open} alive={alive} onError={onError} onRestart={() => restart(open.id)} />}
             {tab === 'content' && <ContentTab server={open} alive={alive} onError={onError} onRestart={() => restart(open.id)} />}
+            {tab === 'files' && <ServerFiles server={open} onError={onError} />}
             {tab === 'backups' && <BackupsTab server={open} alive={alive} onError={onError} onSaved={refresh} />}
           </div>
 
