@@ -14,6 +14,7 @@ const TABS: { id: Tab; label: MessageKey }[] = [
   { id: 'mod', label: 'library.tabMods' },
   { id: 'resourcepack', label: 'library.tabResourcepacks' },
   { id: 'shader', label: 'library.tabShaders' },
+  { id: 'datapack', label: 'library.tabDatapacks' },
   { id: 'modpack', label: 'library.tabModpacks' },
   { id: 'installed', label: 'library.tabInstalled' }
 ]
@@ -22,7 +23,14 @@ const SEARCH_PLACEHOLDERS: Record<ContentType | 'modpack', MessageKey> = {
   mod: 'library.searchMods',
   resourcepack: 'library.searchResourcepacks',
   shader: 'library.searchShaders',
+  datapack: 'library.searchDatapacks',
   modpack: 'library.searchModpacks'
+}
+
+/** Les datapacks existent depuis la 1.13 (« latest-release », snapshots et 26.x : récents) */
+const hasDatapacks = (versionId: string) => {
+  const m = /^1\.(\d+)/.exec(versionId)
+  return !m || Number(m[1]) >= 13
 }
 
 const SORTS: { id: SearchSort; label: MessageKey }[] = [
@@ -59,6 +67,11 @@ export default function LibraryPage({ profiles, showModpacks, onError, onOpenPro
   const dragDepth = useRef(0)
 
   const profile = profiles.profiles.find((p) => p.id === profileId) ?? profiles.selected
+  const datapacks = !profile || hasDatapacks(profile.versionId)
+  // Profil 1.8.9 choisi depuis l'onglet Datapacks : retour aux mods
+  useEffect(() => {
+    if (!datapacks && tab === 'datapack') setTab('mod')
+  }, [datapacks, tab])
   const needsLoader = (tab === 'mod' || tab === 'shader') && profile?.loader === 'vanilla'
   // Profils Forge : OptiFine (shaders, zoom…) s'ajoute à la main, il n'est pas sur Modrinth
   const showOptiFine = (tab === 'mod' || tab === 'shader') && profile?.loader === 'forge'
@@ -206,7 +219,7 @@ export default function LibraryPage({ profiles, showModpacks, onError, onOpenPro
       </div>
 
       <div className="tabs">
-        {TABS.filter((it) => showModpacks || it.id !== 'modpack').map((it) => (
+        {TABS.filter((it) => (showModpacks || it.id !== 'modpack') && (datapacks || it.id !== 'datapack')).map((it) => (
           <button key={it.id} className={tab === it.id ? 'active' : ''} onClick={() => setTab(it.id)}>
             {t(it.label)}
             {it.id === 'installed' && installed.length > 0 && <span className="badge">{installed.length}</span>}
@@ -215,7 +228,7 @@ export default function LibraryPage({ profiles, showModpacks, onError, onOpenPro
       </div>
 
       {tab === 'installed' ? (
-        <InstalledList profileId={profile.id} items={installed} onChanged={refreshInstalled} onError={onError} />
+        <InstalledList profileId={profile.id} items={installed} datapacks={datapacks} onChanged={refreshInstalled} onError={onError} />
       ) : needsLoader ? (
         <div className="notice">
           <strong>{t(tab === 'shader' ? 'library.shadersNeedLoader' : 'library.modsNeedLoader')}</strong>
@@ -271,6 +284,7 @@ export default function LibraryPage({ profiles, showModpacks, onError, onOpenPro
                 ? t('library.resultsModpacks', { n: compactNumber(total) })
                 : t('library.results', { n: compactNumber(total), version: gameVersion })}
               {tab === 'shader' && t('library.shadersAuto')}
+              {tab === 'datapack' && t('library.datapacksWorlds')}
             </small>
           )}
 

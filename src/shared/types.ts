@@ -169,7 +169,7 @@ export interface Profile extends ProfileInput {
   lastPlayed: number | null
 }
 
-export type ContentType = 'mod' | 'resourcepack' | 'shader'
+export type ContentType = 'mod' | 'resourcepack' | 'shader' | 'datapack'
 
 export type SearchSort = 'relevance' | 'downloads' | 'newest' | 'updated'
 

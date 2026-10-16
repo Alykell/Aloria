@@ -10,17 +10,19 @@ import type { ContentType, ImportResult, InstalledContent, Loader, Profile, Sear
 import { tm } from '../i18n'
 import { isInstanceZip } from '../instances'
 
-const FOLDERS: Record<ContentType, string> = { mod: 'mods', resourcepack: 'resourcepacks', shader: 'shaderpacks' }
+/** Les datapacks sont propres à chaque monde : ceux du profil sont copiés dans tous ses mondes au lancement (game/datapacks.ts) */
+const FOLDERS: Record<ContentType, string> = { mod: 'mods', resourcepack: 'resourcepacks', shader: 'shaderpacks', datapack: 'datapacks' }
 /** Chargeur Modrinth du contenu : mods du chargeur du profil, shaders pour Iris (Fabric, NeoForge) ou OptiFine (Forge) */
 export function modrinthLoaders(type: ContentType, loader: Loader): string[] {
   if (type === 'resourcepack') return ['minecraft']
+  if (type === 'datapack') return ['datapack']
   if (type === 'shader') return loader === 'forge' ? ['optifine'] : ['iris']
   return [loader === 'vanilla' ? 'fabric' : loader]
 }
 
 /** Iris existe pour Fabric et NeoForge : il est ajouté avec les shaders */
 const usesIris = (loader: Loader) => loader === 'fabric' || loader === 'neoforge'
-const EXTENSIONS: Record<ContentType, string[]> = { mod: ['.jar'], resourcepack: ['.zip'], shader: ['.zip'] }
+const EXTENSIONS: Record<ContentType, string[]> = { mod: ['.jar'], resourcepack: ['.zip'], shader: ['.zip'], datapack: ['.zip'] }
 const IRIS_PROJECT = 'YL57xq9U'
 const LOADER_NAMES: Record<Loader, string> = { vanilla: 'Minecraft', fabric: 'Fabric', forge: 'Forge', neoforge: 'NeoForge' }
 const DISABLED = '.disabled'
@@ -119,7 +121,7 @@ async function pickVersion(projectId: string, type: ContentType, ctx: Context, t
   const loaders = modrinthLoaders(type, ctx.profile.loader)
   let versions = await listVersions(projectId, loaders, [gameVersion])
   // Resource packs et shaders fonctionnent souvent sur des versions non déclarées
-  if (versions.length === 0 && type !== 'mod') versions = await listVersions(projectId, loaders, undefined)
+  if (versions.length === 0 && (type === 'resourcepack' || type === 'shader')) versions = await listVersions(projectId, loaders, undefined)
   if (versions.length === 0) throw new Error(tm('err.contentUnavailable', { title, version: gameVersion }))
   return versions.find((v) => v.version_type === 'release') ?? versions[0]
 }
@@ -173,7 +175,8 @@ async function installOne(
     auto: existing ? existing[1].auto && auto : auto
   }
 
-  // Dépendances obligatoires (Fabric API, Sodium pour Iris…)
+  // Dépendances obligatoires (Fabric API, Sodium pour Iris…) ; celles d'un datapack seraient des mods, sans objet en vanilla
+  if (type === 'datapack') return
   for (const dep of version.dependencies) {
     if (dep.dependency_type !== 'required') continue
     const depProject = dep.project_id ?? (dep.version_id ? (await getVersion(dep.version_id)).project_id : null)
@@ -183,7 +186,7 @@ async function installOne(
 
 export async function installContent(profileId: string, projectId: string, type: ContentType): Promise<void> {
   const ctx = await context(profileId)
-  if (type !== 'resourcepack') requireModLoader(ctx, type)
+  if (type === 'mod' || type === 'shader') requireModLoader(ctx, type)
 
   const index = await readIndex(ctx.gameDir)
   ctx.localIds = await localModIds(ctx.gameDir, index)
@@ -272,23 +275,26 @@ function modInfo(zip: AdmZip): { loader: Loader | null; title?: string; version?
   return { loader: null }
 }
 
-/** Ce qu'est un fichier ou dossier importé : mod (.jar), resource pack (pack.mcmeta) ou shader (dossier shaders/) */
+/**
+ * Ce qu'est un fichier ou dossier importé : mod (.jar), datapack (pack.mcmeta et dossier data/), resource pack (pack.mcmeta)
+ * ou shader (dossier shaders/)
+ */
 function detectType(zip: AdmZip | null, dir: string | null): ContentType | null {
   if (dir) {
-    if (existsSync(join(dir, 'pack.mcmeta'))) return 'resourcepack'
+    if (existsSync(join(dir, 'pack.mcmeta'))) return existsSync(join(dir, 'data')) ? 'datapack' : 'resourcepack'
     if (existsSync(join(dir, 'shaders'))) return 'shader'
     return null
   }
   if (!zip) return null
   const names = zip.getEntries().map((e) => e.entryName)
-  if (names.includes('pack.mcmeta')) return 'resourcepack'
+  if (names.includes('pack.mcmeta')) return names.some((n) => n.startsWith('data/')) ? 'datapack' : 'resourcepack'
   if (names.some((n) => n.startsWith('shaders/'))) return 'shader'
   return null
 }
 
 /**
- * Importe des fichiers choisis ou glissés par le joueur (mods .jar, resource packs et shaders en .zip ou en dossier)
- * dans un profil. Les fichiers refusés ne bloquent pas les autres : leurs erreurs sont renvoyées.
+ * Importe des fichiers choisis ou glissés par le joueur (mods .jar, resource packs, shaders et datapacks en .zip ou en
+ * dossier) dans un profil. Les fichiers refusés ne bloquent pas les autres : leurs erreurs sont renvoyées.
  */
 export async function importFiles(profileId: string, paths: string[]): Promise<ImportResult> {
   const ctx = await context(profileId)
@@ -343,6 +349,31 @@ export async function importFiles(profileId: string, paths: string[]): Promise<I
         meta = { type, title: info.title || name.replace(/\.jar$/i, ''), versionNumber: info.version }
       } else {
         const detected = detectType(zip, isDir ? path : null)
+        // Zip de plusieurs packs (Vanilla Tweaks donne ses datapacks ainsi) : chacun est importé à part
+        const inner = !detected && zip ? zip.getEntries().filter((e) => !e.isDirectory && e.entryName.toLowerCase().endsWith('.zip')) : []
+        if (inner.length > 0) {
+          for (const entry of inner) {
+            const data = entry.getData()
+            const innerName = basename(entry.entryName)
+            let innerType: ContentType | null = null
+            try {
+              innerType = detectType(new AdmZip(data), null)
+            } catch {
+              // Illisible : signalé ci-dessous
+            }
+            if (innerType !== 'datapack' && innerType !== 'resourcepack') {
+              errors.push(tm('err.importUnknown', { name: `${name} › ${innerName}` }))
+              continue
+            }
+            const dir = join(ctx.gameDir, FOLDERS[innerType])
+            await mkdir(dir, { recursive: true })
+            await rm(join(dir, innerName + DISABLED), { force: true })
+            await writeFile(join(dir, innerName), data)
+            delete index[innerName]
+            added.push(innerType)
+          }
+          continue
+        }
         if (!detected) throw new Error(tm('err.importUnknown', { name }))
         type = detected
         if (type === 'shader') requireModLoader(ctx, type)

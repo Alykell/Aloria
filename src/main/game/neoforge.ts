@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import AdmZip from 'adm-zip'
+import { fetchBytes } from './download'
 import { paths } from './paths'
 import { runModernInstaller, type InstallerStep, type ModernInstallProfile } from './processors'
 import type { LoaderVersion } from '../../shared/types'
@@ -66,9 +67,9 @@ export async function installNeoForge(
   const file = paths.versionJson(id)
   if (existsSync(file)) return id
 
-  const res = await fetch(`${NEOFORGE_MAVEN}${version}/neoforge-${version}-installer.jar`)
+  const res = await fetchBytes(`${NEOFORGE_MAVEN}${version}/neoforge-${version}-installer.jar`)
   if (!res.ok) throw new Error(tm('err.neoforgeDownload', { version, status: res.status }))
-  const installer = Buffer.from(await res.arrayBuffer())
+  const installer = res.data
   const profile = JSON.parse(new AdmZip(installer).readAsText('install_profile.json')) as ModernInstallProfile
   const json = await runModernInstaller(installer, profile, onStep)
 

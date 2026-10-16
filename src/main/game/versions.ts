@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { createHash } from 'node:crypto'
-import { fetchJson } from './download'
+import { fetchBytes, fetchJson } from './download'
 import { paths } from './paths'
 import type { Rule } from './rules'
 import { tm } from '../i18n'
@@ -93,9 +93,9 @@ async function loadRaw(id: string): Promise<VersionJson> {
   }
   if (!entry) throw new Error(tm('err.unknownVersion', { id }))
 
-  const res = await fetch(entry.url)
+  const res = await fetchBytes(entry.url)
   if (!res.ok) throw new Error(tm('err.versionFetch', { id, status: res.status }))
-  const text = await res.text()
+  const text = res.data.toString('utf8')
   await mkdir(dirname(file), { recursive: true })
   await writeFile(file, text)
   return JSON.parse(text) as VersionJson

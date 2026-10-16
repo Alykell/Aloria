@@ -34,9 +34,7 @@ const FABRIC_API = 'P7dR8mSH'
 
 /** API de Paper : elle demande un User-Agent qui identifie l'application */
 async function paperJson<T>(path: string): Promise<T> {
-  const res = await fetch(`${PAPER_API}${path}`, { headers: { 'User-Agent': USER_AGENT } })
-  if (!res.ok) throw new Error(tm('err.fetch', { url: `${PAPER_API}${path}`, status: res.status }))
-  return (await res.json()) as T
+  return fetchJson<T>(`${PAPER_API}${path}`, { 'User-Agent': USER_AGENT })
 }
 
 const progressOf = (p: DownloadProgress) => (p.totalBytes > 0 ? p.doneBytes / p.totalBytes : p.doneFiles / Math.max(1, p.totalFiles))

@@ -49,6 +49,9 @@ async function call<T>(path: string, body: unknown, secret?: string): Promise<T>
   })
   const json = (await res.json().catch(() => null)) as { status: string; data: unknown } | null
   if (json?.status === 'success') return json.data as T
+  if (secret && (res.status === 401 || (json?.data as { message?: string } | null)?.message === 'InvalidAgentKey')) {
+    return forgetRevokedKey()
+  }
   const detail = json ? JSON.stringify(json.data) : `HTTP ${res.status}`
   throw Object.assign(new Error(tm('err.playitApi', { detail })), { playit: json?.data })
 }
@@ -88,6 +91,15 @@ export function linkPlayit(): Promise<void> {
 
 export async function unlinkPlayit(): Promise<void> {
   await rm(configFile, { force: true })
+}
+
+/**
+ * Clé refusée par playit.gg (PC retiré du compte sur leur site, compte supprimé…) : on l'oublie, pour que la page
+ * Serveurs propose de relier le compte à nouveau au lieu d'échouer à chaque démarrage
+ */
+async function forgetRevokedKey(): Promise<never> {
+  await unlinkPlayit()
+  throw Object.assign(new Error(tm('err.playitRevoked')), { playitRevoked: true })
 }
 
 // ---------------------------------------------------------------- tunnels
@@ -199,8 +211,13 @@ export const PLAYIT_FREE_TUNNELS = 4
 /** Adresses utilisées sur le compte (pour griser playit.gg quand il est plein) */
 export async function playitUsage(): Promise<PlayitUsage> {
   const secret = config()?.secretKey
-  if (!secret) return { linked: false, used: 0, max: PLAYIT_FREE_TUNNELS, serverIds: [] }
-  const run = await call<RunData>('/agents/rundata', {}, secret)
+  const unlinked = { linked: false, used: 0, max: PLAYIT_FREE_TUNNELS, serverIds: [] }
+  if (!secret) return unlinked
+  const run = await call<RunData>('/agents/rundata', {}, secret).catch((err) => {
+    if ((err as { playitRevoked?: boolean }).playitRevoked) return null
+    throw err
+  })
+  if (!run) return unlinked
   const names = [...new Set([...run.tunnels, ...run.pending].map((t) => t.name ?? ''))]
   return {
     linked: true,
@@ -277,6 +294,8 @@ export async function acquireAgent(serverId: string, onStep: (label: string, pro
   if (exited !== null) {
     agent = null
     users.delete(serverId)
+    // « The configured playit secret is no longer valid »
+    if (/secret is no longer valid|InvalidAgentKey/i.test(output)) return forgetRevokedKey()
     throw new Error(tm('err.playitAgent', { detail: output.trim().split(/\r?\n/).pop() ?? String(exited) }))
   }
   child.on('exit', () => {

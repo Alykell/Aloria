@@ -5,7 +5,7 @@ import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import AdmZip from 'adm-zip'
 import { inflateRawSync } from 'node:zlib'
 import { createHash } from 'node:crypto'
-import { downloadAll } from '../game/download'
+import { downloadAll, fetchBytes } from '../game/download'
 import { forgeLoaders } from '../game/forge'
 import { createProfile, deleteProfile, gameDirOf } from '../profiles'
 import { forgeSupported, neoforgeSupported } from '../../shared/loaders'
@@ -75,21 +75,12 @@ async function packFile(versionId: string) {
 
 /** Télécharge un gros fichier en suivant sa progression (octets reçus), SHA-1 vérifié avant de le garder */
 async function downloadWithProgress(url: string, path: string, sha1: string, size: number, onBytes: (done: number) => void): Promise<void> {
-  const res = await fetch(url)
-  if (!res.ok || !res.body) throw new Error(tm('err.download', { url, reason: `HTTP ${res.status}` }))
-  const hash = createHash('sha1')
-  const chunks: Buffer[] = []
-  let done = 0
-  for await (const chunk of res.body as unknown as AsyncIterable<Uint8Array>) {
-    const buf = Buffer.from(chunk)
-    chunks.push(buf)
-    hash.update(buf)
-    done += buf.length
-    onBytes(Math.min(done, size))
-  }
-  if (hash.digest('hex') !== sha1) throw new Error(tm('err.corrupted'))
+  // Un nouvel essai (connexion coupée) repart de zéro : la barre recule alors un instant
+  const res = await fetchBytes(url, { onBytes: (done) => onBytes(Math.min(done, size)) })
+  if (!res.ok) throw new Error(tm('err.download', { url, reason: `HTTP ${res.status}` }))
+  if (createHash('sha1').update(res.data).digest('hex') !== sha1) throw new Error(tm('err.corrupted'))
   await mkdir(dirname(path), { recursive: true })
-  await writeFile(`${path}.part`, Buffer.concat(chunks))
+  await writeFile(`${path}.part`, res.data)
   await rename(`${path}.part`, path)
 }
 

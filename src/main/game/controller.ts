@@ -8,6 +8,7 @@ import { gameDirOf, getProfile, markPlayed } from '../profiles'
 import { getSettings } from '../settings'
 import { hudJvmArgs, syncAloriaHud } from './aloriaHud'
 import { syncFriends } from './friends'
+import { syncDatapacks } from './datapacks'
 import { installFabric } from './fabric'
 import { installForge } from './forge'
 import { installNeoForge } from './neoforge'
@@ -123,6 +124,8 @@ export async function play(sender: WebContents, profileId: string, join?: { host
     // Liste de serveurs commune et jeu de réglages du profil (convertis pour les anciennes versions)
     setStatus({ state: 'preparing', label: tm('status.settings') })
     const sync = await applyShared(profile, gameVersion, gameDir, installed.classpath[installed.classpath.length - 1])
+    // Datapacks de la Bibliothèque : dans tous les mondes du profil
+    await syncDatapacks(gameDir).catch((e) => console.warn('[datapacks]', e))
 
     setStatus({ state: 'launching' })
     const { child, logFile } = await launchGame({

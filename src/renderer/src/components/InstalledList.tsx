@@ -2,20 +2,23 @@ import type { ContentType, InstalledContent } from '../../../shared/types'
 import type { MessageKey } from '../../../shared/i18n'
 import { t } from '../i18n'
 
-const SECTIONS: { type: ContentType; label: MessageKey; icon: string }[] = [
+const SECTIONS: { type: ContentType; label: MessageKey; icon: string; hint?: MessageKey }[] = [
   { type: 'mod', label: 'library.tabMods', icon: '🧩' },
   { type: 'resourcepack', label: 'library.tabResourcepacks', icon: '🎨' },
-  { type: 'shader', label: 'library.tabShaders', icon: '✨' }
+  { type: 'shader', label: 'library.tabShaders', icon: '✨' },
+  { type: 'datapack', label: 'library.tabDatapacks', icon: '📜', hint: 'library.datapacksHint' }
 ]
 
 interface Props {
   profileId: string
   items: InstalledContent[]
+  /** Version avec datapacks (1.13+) : sinon la section est cachée */
+  datapacks: boolean
   onChanged: () => void
   onError: (message: string) => void
 }
 
-export default function InstalledList({ profileId, items, onChanged, onError }: Props) {
+export default function InstalledList({ profileId, items, datapacks, onChanged, onError }: Props) {
   const act = async (action: Promise<{ ok: boolean; error?: string }>) => {
     const res = await action
     if (!res.ok && res.error) onError(res.error)
@@ -24,7 +27,7 @@ export default function InstalledList({ profileId, items, onChanged, onError }: 
 
   return (
     <div className="installed">
-      {SECTIONS.map((section) => {
+      {SECTIONS.filter((section) => datapacks || section.type !== 'datapack').map((section) => {
         const list = items.filter((i) => i.type === section.type)
         return (
           <div key={section.type} className="installed__section">
@@ -36,6 +39,7 @@ export default function InstalledList({ profileId, items, onChanged, onError }: 
                 {t('common.openFolder')}
               </button>
             </div>
+            {section.hint && <small className="muted">{t(section.hint)}</small>}
             {list.length === 0 ? (
               <p className="muted">{t('library.nothing')}</p>
             ) : (

@@ -325,6 +325,11 @@ export default function ServersPage({ settings, onError, onFocus }: Props) {
   useEffect(() => {
     window.aloria.servers.playitLinked().then(setPlayitLinked)
   }, [])
+  // Une erreur de playit peut venir d'une liaison retirée sur leur site : le bouton « Relier » revient alors
+  const openTunnelError = open ? status(open.id).tunnelError : undefined
+  useEffect(() => {
+    if (openTunnelError) window.aloria.servers.playitLinked().then(setPlayitLinked)
+  }, [openTunnelError])
   const linkPlayit = async (id: string, alive: boolean) => {
     setLinking(true)
     const res = await window.aloria.servers.playitLink()
@@ -511,7 +516,9 @@ export default function ServersPage({ settings, onError, onFocus }: Props) {
                 <small className="muted">{t('server.noTunnel')}</small>
               ) : open.tunnel === 'playit' && !playitLinked ? (
                 <>
-                  <small className="muted">{linking ? t('server.playit.linking') : t('server.playit.link')}</small>
+                  <small className={st.tunnelError && !linking ? 'warning' : 'muted'}>
+                    {linking ? t('server.playit.linking') : (st.tunnelError ?? t('server.playit.link'))}
+                  </small>
                   <button className="primary" disabled={linking} onClick={() => linkPlayit(open.id, alive)}>
                     {t('server.playit.linkButton')}
                   </button>

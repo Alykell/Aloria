@@ -51,25 +51,92 @@ export async function filterMissing(tasks: DownloadTask[]): Promise<DownloadTask
   return missing
 }
 
-async function downloadOne(task: DownloadTask): Promise<number> {
-  let lastError: unknown
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    try {
-      const res = await fetch(task.url)
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = Buffer.from(await res.arrayBuffer())
-      if (task.sha1 && sha1(data) !== task.sha1) throw new Error(tm('err.corrupted'))
-      await mkdir(dirname(task.path), { recursive: true })
-      const tmp = `${task.path}.part`
-      await writeFile(tmp, data)
-      await rename(tmp, task.path)
-      if (task.executable && process.platform !== 'win32') await chmod(task.path, 0o755)
-      return data.length
-    } catch (err) {
-      lastError = err
+/** Rien reçu depuis ce délai : la connexion est figée (Wi-Fi coupé…), on abandonne cet essai pour en refaire un */
+const STALL_MS = 30_000
+/** Pauses avant chaque nouvel essai : une coupure de quelques secondes ne doit pas épuiser tous les essais d'un coup */
+const RETRY_DELAYS = [1000, 3000, 6000]
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+/** Le serveur peut répondre normalement un peu plus tard */
+const retryable = (status: number) => status >= 500 || status === 429 || status === 408
+
+/** Raison lisible d'une erreur réseau (« fetch failed » seul ne dit rien : la vraie cause est dans err.cause) */
+function networkReason(err: unknown): string {
+  if (!(err instanceof Error)) return String(err)
+  const cause = err.cause as { code?: string; message?: string } | undefined
+  return cause?.code ?? cause?.message ?? err.message
+}
+
+export interface Fetched {
+  ok: boolean
+  status: number
+  data: Buffer
+}
+
+async function fetchOnce(url: string, headers: Record<string, string> | undefined, onBytes?: (done: number) => void): Promise<Fetched> {
+  const controller = new AbortController()
+  let timer = setTimeout(() => controller.abort(), STALL_MS)
+  try {
+    const res = await fetch(url, { headers, signal: controller.signal })
+    const chunks: Buffer[] = []
+    let done = 0
+    if (res.body) {
+      for await (const chunk of res.body as unknown as AsyncIterable<Uint8Array>) {
+        clearTimeout(timer)
+        timer = setTimeout(() => controller.abort(), STALL_MS)
+        chunks.push(Buffer.from(chunk))
+        done += chunk.length
+        onBytes?.(done)
+      }
     }
+    return { ok: res.ok, status: res.status, data: Buffer.concat(chunks) }
+  } catch (err) {
+    if (controller.signal.aborted) throw new Error(tm('err.stalled'))
+    throw err
+  } finally {
+    clearTimeout(timer)
   }
-  const reason = lastError instanceof Error ? lastError.message : String(lastError)
+}
+
+/**
+ * Récupère un fichier en entier, en réessayant (pauses de 1, 3 puis 6 s) après une erreur réseau, une connexion figée
+ * ou une réponse 5xx / 429. Les autres réponses (404…) sont renvoyées telles quelles, à l'appelant de les signaler.
+ */
+export async function fetchBytes(
+  url: string,
+  options: { headers?: Record<string, string>; onBytes?: (done: number) => void } = {}
+): Promise<Fetched> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const res = await fetchOnce(url, options.headers, options.onBytes)
+      if (!retryable(res.status) || attempt >= RETRY_DELAYS.length) return res
+    } catch (err) {
+      if (attempt >= RETRY_DELAYS.length) throw new Error(tm('err.download', { url, reason: networkReason(err) }))
+    }
+    await sleep(RETRY_DELAYS[attempt])
+  }
+}
+
+async function downloadOne(task: DownloadTask): Promise<number> {
+  let reason = ''
+  // Deux passes : un fichier coupé en route peut aussi arriver incomplet (sha1 faux)
+  for (let pass = 0; pass < 2; pass++) {
+    const res = await fetchBytes(task.url)
+    if (!res.ok) {
+      reason = `HTTP ${res.status}`
+      break
+    }
+    if (task.sha1 && sha1(res.data) !== task.sha1) {
+      reason = tm('err.corrupted')
+      continue
+    }
+    await mkdir(dirname(task.path), { recursive: true })
+    const tmp = `${task.path}.part`
+    await writeFile(tmp, res.data)
+    await rename(tmp, task.path)
+    if (task.executable && process.platform !== 'win32') await chmod(task.path, 0o755)
+    return res.data.length
+  }
   throw new Error(tm('err.download', { url: task.url, reason }))
 }
 
@@ -95,8 +162,8 @@ export async function downloadAll(
   })
 }
 
-export async function fetchJson<T>(url: string): Promise<T> {
-  const res = await fetch(url)
+export async function fetchJson<T>(url: string, headers?: Record<string, string>): Promise<T> {
+  const res = await fetchBytes(url, { headers })
   if (!res.ok) throw new Error(tm('err.fetch', { url, status: res.status }))
-  return (await res.json()) as T
+  return JSON.parse(res.data.toString('utf8')) as T
 }

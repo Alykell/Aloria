@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
-import { fetchJson } from './download'
+import { fetchBytes, fetchJson } from './download'
 import { paths } from './paths'
 import type { LoaderVersion } from '../../shared/types'
 import { tm } from '../i18n'
@@ -42,13 +42,13 @@ export async function installFabric(gameVersion: string, loaderVersion: string |
   const id = `${isLegacyFabric(gameVersion) ? 'legacy-' : ''}fabric-loader-${loader}-${gameVersion}`
   const file = paths.versionJson(id)
   if (!existsSync(file)) {
-    const res = await fetch(
+    const res = await fetchBytes(
       `${metaFor(gameVersion)}/versions/loader/${encodeURIComponent(gameVersion)}/${encodeURIComponent(loader)}/profile/json`
     )
     if (!res.ok) throw new Error(tm('err.fabricInstall', { loader, version: gameVersion, status: res.status }))
     await mkdir(dirname(file), { recursive: true })
     // L'id du JSON doit correspondre à son dossier (le préfixe legacy- n'existe pas côté serveur)
-    const json = (await res.json()) as { id: string }
+    const json = JSON.parse(res.data.toString('utf8')) as { id: string }
     json.id = id
     await writeFile(file, JSON.stringify(json))
   }

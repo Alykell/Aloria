@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import AdmZip from 'adm-zip'
-import { fetchJson } from './download'
+import { fetchBytes, fetchJson } from './download'
 import { mavenPath } from './install'
 import { paths } from './paths'
 import type { Library, VersionJson } from './versions'
@@ -22,9 +22,9 @@ const PROMOTIONS = 'https://files.minecraftforge.net/net/minecraftforge/forge/pr
 
 /** Toutes les versions de Forge publiées (format Maven : « 1.8.9-11.15.1.2318-1.8.9 », « 1.12.2-14.23.5.2859 ») */
 async function allForgeVersions(): Promise<string[]> {
-  const res = await fetch(`${FORGE_MAVEN}maven-metadata.xml`)
+  const res = await fetchBytes(`${FORGE_MAVEN}maven-metadata.xml`)
   if (!res.ok) throw new Error(tm('err.forgeList', { status: res.status }))
-  return [...(await res.text()).matchAll(/<version>([^<]+)<\/version>/g)].map((m) => m[1])
+  return [...res.data.toString('utf8').matchAll(/<version>([^<]+)<\/version>/g)].map((m) => m[1])
 }
 
 /** « 1.8.9-11.15.1.2318-1.8.9 » → « 11.15.1.2318 » */
@@ -85,9 +85,9 @@ export async function installForge(
   if (existsSync(file)) return id
 
   // Forge demande de ne pas automatiser son installation sans le soutenir : voir le lien dans la création de profil
-  const res = await fetch(`${FORGE_MAVEN}${full}/forge-${full}-installer.jar`)
+  const res = await fetchBytes(`${FORGE_MAVEN}${full}/forge-${full}-installer.jar`)
   if (!res.ok) throw new Error(tm('err.forgeDownload', { version: full, status: res.status }))
-  const installer = Buffer.from(await res.arrayBuffer())
+  const installer = res.data
   const zip = new AdmZip(installer)
   const profile = JSON.parse(zip.readAsText('install_profile.json')) as LegacyInstallProfile | ModernInstallProfile
 
