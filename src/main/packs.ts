@@ -116,7 +116,7 @@ export async function savePackImage(id: string, element: PackElement, image: str
 }
 
 /** Jar du client pour une version du jeu, téléchargé s'il manque (profil jamais lancé) */
-async function clientJar(gameVersion: string): Promise<string> {
+export async function clientJar(gameVersion: string): Promise<string> {
   const jar = paths.versionJar(gameVersion)
   if (existsSync(jar)) return jar
   const version = await loadVersion(gameVersion)

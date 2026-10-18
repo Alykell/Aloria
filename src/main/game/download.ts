@@ -20,11 +20,19 @@ export interface DownloadProgress {
   totalBytes: number
 }
 
-/** Exécute fn sur chaque élément avec au plus `limit` tâches en parallèle. */
+/** Exécute fn sur chaque élément avec au plus `limit` tâches en parallèle ; après une erreur (ou une annulation), plus rien ne démarre. */
 export async function pool<T>(items: T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
   let next = 0
+  let failed = false
   const worker = async () => {
-    while (next < items.length) await fn(items[next++])
+    while (!failed && next < items.length) {
+      try {
+        await fn(items[next++])
+      } catch (err) {
+        failed = true
+        throw err
+      }
+    }
   }
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
 }

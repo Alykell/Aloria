@@ -1,4 +1,4 @@
-import PlayButton from './PlayButton'
+import PlayButton, { RunningGames } from './PlayButton'
 import { describeProfile } from '../hooks/useVersions'
 import type { AccountsState } from '../hooks/useAccounts'
 import type { ProfilesState } from '../hooks/useProfiles'
@@ -35,8 +35,16 @@ export default function HomePage({ accounts, profiles, game, onSkin }: Props) {
 
           {canPlay ? (
             <>
-              <PlayButton status={game.status} disabled={!selected} onPlay={() => selected && game.play(selected.id)} />
-              {game.status.state === 'idle' && selected && (
+              <PlayButton
+                status={game.status}
+                profileId={selected?.id ?? null}
+                disabled={!selected}
+                onPlay={() => selected && game.play(selected.id)}
+                onCancel={game.cancel}
+                onStop={game.stop}
+              />
+              {/* On peut changer de profil pendant une partie, pour en lancer une autre en même temps */}
+              {selected && game.status.launch?.profileId !== selected.id && (
                 <Select
                   className="version-select"
                   value={selected.id}
@@ -47,6 +55,7 @@ export default function HomePage({ accounts, profiles, game, onSkin }: Props) {
                   }))}
                 />
               )}
+              <RunningGames status={game.status} exceptId={selected?.id ?? null} onStop={game.stop} />
             </>
           ) : (
             <>

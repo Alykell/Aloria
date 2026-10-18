@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { GameExit, GameStatus } from '../../../shared/types'
 
 export function useGame() {
-  const [status, setStatus] = useState<GameStatus>({ state: 'idle' })
+  const [status, setStatus] = useState<GameStatus>({ launch: null, running: [] })
   const [error, setError] = useState<string | null>(null)
   const [crash, setCrash] = useState<GameExit | null>(null)
 
@@ -25,5 +25,8 @@ export function useGame() {
     if (!res.ok) setError(res.error)
   }
 
-  return { status, error, crash, play, clearError: () => setError(null), clearCrash: () => setCrash(null) }
+  const cancel = () => window.aloria.game.cancel()
+  const stop = (profileId: string) => window.aloria.game.stop(profileId)
+
+  return { status, error, crash, play, cancel, stop, clearError: () => setError(null), clearCrash: () => setCrash(null) }
 }

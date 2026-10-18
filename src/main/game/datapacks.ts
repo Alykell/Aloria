@@ -4,8 +4,8 @@ import { join } from 'node:path'
 
 /**
  * Datapacks d'un profil (dossier datapacks/ du profil, rempli par la Bibliothèque) : copiés dans tous ses mondes à chaque
- * lancement, Minecraft active tout seul un datapack qu'il découvre dans un monde. Un monde créé pendant la partie les
- * reçoit donc au lancement suivant.
+ * lancement, Minecraft active tout seul un datapack qu'il découvre dans un monde. Pendant la partie, `watchDatapacks`
+ * refait la copie toutes les 4 s : un monde créé en jeu les reçoit aussitôt (actifs après /reload ou au prochain chargement).
  * Chaque monde garde la liste de ce qu'Aloria y a mis : un datapack supprimé à la main d'un monde n'y revient pas, et un
  * datapack retiré ou désactivé dans la Bibliothèque disparaît des mondes où Aloria l'avait mis (pas des autres).
  */
@@ -72,4 +72,19 @@ export async function syncDatapacks(gameDir: string): Promise<void> {
       console.warn('[datapacks]', world.name, err)
     }
   }
+}
+
+/**
+ * Pendant une partie : un monde créé en jeu, ou un datapack ajouté / modifié depuis le launcher (Créations), est copié
+ * quelques secondes après ; dans un monde ouvert, /reload le charge
+ */
+export function watchDatapacks(gameDir: string): () => void {
+  let busy = false
+  const timer = setInterval(async () => {
+    if (busy) return
+    busy = true
+    await syncDatapacks(gameDir).catch((e) => console.warn('[datapacks]', e))
+    busy = false
+  }, 4000)
+  return () => clearInterval(timer)
 }

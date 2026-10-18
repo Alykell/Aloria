@@ -1,4 +1,5 @@
 import { app, BrowserWindow, type WebContents } from 'electron'
+import { spawn, type ChildProcess } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
 import { setDiscordIdle, setDiscordPlaying, setDiscordServer } from '../discord'
 import { watchGameLog } from './logWatcher'
@@ -8,7 +9,7 @@ import { gameDirOf, getProfile, markPlayed } from '../profiles'
 import { getSettings } from '../settings'
 import { hudJvmArgs, syncAloriaHud } from './aloriaHud'
 import { syncFriends } from './friends'
-import { syncDatapacks } from './datapacks'
+import { syncDatapacks, watchDatapacks } from './datapacks'
 import { installFabric } from './fabric'
 import { installForge } from './forge'
 import { installNeoForge } from './neoforge'
@@ -17,30 +18,90 @@ import { installVersion } from './install'
 import { launchGame } from './launch'
 import { getManifest, loadVersion, resolveVersionId } from './versions'
 import { applyShared, collectShared } from '../shared/sync'
-import type { GameExit, GameStatus, VersionEntry } from '../../shared/types'
+import { anyServerRunning } from '../server/runner'
+import type { GameExit, GameStatus, LaunchStep, VersionEntry } from '../../shared/types'
 import { tm } from '../i18n'
 
 const LOADER_NAMES = { vanilla: 'Minecraft', fabric: 'Fabric', forge: 'Forge', neoforge: 'NeoForge' } as const
 
-let status: GameStatus = { state: 'idle' }
+interface Running {
+  profileId: string
+  profile: string
+  versionLabel: string
+  child: ChildProcess
+  /** « Arrêter » cliqué : pas de fenêtre de plantage à la fermeture, et un second clic force l'arrêt */
+  stopping: boolean
+  retry?: NodeJS.Timeout
+}
+
+/** Un seul lancement à la fois (mêmes bibliothèques, même Java), mais autant de parties ouvertes que de profils */
+let launch: GameStatus['launch'] = null
+const running = new Map<string, Running>()
+/** Partie montrée dans le statut Discord : la dernière lancée */
+let discordGame: Running | null = null
 let target: WebContents | null = null
 
 let lastLogged = ''
 
-function setStatus(next: GameStatus): void {
-  status = next
+class LaunchCancelled extends Error {}
+
+const statusOf = (): GameStatus => ({
+  launch,
+  running: [...running.values()].map((r) => ({ profileId: r.profileId, profile: r.profile, stopping: r.stopping }))
+})
+
+function sendStatus(): void {
+  const status = statusOf()
   if (process.env.ALORIA_DEBUG) {
     // Journal console pour les tests (une ligne par étape, et tous les 10 % en téléchargement)
-    const key = next.state === 'downloading' ? `dl ${Math.floor((next.doneBytes / (next.totalBytes || 1)) * 10)}` : JSON.stringify(next)
-    if (key !== lastLogged) console.log('[game]', JSON.stringify(next))
+    const key =
+      launch?.state === 'downloading' ? `dl ${Math.floor((launch.doneBytes / (launch.totalBytes || 1)) * 10)}` : JSON.stringify(status)
+    if (key !== lastLogged) console.log('[game]', JSON.stringify(status))
     lastLogged = key
   }
   if (target && !target.isDestroyed()) target.send('game:status', status)
 }
 
-export const getStatus = () => status
+/** Étape suivante du lancement ; si « Annuler » a été cliqué, le lancement s'arrête ici */
+function setStep(profileId: string, profile: string, step: LaunchStep): void {
+  if (launch?.cancelling) throw new LaunchCancelled()
+  launch = { ...step, profileId, profile }
+  sendStatus()
+}
 
-export const isGameRunning = () => status.state === 'running'
+export const getStatus = statusOf
+
+export const isGameRunning = () => running.size > 0
+
+/** Annule le lancement en cours : les fichiers en cours de téléchargement finissent, rien d'autre ne démarre */
+export function cancelLaunch(): void {
+  if (!launch || launch.cancelling || launch.state === 'launching') return
+  launch = { ...launch, cancelling: true }
+  sendStatus()
+}
+
+/**
+ * Ferme une partie. Premier clic : fermeture normale (comme la croix de la fenêtre, le monde est sauvegardé) ;
+ * second clic : arrêt forcé, pour un jeu figé.
+ */
+export function stopGame(profileId: string): void {
+  const game = running.get(profileId)
+  if (!game?.child.pid) return
+  const force = game.stopping
+  game.stopping = true
+  sendStatus()
+  const pid = game.child.pid
+  const close = (force: boolean) => {
+    if (process.platform === 'win32') {
+      // Sans /F, taskkill envoie WM_CLOSE à la fenêtre du jeu ; /T emporte aussi les processus lancés par le jeu
+      spawn('taskkill', ['/PID', String(pid), '/T', ...(force ? ['/F'] : [])], { windowsHide: true }).on('error', () => {})
+    } else game.child.kill(force ? 'SIGKILL' : 'SIGTERM')
+  }
+  clearInterval(game.retry)
+  close(force)
+  // Pendant l'écran de chargement, le jeu ignore la demande : on la renvoie jusqu'à ce qu'il se ferme
+  if (!force) game.retry = setInterval(() => close(false), 3000)
+}
 
 const splitArgs = (value: string | undefined) => (value ?? '').split(' ').filter(Boolean)
 
@@ -65,12 +126,14 @@ function joinArgs(gameVersion: string, join: { host: string; port: number }): st
 
 /** `join` : serveur à rejoindre dès l'ouverture du jeu (bouton « Rejoindre » de la page Serveurs) */
 export async function play(sender: WebContents, profileId: string, join?: { host: string; port: number }): Promise<void> {
-  if (status.state !== 'idle') throw new Error(tm('err.alreadyLaunching'))
+  if (launch) throw new Error(tm('err.alreadyLaunching', { profile: launch.profile }))
+  if (running.has(profileId)) throw new Error(tm('err.alreadyRunning'))
   target = sender
+  const profile = getProfile(profileId)
+  const setStatus = (step: LaunchStep) => setStep(profile.id, profile.name, step)
 
   try {
     const settings = getSettings()
-    const profile = getProfile(profileId)
     const { active } = listAccounts()
     const testDemo = !app.isPackaged && process.env.ALORIA_TEST_DEMO === '1'
     if (!active && !testDemo) throw new Error(tm('err.loginToPlay'))
@@ -145,13 +208,27 @@ export async function play(sender: WebContents, profileId: string, join?: { host
     })
 
     let stopWatching = () => {}
-    const versionLabel = `${LOADER_NAMES[profile.loader]} ${gameVersion}`
+    const game: Running = {
+      profileId: profile.id,
+      profile: profile.name,
+      versionLabel: `${LOADER_NAMES[profile.loader]} ${gameVersion}`,
+      child,
+      stopping: false
+    }
     child.once('spawn', () => {
-      setStatus({ state: 'running', profile: profile.name })
+      launch = null
+      running.set(profile.id, game)
+      sendStatus()
       // Réglages à récupérer à la fermeture du jeu, même si le launcher est fermé entre-temps
       if (child.pid) addPending({ pid: child.pid, gameVersion, gameDir, session: sync })
-      setDiscordPlaying(profile.name, versionLabel)
-      stopWatching = watchGameLog(logFile, setDiscordServer)
+      discordGame = game
+      setDiscordPlaying(game.profile, game.versionLabel)
+      const stopLog = watchGameLog(logFile, (server) => discordGame === game && setDiscordServer(server))
+      const stopDatapacks = watchDatapacks(gameDir)
+      stopWatching = () => {
+        stopLog()
+        stopDatapacks()
+      }
 
       const win = BrowserWindow.fromWebContents(sender)
       if (settings.afterLaunch === 'minimize') win?.minimize()
@@ -160,25 +237,39 @@ export async function play(sender: WebContents, profileId: string, join?: { host
       if (settings.afterLaunch === 'close') setTimeout(() => win?.hide(), 2000)
     })
     child.once('error', (err) => {
-      setStatus({ state: 'idle' })
-      sendExit({ code: null, crashLog: tm('err.javaStart', { message: err.message }) })
+      if (launch?.profileId === profile.id) launch = null
+      running.delete(profile.id)
+      sendStatus()
+      sendExit({ profileId: profile.id, code: null, crashLog: tm('err.javaStart', { message: err.message }) })
     })
     child.once('exit', async (code) => {
-      setStatus({ state: 'idle' })
-      setDiscordIdle()
+      clearInterval(game.retry)
+      running.delete(profile.id)
+      sendStatus()
       stopWatching()
+      // Statut Discord : la partie précédente encore ouverte, sinon rien
+      if (discordGame === game) {
+        discordGame = [...running.values()].pop() ?? null
+        if (discordGame) setDiscordPlaying(discordGame.profile, discordGame.versionLabel)
+        else setDiscordIdle()
+      }
       await collectShared(sync, gameVersion, gameDir).catch((err) => console.warn('[réglages partagés]', err))
       if (child.pid) removePending(child.pid)
       const win = BrowserWindow.fromWebContents(sender)
-      if (win && !win.isVisible()) {
-        app.quit()
+      // Fenêtre cachée (« Se fermer » après le lancement) : le launcher quitte avec la dernière partie
+      if (win && !win.isVisible() && !win.isMinimized()) {
+        if (running.size === 0 && !launch && !anyServerRunning()) app.quit()
         return
       }
-      if (win?.isMinimized()) win.restore()
-      sendExit({ code, crashLog: code === 0 ? null : await logTail(logFile) })
+      if (win?.isMinimized() && running.size === 0) win.restore()
+      // Fermée par « Arrêter » : pas de fenêtre de plantage
+      if (game.stopping) return
+      sendExit({ profileId: profile.id, code, crashLog: code === 0 ? null : await logTail(logFile) })
     })
   } catch (err) {
-    setStatus({ state: 'idle' })
+    launch = null
+    sendStatus()
+    if (err instanceof LaunchCancelled) return
     throw err
   }
 }

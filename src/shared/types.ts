@@ -48,6 +48,83 @@ export interface PackVanilla {
   atlases: { icons?: string | null; widgets?: string | null }
 }
 
+/** Recettes faites dans Aloria (« Créations ») : un format unique, écrit au format de la version visée à l'installation */
+export type RecipeKind = 'shaped' | 'shapeless' | 'smelting' | 'blasting' | 'smoking' | 'campfire' | 'stonecutting'
+
+/** Ingrédient : un item (« minecraft:stick ») ou un tag (« #minecraft:planks »), plusieurs = au choix */
+export type RecipeIngredient = string[]
+
+export interface Recipe {
+  /** « minecraft:furnace » remplace la recette du jeu, « aloria:… » en ajoute une */
+  id: string
+  kind: RecipeKind
+  /** Établi avec forme : 9 cases, ligne par ligne */
+  grid?: (RecipeIngredient | null)[]
+  /** Établi sans forme */
+  ingredients?: RecipeIngredient[]
+  /** Fours et tailleur de pierre */
+  input?: RecipeIngredient | null
+  result: string
+  count: number
+  experience?: number
+  /** En ticks (20 = 1 s) */
+  cookingTime?: number
+  group?: string
+}
+
+/** Datapack créé dans Aloria (pour l'instant : des recettes) */
+export interface DatapackCreation {
+  id: string
+  name: string
+  /** Version du jeu dont viennent les items et les recettes de l'éditeur */
+  gameVersion: string
+  recipes: Recipe[]
+  /** Recettes du jeu supprimées (« minecraft:piston ») */
+  removed: string[]
+  /** Profils où il est installé → nom du zip dans leur dossier datapacks/ (remis à jour à chaque enregistrement) */
+  installed: Record<string, string>
+  createdAt: number
+  updatedAt: number
+}
+
+export type ModelFace = 'up' | 'down' | 'north' | 'south' | 'east' | 'west'
+
+/** De quoi dessiner l'icône d'un item (rendu en 3D isométrique pour les blocs, à plat sinon) */
+export type ItemIcon =
+  | { kind: 'flat'; layers: { tex: string; tint?: string }[] }
+  | {
+      kind: 'model'
+      elements: {
+        from: number[]
+        to: number[]
+        rotation?: { origin: number[]; axis: 'x' | 'y' | 'z'; angle: number }
+        shade?: boolean
+        faces: Partial<Record<ModelFace, { tex: string; uv?: number[]; rotation?: number; tint?: string }>>
+      }[]
+      gui: { rotation: number[]; translation: number[]; scale: number[] }
+    }
+  | { kind: 'none' }
+
+export interface GameItem {
+  id: string
+  name: string
+  icon: ItemIcon
+}
+
+/** Items, icônes, tags et recettes d'une version, lus dans son jar */
+export interface GameData {
+  gameVersion: string
+  items: GameItem[]
+  /** Chemin (« block/stone ») → PNG en data URL */
+  textures: Record<string, string>
+  /** « minecraft:planks » → items (tags imbriqués déjà dépliés) */
+  tags: Record<string, string[]>
+  /** Recettes du jeu modifiables dans l'éditeur (établi, fours, tailleur) */
+  recipes: Recipe[]
+  /** Types de recettes que connaît cette version (pas de fours ni de tailleur en 1.13) */
+  kinds: RecipeKind[]
+}
+
 /** Cape du compte (les capes s'obtiennent lors d'événements Minecraft, on choisit seulement laquelle porter) */
 export interface CapeInfo {
   id: string
@@ -112,14 +189,28 @@ export interface VersionEntry {
   type: 'release' | 'snapshot'
 }
 
-export type GameStatus =
-  | { state: 'idle' }
+/** Étape du lancement en cours */
+export type LaunchStep =
   | { state: 'preparing'; label: string }
   | { state: 'downloading'; doneFiles: number; totalFiles: number; doneBytes: number; totalBytes: number }
   | { state: 'launching' }
-  | { state: 'running'; profile: string }
+
+export interface RunningGame {
+  profileId: string
+  profile: string
+  /** Fermeture demandée : le bouton devient « Forcer l'arrêt » */
+  stopping: boolean
+}
+
+export interface GameStatus {
+  /** Lancement en cours : un seul à la fois (les téléchargements sont communs aux profils). `cancelling` : « Annuler » cliqué */
+  launch: (LaunchStep & { profileId: string; profile: string; cancelling?: boolean }) | null
+  /** Parties ouvertes, plusieurs possibles (une par profil) */
+  running: RunningGame[]
+}
 
 export interface GameExit {
+  profileId: string
   code: number | null
   /** Dernières lignes du jeu quand il s'est arrêté anormalement */
   crashLog: string | null

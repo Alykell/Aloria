@@ -21,6 +21,8 @@ import type {
   PackElement,
   PackInfo,
   PackVanilla,
+  DatapackCreation,
+  GameData,
   PlayerSkin,
   SavedSkin,
   ServerInfo,
@@ -138,6 +140,16 @@ const api = {
     install: (id: string, profileId: string, files: Record<string, string>): Promise<Result<string>> =>
       ipcRenderer.invoke('packs:install', id, profileId, files)
   },
+  datapacks: {
+    gameData: (gameVersion: string): Promise<Result<GameData>> => ipcRenderer.invoke('datapacks:gameData', gameVersion),
+    list: (): Promise<Result<DatapackCreation[]>> => ipcRenderer.invoke('datapacks:list'),
+    create: (name: string, gameVersion: string): Promise<Result<DatapackCreation>> => ipcRenderer.invoke('datapacks:create', name, gameVersion),
+    save: (dp: DatapackCreation): Promise<Result<DatapackCreation>> => ipcRenderer.invoke('datapacks:save', dp),
+    remove: (id: string): Promise<Result<void>> => ipcRenderer.invoke('datapacks:delete', id),
+    install: (id: string, profileId: string, install: boolean): Promise<Result<{ dp: DatapackCreation; skipped: string[] }>> =>
+      ipcRenderer.invoke('datapacks:install', id, profileId, install),
+    exportZip: (dp: DatapackCreation): Promise<Result<{ path: string; skipped: string[] } | null>> => ipcRenderer.invoke('datapacks:export', dp)
+  },
   servers: {
     list: (): Promise<{ servers: ServerInfo[]; statuses: ServerStatus[]; freePort: number; lanAddress: string | null }> => ipcRenderer.invoke('servers:list'),
     create: (input: ServerInput): Promise<Result<ServerInfo>> => ipcRenderer.invoke('servers:create', input),
@@ -196,6 +208,10 @@ const api = {
   game: {
     versions: (snapshots: boolean): Promise<Result<VersionEntry[]>> => ipcRenderer.invoke('game:versions', snapshots),
     status: (): Promise<GameStatus> => ipcRenderer.invoke('game:status'),
+    /** Annule le lancement en cours */
+    cancel: (): Promise<void> => ipcRenderer.invoke('game:cancel'),
+    /** Ferme une partie (un second appel force l'arrêt) */
+    stop: (profileId: string): Promise<void> => ipcRenderer.invoke('game:stop', profileId),
     /** `join` : serveur à rejoindre dès l'ouverture du jeu */
     play: (profileId: string, join?: { host: string; port: number }): Promise<Result<null>> =>
       ipcRenderer.invoke('game:play', profileId, join),

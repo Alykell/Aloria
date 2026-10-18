@@ -80,6 +80,15 @@ Données du jeu : `%APPDATA%\.aloria` (profils, instances, `shared/` = serveurs 
 - Test : `ALORIA_CAPTURE=… ALORIA_CAPTURE_PACK="Test Aloria"` crée un pack et l'installe dans selftest et selftest189f
   (penser à supprimer ensuite `%APPDATA%\.aloria\packs` et le pack des profils de test).
 
+## Recettes (Créations → outil « Recettes »)
+- Datapacks de recettes dans `%APPDATA%\.aloria\creations\datapacks\<id>.json` (format commun `Recipe`). `src/main/gameData.ts` lit le jar
+  (items + noms fr_fr des assets, modèles/textures, tags, recettes, format par version) ; `datapackCreations.ts` écrit le zip au format de
+  la version du profil dans `<profil>/datapacks/` (remis à jour à chaque enregistrement). Icônes 3D dessinées dans `renderer/src/itemIcons.ts`.
+- Recettes du jeu supprimées (`removed`) : `filter` du pack.mcmeta (1.19+), avec les succès qui les citent (en 26.x les recettes sont
+  un registre : une recette absente citée par un succès empêche le monde de charger) ; avant 1.19, fichier `{}` à leur place.
+- Tests : `ALORIA_TEST_RECIPES="1.16.5,26.3"` (+ `_PROFILE=<id>` pour installer, puis lancer le profil et chercher « Couldn't parse » dans
+  son latest.log) ; captures : `ALORIA_CAPTURE_RECIPES=<dossier>` (+ `_VERSION`). Vérifié en jeu en 26.3 et 1.20.1 le 2026-10-18.
+
 ## Pièges Minecraft 26.x (non obfusqué, noms Mojang)
 - Rendu : `GuiGraphicsExtractor`, `extractRenderState` ; écrans : `mc.gui.setScreen(...)`.
 - Touches = scancodes SDL ; souris : **gauche = 1, droit = 3** (`InputConstants.MOUSE_BUTTON_*`).

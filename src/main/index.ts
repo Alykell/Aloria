@@ -3,8 +3,10 @@ import { join } from 'node:path'
 import { addAccount, listAccounts, removeAccount, selectAccount } from './auth/accounts'
 import { toAuthError } from './auth/errors'
 import { getSkin, listCapes, listSavedSkins, removeSavedSkin, resetSkin, setCape, uploadSkin } from './auth/skin'
+import { createDatapack, deleteDatapack, exportDatapack, installDatapack, listDatapacks, saveDatapack, zipName } from './datapackCreations'
+import { gameData } from './gameData'
 import { createPack, deletePack, installPack, listPacks, packVanilla, renamePack, savePackImage, setPackScale } from './packs'
-import { getStatus, isGameRunning, listVersions, play } from './game/controller'
+import { cancelLaunch, getStatus, isGameRunning, listVersions, play, stopGame } from './game/controller'
 import { fabricLoaders } from './game/fabric'
 import { forgeLoaders } from './game/forge'
 import { neoforgeLoaders } from './game/neoforge'
@@ -31,6 +33,7 @@ import { backupServer, connectTunnel, anyServerRunning, isServerAlive, killServe
 import type {
   ExportOptions,
   ModpackSource,
+  DatapackCreation,
   PackElement,
   ContentType,
   LoaderVersion,
@@ -148,6 +151,8 @@ ipcMain.handle('game:versions', async (_e, snapshots: boolean): Promise<Result<V
   }
 })
 ipcMain.handle('game:status', () => getStatus())
+ipcMain.handle('game:cancel', () => cancelLaunch())
+ipcMain.handle('game:stop', (_e, profileId: string) => stopGame(profileId))
 ipcMain.handle('game:play', async (e, profileId: string, join?: { host: string; port: number }): Promise<Result<null>> => {
   try {
     await play(e.sender, profileId, join)
@@ -297,6 +302,26 @@ ipcMain.handle('packs:delete', (_e, id: string) => wrap(() => deletePack(id)))
 ipcMain.handle('packs:setScale', (_e, id: string, scale: number) => wrap(() => setPackScale(id, scale)))
 ipcMain.handle('packs:saveImage', (_e, id: string, element: PackElement, image: string | null) => wrap(() => savePackImage(id, element, image)))
 ipcMain.handle('packs:vanilla', (_e, target: { profileId?: string; gameVersion?: string }) => wrap(() => packVanilla(target)))
+// Créations : datapacks (recettes) faits dans Aloria, et les items / recettes d'une version pour l'éditeur
+ipcMain.handle('datapacks:gameData', (_e, gameVersion: string) => wrap(() => gameData(gameVersion)))
+ipcMain.handle('datapacks:list', () => wrap(() => listDatapacks()))
+ipcMain.handle('datapacks:create', (_e, name: string, gameVersion: string) => wrap(() => createDatapack(name, gameVersion)))
+ipcMain.handle('datapacks:save', (_e, dp: DatapackCreation) => wrap(() => saveDatapack(dp)))
+ipcMain.handle('datapacks:delete', (_e, id: string) => wrap(() => deleteDatapack(id)))
+ipcMain.handle('datapacks:install', (_e, id: string, profileId: string, install: boolean) => wrap(() => installDatapack(id, profileId, install)))
+ipcMain.handle('datapacks:export', (e, dp: DatapackCreation) =>
+  wrap(async () => {
+    const win = BrowserWindow.fromWebContents(e.sender)
+    const dialogOptions = {
+      title: tm('dialog.exportDatapack'),
+      defaultPath: join(app.getPath('downloads'), zipName(dp)),
+      filters: [{ name: 'Zip', extensions: ['zip'] }]
+    }
+    const res = win ? await dialog.showSaveDialog(win, dialogOptions) : await dialog.showSaveDialog(dialogOptions)
+    if (res.canceled || !res.filePath) return null
+    return { path: res.filePath, skipped: await exportDatapack(dp.id, res.filePath) }
+  })
+)
 ipcMain.handle('servers:list', () => ({ servers: listServers(), statuses: serverStatuses(), freePort: freePort(), lanAddress: lanAddress() }))
 ipcMain.handle('servers:create', (_e, input: ServerInput) => wrap(() => createServer(input)))
 ipcMain.handle('servers:update', (_e, id: string, patch: Partial<ServerInfo>) => wrap(() => updateServer(id, patch)))
@@ -426,6 +451,45 @@ app.whenReady().then(() => {
       }
     })
   }
+  // Test des recettes en développement : ALORIA_TEST_RECIPES="1.16.5,26.3" lit les items de chaque version et écrit un datapack
+  // d'essai (journal [recipes-test]) ; ALORIA_TEST_RECIPES_PROFILE=<id> l'installe dans ce profil (à vérifier en jeu)
+  if (!app.isPackaged && process.env.ALORIA_TEST_RECIPES) {
+    win.webContents.once('did-finish-load', async () => {
+      const log = (...args: unknown[]) => console.log('[recipes-test]', ...args)
+      for (const gameVersion of process.env.ALORIA_TEST_RECIPES!.split(',').filter(Boolean)) {
+        try {
+          const started = Date.now()
+          const data = await gameData(gameVersion)
+          const kinds: Record<string, number> = {}
+          for (const item of data.items) kinds[item.icon.kind] = (kinds[item.icon.kind] ?? 0) + 1
+          log(gameVersion, `${data.items.length} items ${JSON.stringify(kinds)}, ${Object.keys(data.textures).length} textures,`,
+            `${Object.keys(data.tags).length} tags, ${data.recipes.length} recettes, postes ${data.kinds.join('/')}, ${Date.now() - started} ms`)
+          log(gameVersion, 'exemples', data.items.slice(0, 3).map((i) => i.name).join(', '), '·', data.items.filter((i) => i.name === i.id.slice(10)).length, 'sans nom')
+          const dp = await createDatapack('Test recettes', gameVersion)
+          const furnace = data.recipes.find((r) => r.id === 'minecraft:furnace')!
+          dp.recipes = [
+            { ...furnace, grid: furnace.grid!.map((c, i) => (i === 4 ? ['minecraft:coal'] : c)) },
+            { id: 'aloria:diamond', kind: 'shaped', grid: [['#minecraft:planks'], null, null, null, ['minecraft:dirt', 'minecraft:stone'], null, null, null, null], result: 'minecraft:diamond', count: 3 },
+            { id: 'aloria:emerald', kind: 'shapeless', ingredients: [['minecraft:dirt'], ['#minecraft:wool', 'minecraft:sand']], result: 'minecraft:emerald', count: 1 },
+            { id: 'aloria:gold_ingot', kind: 'smelting', input: ['minecraft:cobblestone'], result: 'minecraft:gold_ingot', count: 1, experience: 1, cookingTime: 100 },
+            { id: 'aloria:obsidian', kind: 'stonecutting', input: ['minecraft:stone'], result: 'minecraft:obsidian', count: 2 },
+            { id: 'aloria:cherry', kind: 'campfire', input: ['minecraft:cherry_log'], result: 'minecraft:charcoal', count: 1 }
+          ]
+          dp.removed = ['minecraft:piston', 'minecraft:stick']
+          await saveDatapack(dp)
+          const file = join(app.getPath('temp'), `aloria-recipes-${gameVersion}.zip`)
+          log(gameVersion, 'ignorées', JSON.stringify(await exportDatapack(dp.id, file)))
+          const AdmZip = (await import('adm-zip')).default
+          for (const entry of new AdmZip(file).getEntries()) log(gameVersion, entry.entryName, entry.getData().toString('utf8').replace(/\s+/g, ' '))
+          if (process.env.ALORIA_TEST_RECIPES_PROFILE) log(gameVersion, 'profil', JSON.stringify(await installDatapack(dp.id, process.env.ALORIA_TEST_RECIPES_PROFILE, true)))
+          else await deleteDatapack(dp.id)
+        } catch (err) {
+          log(gameVersion, 'erreur', err)
+        }
+      }
+      if (!process.env.ALORIA_TEST_RECIPES_KEEP) app.quit()
+    })
+  }
   // Test des serveurs en développement : ALORIA_TEST_SERVER="fabric:26.3,paper:1.21.11" crée chaque serveur, le démarre,
   // attend qu'il soit en ligne (et son adresse e4mc), l'arrête, le supprime, puis quitte
   if (!app.isPackaged && process.env.ALORIA_TEST_SERVER) {
@@ -530,6 +594,80 @@ app.whenReady().then(() => {
         }
         if (!process.env.ALORIA_TEST_SERVER_KEEP) await deleteServer(server.id)
       }
+      app.quit()
+    })
+  }
+  // Captures du créateur de recettes : ALORIA_CAPTURE_RECIPES=<dossier> crée un datapack (version ALORIA_CAPTURE_RECIPES_VERSION,
+  // 26.3 sinon), y ajoute une recette du jeu et une nouvelle, photographie le tout puis le supprime
+  if (!app.isPackaged && process.env.ALORIA_CAPTURE_RECIPES) {
+    const dir = process.env.ALORIA_CAPTURE_RECIPES
+    win.webContents.setBackgroundThrottling(false)
+    win.webContents.once('did-finish-load', async () => {
+      const { mkdir, writeFile } = await import('node:fs/promises')
+      await mkdir(dir, { recursive: true })
+      const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
+      const L = (key: MessageKey) => translate(getSettings().language ?? 'fr', key)
+      const js = (code: string) => win.webContents.executeJavaScript(code)
+      const click = (label: string) => js(`[...document.querySelectorAll('button')].find((b) => b.textContent.includes(${JSON.stringify(label)}))?.click()`)
+      const type = (selector: string, value: string) =>
+        js(`(() => { const i = document.querySelector(${JSON.stringify(selector)});
+          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, ${JSON.stringify(value)});
+          i.dispatchEvent(new Event('input', { bubbles: true })) })()`)
+      const snap = async (name: string) => {
+        win.webContents.invalidate()
+        await wait(300)
+        await writeFile(join(dir, `${name}.png`), (await win.webContents.capturePage()).toPNG())
+      }
+      const item = (id: string) => js(`[...document.querySelectorAll('.item-cell')].find((b) => b.title.endsWith(${JSON.stringify(id)}))?.click()`)
+      await wait(2500)
+      await click(L('nav.creations'))
+      await wait(600)
+      await click(L('creations.tool.recipes'))
+      await wait(400)
+      await snap('1-hub')
+      await click(L('creations.createDatapack'))
+      await wait(400)
+      await type('.dialog input', 'Capture recettes')
+      const version = process.env.ALORIA_CAPTURE_RECIPES_VERSION ?? '26.3'
+      await js(`document.querySelector('.dialog .select')?.click()`)
+      await wait(300)
+      await js(`[...document.querySelectorAll('.select-list li, .select__option, [role=option]')].find((o) => o.textContent.trim() === 'Minecraft ${version}')?.click()`)
+      await wait(300)
+      await js(`document.querySelector('.dialog .primary')?.click()`)
+      await wait(9000)
+      await snap('2-vide')
+      await click(L('rc.editGame'))
+      await wait(500)
+      await type('.vanilla-picker input', L('rc.station.smelting'))
+      await wait(500)
+      await snap('3-recettes-du-jeu')
+      await js(`document.querySelector('.vanilla-picker__list .recipe-row')?.click()`)
+      await wait(800)
+      await snap('4-four')
+      await click(`+ ${L('rc.new')}`)
+      await wait(500)
+      for (const id of ['minecraft:diamond', 'minecraft:stick', 'minecraft:oak_stairs', 'minecraft:grass_block', 'minecraft:oak_leaves', 'minecraft:torch', 'minecraft:chest', 'minecraft:stone_slab', 'minecraft:oak_fence']) {
+        await item(id)
+        await wait(80)
+      }
+      await js(`document.querySelector('.mc-slot.big')?.click()`)
+      await wait(100)
+      await item('minecraft:emerald')
+      await wait(600)
+      await snap('5-nouvelle')
+      await click(L('rc.shortcuts'))
+      await wait(400)
+      await snap('6-raccourcis')
+      await js(`document.querySelector('.popover-backdrop')?.click()`)
+      await click(L('rc.gameRecipes'))
+      await wait(500)
+      await type('.vanilla-picker input', 'piston')
+      await wait(400)
+      await click(L('rc.removeGame'))
+      await wait(400)
+      await snap('7-supprimer')
+      const res = await listDatapacks()
+      for (const dp of res.filter((d) => d.name === 'Capture recettes')) await deleteDatapack(dp.id)
       app.quit()
     })
   }

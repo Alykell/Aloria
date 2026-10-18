@@ -23,7 +23,7 @@ export default function App() {
   const [page, setPage] = useState<Page>('home')
   // Recliquer sur une page du menu la remet à zéro (ex. la fiche d'un serveur revient à la liste)
   const [navTick, setNavTick] = useState(0)
-  // Panneau d'un serveur ouvert : plein écran, sans le menu de gauche
+  // Panneau d'un serveur ou éditeur de recettes ouvert : plein écran, sans le menu de gauche
   const [focused, setFocused] = useState(false)
   const [version, setVersion] = useState('')
   const [pageError, setPageError] = useState<string | null>(null)
@@ -50,8 +50,8 @@ export default function App() {
 
   // « Dernière partie » se met à jour quand un jeu démarre
   useEffect(() => {
-    if (game.status.state === 'running') profiles.refresh()
-  }, [game.status.state, profiles.refresh])
+    if (game.status.running.length > 0) profiles.refresh()
+  }, [game.status.running.length, profiles.refresh])
 
   const error = accounts.error ?? game.error ?? pageError
   const clearError = () => {
@@ -62,7 +62,8 @@ export default function App() {
 
   const playFromProfiles = (id: string) => {
     setPage('home')
-    game.play(id)
+    // Déjà ouvert : l'accueil montre son bouton Arrêter
+    if (!game.status.running.some((r) => r.profileId === id)) game.play(id)
   }
 
   return (
@@ -97,7 +98,7 @@ export default function App() {
             <ProfilesPage profiles={profiles} settings={settings} onPlay={playFromProfiles} onError={setPageError} />
           )}
           {page === 'gamesettings' && <GameSettingsPage onError={setPageError} />}
-          {page === 'creations' && <CreationsPage profiles={profiles} onError={setPageError} />}
+          {page === 'creations' && <CreationsPage key={navTick} profiles={profiles} onError={setPageError} onFocus={setFocused} />}
           {page === 'servers' && <ServersPage key={navTick} settings={settings} onError={setPageError} onFocus={setFocused} />}
           {page === 'settings' && <SettingsPage state={settings} />}
           {page === 'library' && (
@@ -117,7 +118,7 @@ export default function App() {
         </main>
       </div>
       {skinOpen && accounts.active && <SkinDialog uuid={accounts.active.uuid} onClose={() => setSkinOpen(false)} onError={setPageError} />}
-      {game.crash && <CrashDialog exit={game.crash} profileId={profiles.selected?.id ?? null} onClose={game.clearCrash} />}
+      {game.crash && <CrashDialog exit={game.crash} profileId={game.crash.profileId} onClose={game.clearCrash} />}
       {settings.settings && !lang && <LanguagePicker onChoose={(language) => settings.update({ language })} />}
     </div>
   )

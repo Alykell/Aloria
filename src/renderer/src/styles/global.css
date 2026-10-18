@@ -177,6 +177,11 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 }
 .play:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 14px 34px rgba(26, 155, 199, 0.45); }
 .play:disabled { opacity: 0.55; cursor: not-allowed; }
+.play--stop { background: linear-gradient(135deg, #e5534b, #c9413a); box-shadow: 0 10px 28px rgba(229, 83, 75, 0.35); }
+.play--stop:hover:not(:disabled) { box-shadow: 0 14px 34px rgba(229, 83, 75, 0.45); }
+.running-games { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; font-size: 14px; color: var(--text-soft); }
+.running-game { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 12px; border-radius: 999px; background: rgba(26, 155, 199, 0.12); color: var(--sea-deep); font-weight: 600; }
+.running-game .link-danger { padding: 2px 8px; }
 
 .placeholder { background: var(--card); border-radius: var(--radius); padding: 28px; }
 .placeholder h2 { font-family: 'Quicksand', sans-serif; color: var(--sea-deep); margin-bottom: 8px; }
@@ -319,6 +324,8 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .progress { margin-top: 18px; width: min(460px, 100%); display: flex; flex-direction: column; gap: 8px; }
 .progress__label { display: flex; justify-content: space-between; color: var(--sea-deep); }
 .progress small { color: var(--text-soft); }
+.progress__footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 22px; }
+.progress__footer .link-danger { padding: 2px 4px; }
 .progress__bar { height: 14px; border-radius: 999px; background: rgba(26, 155, 199, 0.15); overflow: hidden; }
 .progress__fill {
   height: 100%;
@@ -974,3 +981,185 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .server-join__tools .secondary { padding: 6px 10px; font-size: 12.5px; }
 .server-join__done { color: var(--success); font-weight: 600; }
 .server-join__profile { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 10px; background: var(--foam); font-weight: 700; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Créations : choix de l'outil (packs de textures, recettes…) */
+.creation-tools { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.creation-tool {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: var(--radius);
+  background: var(--card);
+  border: 2px solid transparent;
+  text-align: left;
+  color: var(--text);
+  transition: border-color 0.15s, transform 0.15s;
+}
+.creation-tool:hover { border-color: var(--lagoon); transform: translateY(-2px); }
+.creation-tool.active { border-color: var(--sea); background: rgba(26, 155, 199, 0.14); }
+.creation-tool__icon { font-size: 34px; line-height: 1; }
+.creation-tool__text { display: flex; flex-direction: column; gap: 2px; }
+.creation-tool__text strong { font-family: 'Quicksand', sans-serif; font-size: 17px; color: var(--sea-deep); }
+.creation-tool__text small { color: var(--text-soft); font-size: 13px; line-height: 1.35; }
+.creation-tool__count { position: absolute; top: 10px; right: 12px; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: rgba(26, 155, 199, 0.18); color: var(--sea-deep); }
+.creation-tool.soon { opacity: 0.5; border: 2px dashed var(--line); background: transparent; cursor: default; }
+.creation-tool.soon:hover { transform: none; }
+.creations__lead { margin-top: 4px; }
+.pack-card__installed { color: var(--success); font-size: 12px; font-weight: 700; }
+
+/* Éditeur de recettes (plein écran) : recettes | table de craft | items du jeu */
+.title-input {
+  font-family: 'Quicksand', sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--sea-deep);
+  background: transparent;
+  border: none;
+  border-bottom: 2px dashed transparent;
+  padding: 0;
+  width: 22ch;
+  max-width: 100%;
+}
+.title-input:hover, .title-input:focus { outline: none; border-bottom-color: var(--line); }
+.popover-anchor { position: relative; }
+.popover-backdrop { position: fixed; inset: 0; z-index: 29; }
+.popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  width: 330px;
+  max-height: 60vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  animation: select-in 0.12s ease-out;
+}
+.popover strong { color: var(--sea-deep); }
+.install-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 8px; cursor: pointer; }
+.install-row:hover { background: var(--row-hover); }
+.install-row.disabled { opacity: 0.45; cursor: default; }
+.install-row input { accent-color: var(--sea); width: 16px; height: 16px; }
+.install-row__icon { font-size: 20px; }
+.install-row__name { display: flex; flex-direction: column; font-weight: 700; }
+.install-row__name small { font-weight: 500; }
+.recipe-editor > .notice { padding: 10px 16px; flex-direction: row; cursor: pointer; font-weight: 600; color: var(--sea-deep); }
+
+.recipe-editor__body { display: grid; grid-template-columns: 260px minmax(0, 1fr) 340px; gap: 14px; flex: 1; min-height: 0; }
+@media (max-width: 1150px) { .recipe-editor__body { grid-template-columns: 220px minmax(0, 1fr) 280px; } }
+.recipe-editor .card { min-height: 0; padding: 14px; }
+.recipe-list__actions { display: flex; flex-direction: column; gap: 8px; }
+.recipe-list__actions button { white-space: normal; line-height: 1.25; padding-left: 12px; padding-right: 12px; }
+.recipe-list__items { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; min-height: 0; flex: 1; margin: 0 -6px; padding: 0 6px; }
+.recipe-list__empty { font-size: 13px; padding: 8px 4px; }
+.recipe-row { position: relative; display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 10px; cursor: pointer; text-align: left; color: var(--text); width: 100%; }
+.recipe-row:hover { background: var(--row-hover); }
+.recipe-row.active { background: rgba(26, 155, 199, 0.16); }
+.recipe-row__text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.recipe-row__text strong, .recipe-row__text small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.recipe-row__text small { font-size: 12px; }
+.recipe-row__delete { width: 24px; height: 24px; border-radius: 6px; color: var(--text-soft); opacity: 0; flex-shrink: 0; }
+.recipe-row:hover .recipe-row__delete { opacity: 1; }
+.recipe-row__delete:hover { background: rgba(229, 83, 75, 0.15); color: var(--danger); }
+
+.recipe-main { align-items: center; gap: 18px; overflow-y: auto; }
+.recipe-main__empty { margin: auto; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; max-width: 560px; }
+.recipe-main__empty h3 { font-family: 'Quicksand', sans-serif; color: var(--sea-deep); font-size: 22px; }
+.recipe-start { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; margin-top: 8px; }
+.recipe-start .choice-card { padding: 16px; gap: 6px; }
+.choice-card__icon { font-size: 26px; line-height: 1; }
+.spinner { width: 34px; height: 34px; border-radius: 50%; border: 4px solid var(--line); border-top-color: var(--sea); animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.station-picker { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.station { display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 8px; border-radius: 12px; border: 2px solid var(--line); background: var(--card); font-weight: 700; color: var(--text); }
+.station:hover:not(:disabled) { border-color: var(--lagoon); }
+.station.active { border-color: var(--sea); background: rgba(26, 155, 199, 0.14); color: var(--sea-deep); }
+.station:disabled { opacity: 0.4; cursor: default; }
+.recipe-main .segmented { align-self: center; }
+
+/* Table de craft à la Minecraft */
+.mc-panel {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 20px 26px;
+  border-radius: 6px;
+  background: #c6c6c6;
+  box-shadow: inset 3px 3px 0 #fff, inset -3px -3px 0 #555, 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+:root[data-theme='night'] .mc-panel { filter: brightness(0.88); }
+.mc-grid { display: grid; grid-template-columns: repeat(3, auto); gap: 2px; }
+.mc-input { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.mc-flame { font-size: 26px; }
+.mc-arrow { font-size: 42px; color: #8b8b8b; line-height: 1; }
+.mc-slot {
+  position: relative;
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  background: #8b8b8b;
+  box-shadow: inset 3px 3px 0 #373737, inset -3px -3px 0 #fff;
+  cursor: pointer;
+}
+.mc-slot:hover { background: #a2a2a2; }
+.mc-slot.big { width: 76px; height: 76px; }
+.mc-slot.active { outline: 3px solid var(--sea); outline-offset: 1px; z-index: 1; }
+.mc-slot.over { background: #b5d8e4; }
+.mc-slot .item-icon { width: 40px; height: 40px; }
+.mc-slot.big .item-icon { width: 56px; height: 56px; }
+.mc-slot__count { position: absolute; right: 5px; bottom: 2px; color: #fff; font-weight: 800; font-size: 18px; text-shadow: 2px 2px 0 #3f3f3f; pointer-events: none; }
+.mc-slot__badge { position: absolute; left: 2px; top: 2px; min-width: 16px; padding: 0 4px; border-radius: 6px; background: var(--sea); color: #fff; font-size: 11px; font-weight: 800; line-height: 16px; text-align: center; pointer-events: none; }
+.mc-slot__badge.tag { left: auto; right: 2px; background: #7a4fc4; }
+
+.recipe-options { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
+.recipe-options .field { align-items: center; }
+.stepper { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); overflow: hidden; }
+.stepper button { width: 34px; height: 36px; font-size: 18px; font-weight: 700; color: var(--sea-deep); }
+.stepper button:hover:not(:disabled) { background: var(--foam); }
+.stepper button:disabled { opacity: 0.35; cursor: default; }
+.stepper input, .field .stepper input[type='number'] { width: 58px; padding: 0; border-radius: 0; height: 36px; border: none; background: transparent; color: var(--text); text-align: center; font-weight: 700; font-size: 15px; -moz-appearance: textfield; }
+.stepper input:focus { outline: none; }
+.stepper input::-webkit-inner-spin-button, .stepper input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.stepper__unit { color: var(--text-soft); font-weight: 700; padding-right: 4px; }
+.recipe-hint { text-align: center; font-size: 13px; max-width: 560px; }
+
+/* Items du jeu */
+.item-icon { display: inline-grid; place-items: center; width: 32px; height: 32px; flex-shrink: 0; }
+.item-icon.small { width: 28px; height: 28px; }
+.item-icon img { width: 100%; height: 100%; image-rendering: pixelated; }
+.item-icon__missing { width: 70%; height: 70%; display: grid; place-items: center; border-radius: 6px; background: rgba(201, 65, 58, 0.2); color: var(--danger); font-weight: 800; }
+.item-browser { gap: 10px; }
+.item-browser .segmented { align-self: stretch; }
+.item-browser .segmented button { flex: 1; }
+.item-grid { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); align-content: start; gap: 2px; margin: 0 -6px; padding: 0 6px; }
+.item-grid.tags { grid-template-columns: 1fr; }
+.item-cell { display: flex; align-items: center; justify-content: center; gap: 10px; height: 44px; border-radius: 8px; cursor: grab; }
+.item-cell:hover { background: var(--foam); }
+.item-grid.tags .item-cell { justify-content: flex-start; padding: 0 8px; text-align: left; }
+.item-cell__label { display: flex; flex-direction: column; font-weight: 700; font-size: 13px; color: var(--text); }
+.item-cell__label small { font-weight: 500; font-size: 11.5px; }
+.dialog.vanilla-picker { width: min(620px, 92vw); max-height: 86vh; }
+.vanilla-picker__list { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; min-height: 200px; max-height: 52vh; }
+.popover.shortcuts { width: 460px; gap: 4px; max-height: 80vh; }
+.shortcut { display: grid; grid-template-columns: 170px 1fr; gap: 10px; align-items: center; padding: 6px 2px; border-top: 1px solid var(--line); font-size: 13.5px; }
+.shortcut__keys { display: flex; flex-wrap: wrap; gap: 4px; }
+kbd { display: inline-block; padding: 2px 7px; border-radius: 6px; background: var(--foam); border: 1px solid var(--line); border-bottom-width: 2px; color: var(--sea-deep); font: 700 12px 'Nunito', sans-serif; white-space: nowrap; }
+.recipe-list__section { margin: 12px 4px 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-soft); }
+.recipe-row.removed { cursor: default; }
+.recipe-row.removed .item-icon { opacity: 0.45; filter: grayscale(1); }
+.recipe-row.removed strong { text-decoration: line-through; opacity: 0.7; }
+.recipe-row__delete.restore { opacity: 1; font-size: 16px; }
+.recipe-row__delete.restore:hover { background: var(--foam); color: var(--sea-deep); }
+.vanilla-picker .recipe-row { cursor: default; }
+.secondary.small { padding: 5px 10px; font-size: 13px; }
+.secondary.danger { color: var(--danger); background: rgba(201, 65, 58, 0.1); }
+.secondary.danger:hover { background: rgba(201, 65, 58, 0.2); }
