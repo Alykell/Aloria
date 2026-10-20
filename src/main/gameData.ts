@@ -303,6 +303,11 @@ class Models {
     for (let i = 0; value && i < 12; i++) {
       const ref = typeof value === 'string' ? value : value.sprite
       if (!ref) return null
+      // Référence écrite sans « # » (« all » au lieu de « #all », ex. noyau lourd) : le jeu l'accepte aussi
+      if (!ref.startsWith('#') && !ref.includes('/') && !ref.includes(':') && textures[ref] !== undefined) {
+        value = textures[ref]
+        continue
+      }
       if (!ref.startsWith('#')) {
         if (ref.includes(':') && !ref.startsWith('minecraft:')) return null
         const path = strip(ref)
@@ -347,6 +352,59 @@ class Models {
     const particle = this.texture(textures, textures.particle ? '#particle' : undefined)
     return particle ? { kind: 'flat', layers: [{ tex: particle }] } : { kind: 'none' }
   }
+}
+
+/**
+ * Têtes de mobs : le jeu les dessine à part (rendu spécial), leur modèle n'a qu'une texture « particule » (sable des
+ * âmes). On refait la tête : un cube texturé avec la tête du mob, prise dans sa texture d'entité (premier chemin
+ * existant, ils ont changé au fil des versions). `w` : largeur de la tête en pixels (piglin : 10, avec son groin).
+ */
+const HEADS: Record<string, { textures: string[]; w?: number; size?: number; at?: [number, number] }> = {
+  skeleton_skull: { textures: ['entity/skeleton/skeleton'] },
+  wither_skeleton_skull: { textures: ['entity/skeleton/wither_skeleton'] },
+  zombie_head: { textures: ['entity/zombie/zombie'] },
+  creeper_head: { textures: ['entity/creeper/creeper'] },
+  piglin_head: { textures: ['entity/piglin/piglin'], w: 10 },
+  player_head: { textures: ['entity/player/wide/steve', 'entity/steve'] },
+  // Tête du dragon : un cube de 16 pixels, rangé plus loin dans sa grande texture
+  dragon_head: { textures: ['entity/enderdragon/dragon'], size: 16, at: [112, 30] }
+}
+
+/** Cube de tête au format des modèles (UV en seizièmes de la largeur de la texture, comme le dessin des icônes) */
+function headIcon(zip: AdmZip, models: Models, itemId: string): ItemIcon | null {
+  const head = HEADS[itemId]
+  if (!head) return null
+  const path = head.textures.find((p) => zip.getEntry(`${M}textures/${p}.png`))
+  const png = path && zip.getEntry(`${M}textures/${path}.png`)?.getData()
+  if (!path || !png) return null
+  models.textures.add(path)
+  const unit = png.readUInt32BE(16) / 16
+  // Taille dans la texture (pixels) ; le cube dessiné garde la taille d'une tête (8 de haut)
+  const d = head.size ?? 8
+  const h = d
+  const w = head.w ?? d
+  const k = 8 / d
+  const [ax, ay] = head.at ?? [0, 0]
+  // Patron d'une tête dans une texture d'entité : dessus et dessous en haut, puis côté, face, autre côté, arrière
+  const box = (ox: number, grow: number) => {
+    const uv = (x: number, y: number, x2: number, y2: number) => [(ax + ox + x) / unit, (ay + y) / unit, (ax + ox + x2) / unit, (ay + y2) / unit]
+    const half = (w * k) / 2 + grow
+    return {
+      from: [8 - half, -grow, 8 - (d * k) / 2 - grow],
+      to: [8 + half, h * k + grow, 8 + (d * k) / 2 + grow],
+      faces: {
+        up: { tex: path, uv: uv(d, 0, d + w, d) },
+        down: { tex: path, uv: uv(d + w, 0, d + 2 * w, d) },
+        east: { tex: path, uv: uv(0, d, d, d + h) },
+        south: { tex: path, uv: uv(d, d, d + w, d + h) },
+        west: { tex: path, uv: uv(d + w, d, 2 * d + w, d + h) },
+        north: { tex: path, uv: uv(2 * d + w, d, 2 * d + 2 * w, d + h) }
+      }
+    }
+  }
+  // Seconde couche (chapeau du joueur, etc.), un peu plus grande, à droite dans la texture
+  const elements = [box(0, 0), ...(w === 8 && !head.at ? [box(32, 0.5)] : [])]
+  return { kind: 'model', elements, gui: { rotation: [30, 45, 0], translation: [0, 3, 0], scale: [1, 1, 1] } }
 }
 
 /** Définition d'item (1.21.4+) : le modèle « normal » de l'arbre (repli des conditions, premier d'un composite…) */
@@ -412,7 +470,9 @@ async function readGameData(gameVersion: string): Promise<GameData> {
   for (const id of ids) {
     if (id === 'air') continue
     let icon: ItemIcon
-    if (definitions.size > 0) {
+    const head = headIcon(zip, models, id)
+    if (head) icon = head
+    else if (definitions.size > 0) {
       const def = definitions.get(id)
       const picked = def && pickModel(def.model)
       if (!picked) continue

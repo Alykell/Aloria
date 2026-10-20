@@ -478,6 +478,12 @@ app.whenReady().then(() => {
           log(gameVersion, `${data.items.length} items ${JSON.stringify(kinds)}, ${Object.keys(data.textures).length} textures,`,
             `${Object.keys(data.tags).length} tags, ${data.recipes.length} recettes, postes ${data.kinds.join('/')}, ${Date.now() - started} ms`)
           log(gameVersion, 'exemples', data.items.slice(0, 3).map((i) => i.name).join(', '), '·', data.items.filter((i) => i.name === i.id.slice(10)).length, 'sans nom')
+          log(gameVersion, 'sans icône', data.items.filter((i) => i.icon.kind === 'none').map((i) => i.id.slice(10)).join(', '))
+          // Icône vide : modèle sans aucune face texturée
+          const empty = data.items.filter((i) => i.icon.kind === 'model' && i.icon.elements.every((el) => Object.keys(el.faces).length === 0))
+          log(gameVersion, 'icône vide', empty.map((i) => i.id.slice(10)).join(', '))
+          const query = process.env.ALORIA_TEST_RECIPES_ITEMS
+          if (query) for (const i of data.items.filter((it) => it.name.toLowerCase().includes(query))) log(gameVersion, 'item', i.id, i.name, JSON.stringify(i.icon).slice(0, 300))
           const dp = await createDatapack('Test recettes', gameVersion)
           const furnace = data.recipes.find((r) => r.id === 'minecraft:furnace')!
           dp.recipes = [
@@ -691,6 +697,14 @@ app.whenReady().then(() => {
       await click(L('rc.removeGame'))
       await wait(400)
       await snap('7-supprimer')
+      // Icônes particulières : têtes de mobs (dessinées à part par le jeu) et noyau lourd
+      await js(`document.querySelector('.popover-backdrop, .overlay')?.click()`)
+      await wait(300)
+      for (const [name, query] of [['8-tetes', 'tête'], ['9-noyau', 'noyau'], ['10-cranes', 'crâne']]) {
+        await type('.search-bar input', query)
+        await wait(700)
+        await snap(name)
+      }
       const res = await listDatapacks()
       for (const dp of res.filter((d) => d.name === 'Capture recettes')) await deleteDatapack(dp.id)
       app.quit()
