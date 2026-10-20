@@ -15,8 +15,9 @@ import { exportProfile, importInstance } from './instances'
 import { installModpack, modpackVersions, previewModpack } from './modrinth/modpack'
 import { createPreset, deletePreset, getPreset, listPresets, MAIN_PRESET, renamePreset, updatePresetOptions } from './shared/presets'
 import { gameLangOf, translate, type Lang, type MessageKey } from '../shared/i18n'
-import { createProfile, deleteProfile, gameDirOf, getProfile, listProfiles, openProfileFolder, selectProfile, updateProfile } from './profiles'
+import { createProfile, deleteProfile, gameDirOf, getProfile, listProfiles, migrateProfileDirs, openProfileFolder, selectProfile, updateProfile } from './profiles'
 import { resolveVersionId } from './game/versions'
+import { paths } from './game/paths'
 import { getSettings, systemRamMb, updateSettings } from './settings'
 import { getUpdateStatus, initUpdater, installUpdate } from './updater'
 import { initDiscord, refreshDiscord } from './discord'
@@ -442,8 +443,8 @@ app.whenReady().then(() => {
   setServerTarget(win.webContents)
   initUpdater(win)
   initDiscord()
-  // Réglages des parties terminées pendant que le launcher était fermé
-  processPending()
+  // Réglages des parties terminées pendant que le launcher était fermé, puis dossiers des profils à leur nom
+  processPending().finally(() => migrateProfileDirs())
   // Développement : ALORIA_CAPTURE=<dossier> prend des captures des pages, en jour et en nuit, puis quitte
   if (!app.isPackaged && process.env.ALORIA_CAPTURE) captureScreens(win, process.env.ALORIA_CAPTURE)
   // Test de bout en bout en développement : lance le jeu dès l'ouverture
@@ -463,6 +464,26 @@ app.whenReady().then(() => {
       } catch (err) {
         console.log('[game] erreur', err)
       }
+    })
+  }
+  // Test des dossiers de profils (avec ALORIA_ROOT=<.aloria de test>) : ALORIA_TEST_DIRS=1 affiche les dossiers après le
+  // renommage du démarrage, puis renomme un profil (caractères interdits, nom déjà pris) — journal [dirs-test]
+  if (!app.isPackaged && process.env.ALORIA_TEST_DIRS && process.env.ALORIA_ROOT) {
+    win.webContents.once('did-finish-load', async () => {
+      const log = (...args: unknown[]) => console.log('[dirs-test]', ...args)
+      const { readdirSync, existsSync: exists } = await import('node:fs')
+      await new Promise((r) => setTimeout(r, 1500))
+      const show = (when: string) => {
+        log(when, listProfiles().profiles.map((p) => `${p.name} → ${p.dir ?? '(id) ' + p.id}`).join(' | '))
+        log(when, 'dossiers :', readdirSync(join(paths.root, 'instances')).join(' | '))
+      }
+      show('après démarrage')
+      const [first, second] = listProfiles().profiles.filter((p) => !p.id.startsWith('selftest'))
+      updateProfile(first.id, { name: 'Test: Renommé?' })
+      updateProfile(second.id, { name: 'test renommé' })
+      show('après renommage')
+      log('fichier gardé :', exists(join(gameDirOf(first.id), 'marker.txt')) ? 'oui' : 'NON')
+      app.quit()
     })
   }
   // Test du ménage des créations : ALORIA_TEST_CLEANUP=<profil> installe un datapack et un pack de textures dans ce profil

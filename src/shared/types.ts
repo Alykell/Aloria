@@ -295,6 +295,8 @@ export interface Profile extends ProfileInput {
   id: string
   createdAt: number
   lastPlayed: number | null
+  /** Dossier dans instances/, au nom du profil (absent : dossier à l'id, profils d'avant ce changement) */
+  dir?: string
 }
 
 export type ContentType = 'mod' | 'resourcepack' | 'shader' | 'datapack'

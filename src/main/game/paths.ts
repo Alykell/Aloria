@@ -2,7 +2,8 @@ import { app } from 'electron'
 import { join } from 'node:path'
 
 // Tout ce qui concerne le jeu vit dans %APPDATA%\.aloria, séparé du launcher officiel
-export const ROOT = join(app.getPath('appData'), '.aloria')
+// (en développement, ALORIA_ROOT=<dossier> en prend un autre : tests qui ne doivent pas toucher aux vrais profils)
+export const ROOT = (!app.isPackaged && process.env.ALORIA_ROOT) || join(app.getPath('appData'), '.aloria')
 
 export const paths = {
   root: ROOT,
