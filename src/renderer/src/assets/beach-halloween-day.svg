@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7a4a9c"/><stop offset="0.35" stop-color="#d8708a"/><stop offset="0.6" stop-color="#ffc07a"/>
+    </linearGradient>
+    <radialGradient id="glow">
+      <stop offset="0" stop-color="#ffd27a" stop-opacity="0.8"/>
+      <stop offset="1" stop-color="#ffd27a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6a5aa8"/><stop offset="0.55" stop-color="#4a6aa8"/><stop offset="1" stop-color="#7aa0c8"/>
+    </linearGradient>
+    <linearGradient id="sand" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f0c896"/><stop offset="1" stop-color="#e0aa74"/>
+    </linearGradient>
+    <symbol id="bat" viewBox="-60 -24 120 48">
+      <path d="M0 -6 C 6 -16, 14 -14, 18 -8 C 28 -20, 46 -20, 58 -6 C 48 -8, 42 -2, 40 6 C 34 0, 26 0, 22 8 C 16 2, 8 2, 0 12 C -8 2, -16 2, -22 8 C -26 0, -34 0, -40 6 C -42 -2, -48 -8, -58 -6 C -46 -20, -28 -20, -18 -8 C -14 -14, -6 -16, 0 -6 Z" fill="#3a1f4a"/>
+    </symbol>
+    <symbol id="pumpkin" viewBox="-70 -70 140 120">
+      <path d="M-4 -40 C -6 -54, 2 -62, 12 -64 L 14 -58 C 6 -56, 4 -50, 6 -40 Z" fill="#4a7a2e"/>
+      <ellipse cx="-24" cy="0" rx="30" ry="38" fill="#d8641e"/>
+      <ellipse cx="24" cy="0" rx="30" ry="38" fill="#d8641e"/>
+      <ellipse cx="0" cy="0" rx="30" ry="40" fill="#f07f2a"/>
+      <path d="M-26 -8 L -12 -8 L -19 -22 Z M 12 -8 L 26 -8 L 19 -22 Z" fill="#5a2a14"/>
+      <path d="M-28 10 L -18 18 L -10 10 L 0 20 L 10 10 L 18 18 L 28 10 C 22 30, -22 30, -28 10 Z" fill="#5a2a14"/>
+    </symbol>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#sky)"/>
+  <g fill="#f3c6d8" opacity="0.6" transform="translate(300 190)">
+    <ellipse cx="0" cy="0" rx="90" ry="26"/><ellipse cx="60" cy="-16" rx="60" ry="30"/><ellipse cx="-50" cy="-8" rx="50" ry="22"/></g><g fill="#f3c6d8" opacity="0.6" transform="translate(1380 170) scale(0.9)">
+    <ellipse cx="0" cy="0" rx="90" ry="26"/><ellipse cx="60" cy="-16" rx="60" ry="30"/><ellipse cx="-50" cy="-8" rx="50" ry="22"/></g>
+  <circle cx="1150" cy="420" r="260" fill="url(#glow)"/>
+  <circle cx="1150" cy="420" r="84" fill="#ffb24a"/>
+  <use href="#bat" x="960" y="220" width="100" height="40"/>
+  <use href="#bat" x="1260" y="180" width="70" height="28"/>
+  <use href="#bat" x="560" y="140" width="80" height="32"/>
+  <path d="M0 570 C 120 548, 220 540, 330 562 L 330 570 Z" fill="#5a3a6a"/>
+  <rect y="568" width="1600" height="240" fill="url(#sea)"/>
+  <rect x="1100" y="590" width="100" height="4" rx="2" fill="#ffd27a" opacity="0.6"/><rect x="1106" y="612" width="88" height="4" rx="2" fill="#ffd27a" opacity="0.5"/><rect x="1112" y="634" width="76" height="4" rx="2" fill="#ffd27a" opacity="0.4"/><rect x="1118" y="656" width="64" height="4" rx="2" fill="#ffd27a" opacity="0.3"/><rect x="1124" y="678" width="52" height="4" rx="2" fill="#ffd27a" opacity="0.2"/>
+  <g fill="none" stroke="#ffffff" stroke-linecap="round">
+    <path d="M0 640 C 200 630, 400 650, 600 638 S 1000 628, 1200 642 S 1500 650, 1600 640" stroke-width="3" opacity="0.3"/>
+    <path d="M0 700 C 220 688, 420 712, 640 698 S 1060 686, 1280 704 S 1520 712, 1600 700" stroke-width="4" opacity="0.35"/>
+  </g>
+  <path d="M0 780 C 260 752, 520 790, 800 770 S 1340 748, 1600 776 L 1600 1000 L 0 1000 Z" fill="#d8a26a"/>
+  <path d="M0 800 C 260 772, 520 810, 800 790 S 1340 768, 1600 796 L 1600 1000 L 0 1000 Z" fill="url(#sand)"/>
+  <path d="M0 782 C 260 754, 520 792, 800 772 S 1340 750, 1600 778" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round" opacity="0.5"/>
+  <g transform="translate(250 300)">
+    <path d="M150 700 C 140 560, 110 420, 40 300 L 62 292 C 132 410, 168 552, 182 700 Z" fill="#5a3a2a"/>
+    <g fill="#2e4a3a">
+      <path d="M50 296 C -40 250, -150 270, -230 340 C -140 300, -40 300, 46 312 Z"/>
+      <path d="M52 294 C -10 200, -110 150, -210 160 C -110 190, -30 230, 40 306 Z"/>
+      <path d="M56 292 C 60 190, 20 110, -40 60 C 30 120, 60 200, 66 296 Z"/>
+      <path d="M58 294 C 140 230, 240 220, 320 260 C 230 250, 150 270, 66 306 Z"/>
+      <path d="M58 296 C 150 300, 240 350, 290 430 C 220 370, 140 330, 60 312 Z"/>
+      <path d="M54 300 C 30 380, -30 450, -110 480 C -40 430, 10 380, 40 304 Z"/>
+    </g>
+  </g>
+  <use href="#pumpkin" x="470" y="800" width="170" height="146"/>
+  <use href="#pumpkin" x="600" y="850" width="110" height="94"/>
+  <use href="#pumpkin" x="1330" y="820" width="140" height="120"/>
+</svg>

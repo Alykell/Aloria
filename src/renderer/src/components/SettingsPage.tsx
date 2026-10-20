@@ -73,6 +73,14 @@ export default function SettingsPage({ state: { settings, systemRamMb, update } 
             ))}
           </div>
         </div>
+        <div className="sub-options">
+          <label className="toggle-line">
+            <input type="checkbox" checked={settings.seasonal} onChange={(e) => update({ seasonal: e.target.checked })} />
+            <span>
+              🎃 <strong>{t('settings.seasonal')}</strong> <small className="muted">· {t('settings.seasonalHint')}</small>
+            </span>
+          </label>
+        </div>
       </div>
 
       <div className="card">

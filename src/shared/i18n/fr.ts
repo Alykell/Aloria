@@ -80,6 +80,8 @@ export const fr = {
   'settings.themeDay': '☀️ Jour',
   'settings.themeNight': '🌙 Nuit',
   'settings.themeAuto': 'Auto',
+  'settings.seasonal': 'Décorations de saison',
+  'settings.seasonalHint': 'Halloween en octobre : fond et couleurs du launcher',
   'settings.afterLaunch': 'Au lancement du jeu, le launcher doit…',
   'settings.afterLaunchHint': 'Fermé ou non, tes réglages et ta liste de serveurs sont bien récupérés à la fin de la partie.',
   'settings.afterKeep': 'Rester ouvert',

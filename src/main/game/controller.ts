@@ -7,7 +7,7 @@ import { addPending, removePending } from '../shared/pending'
 import { getValidSession, listAccounts } from '../auth/accounts'
 import { gameDirOf, getProfile, markPlayed } from '../profiles'
 import { getSettings } from '../settings'
-import { hudJvmArgs, syncAloriaHud } from './aloriaHud'
+import { HUD_MIN_FABRIC_LOADER, hudEnabled, hudJvmArgs, olderThan, syncAloriaHud } from './aloriaHud'
 import { syncFriends } from './friends'
 import { syncDatapacks, watchDatapacks } from './datapacks'
 import { installFabric } from './fabric'
@@ -147,7 +147,10 @@ export async function play(sender: WebContents, profileId: string, join?: { host
     let versionId = gameVersion
     if (profile.loader === 'fabric') {
       setStatus({ state: 'preparing', label: tm('status.fabric') })
-      versionId = await installFabric(gameVersion, profile.loaderVersion)
+      // Aloria HUD exige un Fabric Loader récent : un profil figé sur un ancien (modpack, import) prend le dernier stable
+      const pinned = profile.loaderVersion
+      const tooOld = pinned && hudEnabled(profile) && olderThan(pinned, HUD_MIN_FABRIC_LOADER)
+      versionId = await installFabric(gameVersion, tooOld ? null : pinned)
     } else if (profile.loader === 'forge' || profile.loader === 'neoforge') {
       // Première fois en Forge récent / NeoForge : téléchargements puis « processors » (jeu patché), une minute environ
       const name = LOADER_NAMES[profile.loader]

@@ -58,6 +58,36 @@
   color-scheme: dark;
 }
 
+/* Halloween (décorations de saison) : crépuscule orange et violet le jour… */
+:root[data-season='halloween'] {
+  --sea-deep: #7a3a8c;
+  --sea: #e0702a;
+  --sea-strong: #a8481a;
+  --lagoon: #f5a04a;
+  --foam: #fbeee4;
+  --text: #3a1f3f;
+  --text-soft: #7a5a72;
+  --line: rgba(224, 112, 42, 0.35);
+  --sidebar-top: rgba(74, 32, 96, 0.92);
+  --sidebar-bottom: rgba(196, 92, 48, 0.86);
+  --backdrop-veil: rgba(251, 238, 228, 0.5);
+}
+
+/* … et lune orange la nuit */
+:root[data-season='halloween'][data-theme='night'] {
+  --sea-deep: #ffc27a;
+  --foam: rgba(245, 160, 74, 0.1);
+  --text: #f6e8f0;
+  --text-soft: #c0a2b8;
+  --card: rgba(28, 16, 40, 0.68);
+  --surface: #1e1430;
+  --line: rgba(245, 160, 74, 0.3);
+  --titlebar: rgba(12, 6, 20, 0.45);
+  --sidebar-top: rgba(18, 8, 30, 0.9);
+  --sidebar-bottom: rgba(52, 22, 62, 0.86);
+  --backdrop-veil: rgba(12, 6, 20, 0.42);
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body, #root { height: 100%; }
@@ -176,6 +206,8 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   transition: transform 0.15s, box-shadow 0.15s;
 }
 .play:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 14px 34px rgba(26, 155, 199, 0.45); }
+:root[data-season='halloween'] .play:not(.play--stop) { box-shadow: 0 10px 28px rgba(224, 112, 42, 0.4); }
+:root[data-season='halloween'] .play:not(.play--stop):hover:not(:disabled) { box-shadow: 0 14px 34px rgba(224, 112, 42, 0.5); }
 .play:disabled { opacity: 0.55; cursor: not-allowed; }
 .play--stop { background: linear-gradient(135deg, #e5534b, #c9413a); box-shadow: 0 10px 28px rgba(229, 83, 75, 0.35); }
 .play--stop:hover:not(:disabled) { box-shadow: 0 14px 34px rgba(229, 83, 75, 0.45); }

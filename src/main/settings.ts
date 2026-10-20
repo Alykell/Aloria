@@ -8,6 +8,7 @@ const DEFAULTS: Settings = {
   ramMb: Math.min(4096, Math.floor(totalmem() / 1024 / 1024 / 2 / 512) * 512),
   showSnapshots: false,
   theme: 'auto',
+  seasonal: true,
   afterLaunch: 'keep',
   discordPresence: true,
   discordShowProfile: true,

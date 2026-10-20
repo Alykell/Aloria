@@ -32,7 +32,7 @@ export default function App() {
   const settings = useSettings()
   const profiles = useProfiles()
   const game = useGame()
-  const { backdrop } = useTheme(settings.settings?.theme)
+  const { backdrop } = useTheme(settings.settings?.theme, settings.settings?.seasonal)
   const lang = settings.settings?.language
   if (lang) setLang(lang)
   const hiddenModules = settings.settings?.hiddenModules ?? []

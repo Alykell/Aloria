@@ -34,6 +34,20 @@ export async function bundledJar(gameVersion: string, forge: boolean): Promise<s
 
 export const hudEnabled = (profile: Profile) => (profile.loader === 'fabric' || profile.loader === 'forge') && profile.aloriaHud !== false
 
+/** Fabric Loader minimal du mod (`fabricloader` de fabric.mod.json, dans mod/ et mod-legacy/) */
+export const HUD_MIN_FABRIC_LOADER = '0.19.5'
+
+/** « 0.19.2 » avant « 0.19.5 » (les suffixes type « +build » sont ignorés) */
+export function olderThan(version: string, min: string): boolean {
+  const parts = (v: string) => v.split(/[+-]/)[0].split('.').map((n) => parseInt(n, 10) || 0)
+  const a = parts(version)
+  const b = parts(min)
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    if ((a[i] ?? 0) !== (b[i] ?? 0)) return (a[i] ?? 0) < (b[i] ?? 0)
+  }
+  return false
+}
+
 /**
  * Met le mod dans le dossier mods du profil (avec Fabric API) ou l'en retire selon le réglage du profil.
  * Renvoie un avertissement si le mod ne peut pas être utilisé avec cette version du jeu.

@@ -384,6 +384,8 @@ export async function installModpack(source: ModpackSource, report: (p: ModpackP
       if (type === 'other' || !info || f.path.split('/').length !== 2) continue
       contentIndex[fileName(f.path)] = { type, ...info }
     }
+    // Un modpack sans fichier (ou presque) n'a pas encore créé le dossier du profil
+    await mkdir(gameDir, { recursive: true })
     await writeFile(join(gameDir, 'aloria-content.json'), JSON.stringify(contentIndex, null, 2))
   } catch (err) {
     await deleteProfile(profile.id, true).catch(() => {})

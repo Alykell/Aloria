@@ -157,6 +157,8 @@ export interface Settings {
   showSnapshots: boolean
   /** Plage de jour, de nuit, ou automatique selon l'heure */
   theme: ThemeChoice
+  /** Décorations de saison (Halloween en octobre) par-dessus le thème */
+  seasonal: boolean
   /** Après le lancement du jeu : garder le launcher ouvert, le réduire ou le fermer */
   afterLaunch: AfterLaunch
   /** Statut « Joue à Aloria » sur Discord */

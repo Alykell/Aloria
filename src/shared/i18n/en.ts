@@ -82,6 +82,8 @@ export const en: Record<keyof typeof fr, string> = {
   'settings.themeDay': '☀️ Day',
   'settings.themeNight': '🌙 Night',
   'settings.themeAuto': 'Auto',
+  'settings.seasonal': 'Seasonal decorations',
+  'settings.seasonalHint': 'Halloween in October: launcher background and colors',
   'settings.afterLaunch': 'When the game starts, the launcher should…',
   'settings.afterLaunchHint': 'Closed or not, your settings and server list are saved when you stop playing.',
   'settings.afterKeep': 'Stay open',
