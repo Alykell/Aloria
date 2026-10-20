@@ -4,6 +4,7 @@
 	"compatibilityLevel": "JAVA_8",
 	"client": [
 		"CameraAccessor",
+		"ChatMixin",
 		"AttackMixin",
 		"CreeperAccessor",
 		"FovMixin",

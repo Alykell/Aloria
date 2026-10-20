@@ -33,3 +33,9 @@ export function friendsSupported(gameVersion: string): boolean {
   const v = parse(gameVersion)
   return !!v && (v[0] >= 26 || (v[0] === 1 && v[1] >= 17))
 }
+
+/** Ouvrir directement un monde ou un serveur (--quickPlay…) : à partir de la 1.20 */
+export function supportsQuickPlay(gameVersion: string): boolean {
+  const v = parse(gameVersion)
+  return !!v && (v[0] >= 26 || (v[0] === 1 && v[1] >= 20))
+}

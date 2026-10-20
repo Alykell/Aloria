@@ -1,6 +1,10 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
 import type {
   ContentType,
+  JoinTarget,
+  LocalWorld,
+  SavedServer,
+  ServerEdit,
   ImportResult,
   ExportOptions,
   ModpackPreview,
@@ -205,6 +209,15 @@ const api = {
     onStatus: (cb: (s: ServerStatus) => void) => subscribe('servers:status', cb),
     onLog: (cb: (l: ServerLogLine) => void) => subscribe('servers:log', cb)
   },
+  quick: {
+    worlds: (profileId: string): Promise<Result<LocalWorld[]>> => ipcRenderer.invoke('quick:worlds', profileId),
+    servers: (profileId: string): Promise<Result<SavedServer[]>> => ipcRenderer.invoke('quick:servers', profileId),
+    /** `index` null : nouveau serveur ; `previous` : adresse lue avant la modification */
+    saveServer: (profileId: string, index: number | null, previous: string | null, edit: ServerEdit): Promise<Result<void>> =>
+      ipcRenderer.invoke('quick:saveServer', profileId, index, previous, edit),
+    deleteServer: (profileId: string, index: number, previous: string): Promise<Result<void>> =>
+      ipcRenderer.invoke('quick:deleteServer', profileId, index, previous)
+  },
   game: {
     versions: (snapshots: boolean): Promise<Result<VersionEntry[]>> => ipcRenderer.invoke('game:versions', snapshots),
     status: (): Promise<GameStatus> => ipcRenderer.invoke('game:status'),
@@ -213,8 +226,7 @@ const api = {
     /** Ferme une partie (un second appel force l'arrêt) */
     stop: (profileId: string): Promise<void> => ipcRenderer.invoke('game:stop', profileId),
     /** `join` : serveur à rejoindre dès l'ouverture du jeu */
-    play: (profileId: string, join?: { host: string; port: number }): Promise<Result<null>> =>
-      ipcRenderer.invoke('game:play', profileId, join),
+    play: (profileId: string, join?: JoinTarget): Promise<Result<null>> => ipcRenderer.invoke('game:play', profileId, join),
     fabricLoaders: (gameVersion: string): Promise<Result<LoaderVersion[]>> => ipcRenderer.invoke('fabric:loaders', gameVersion),
     forgeLoaders: (gameVersion: string): Promise<Result<LoaderVersion[]>> => ipcRenderer.invoke('forge:loaders', gameVersion),
     neoforgeLoaders: (gameVersion: string): Promise<Result<LoaderVersion[]>> => ipcRenderer.invoke('neoforge:loaders', gameVersion),

@@ -10,7 +10,7 @@ import { neoforgeLoaders } from '../game/neoforge'
 import { loadVersion, type Artifact } from '../game/versions'
 import { listVersions } from '../modrinth/api'
 import { bundledJar } from '../game/aloriaHud'
-import { e4mcSupported } from '../../shared/aloriaHud'
+import { e4mcSupported, needsE4mcCompat } from '../../shared/aloriaHud'
 import { serverDirOf, updateServer } from './store'
 import type { ServerInfo } from '../../shared/types'
 import { tm } from '../i18n'
@@ -124,10 +124,10 @@ async function syncE4mc(server: ServerInfo, dir: string, onStep: InstallStep): P
     wanted.add(name)
     tasks.push({ url: file.url, path: join(mods, name), sha1: file.hashes.sha1, size: file.size })
   }
-  // Minecraft 26 : Aloria HUD remet la méthode qu'e4mc appelle encore (sinon plantage à la connexion d'un joueur) ;
+  // Depuis la 1.21.11 : Aloria HUD remet la méthode qu'e4mc appelle encore (sinon plantage à la connexion d'un joueur) ;
   // sur un serveur, le mod ne charge que ce correctif
   const compat = 'aloria-e4mc-aloria-hud.jar'
-  if (Number(server.gameVersion.split('.')[0]) >= 26) {
+  if (needsE4mcCompat(server.gameVersion)) {
     const jar = await bundledJar(server.gameVersion, false)
     if (!jar) throw new Error(tm('err.serverE4mcMissing', { version: server.gameVersion }))
     await mkdir(mods, { recursive: true })

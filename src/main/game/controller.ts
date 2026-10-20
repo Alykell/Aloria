@@ -16,10 +16,12 @@ import { installNeoForge } from './neoforge'
 import type { InstallerStep } from './processors'
 import { installVersion } from './install'
 import { launchGame } from './launch'
+import { autoLoginEnv } from '../quickplay'
+import { supportsQuickPlay } from '../../shared/loaders'
 import { getManifest, loadVersion, resolveVersionId } from './versions'
 import { applyShared, collectShared } from '../shared/sync'
 import { anyServerRunning } from '../server/runner'
-import type { GameExit, GameStatus, LaunchStep, VersionEntry } from '../../shared/types'
+import type { GameExit, GameStatus, JoinTarget, LaunchStep, VersionEntry } from '../../shared/types'
 import { tm } from '../i18n'
 
 const LOADER_NAMES = { vanilla: 'Minecraft', fabric: 'Fabric', forge: 'Forge', neoforge: 'NeoForge' } as const
@@ -117,15 +119,18 @@ export async function listVersions(includeSnapshots: boolean): Promise<VersionEn
  * Il faut un compte Microsoft qui possède Minecraft. Seule exception : les tests automatiques en
  * développement (ALORIA_TEST_DEMO=1) lancent la démo officielle, sans compte.
  */
-/** Arguments pour arriver directement sur un serveur : quickPlay depuis la 1.20, --server avant */
-function joinArgs(gameVersion: string, join: { host: string; port: number }): string[] {
-  const [major, minor] = gameVersion.split('.').map(Number)
-  const quickPlay = major >= 26 || (major === 1 && minor >= 20)
+/**
+ * Arguments pour arriver directement sur un serveur ou dans un monde : quickPlay depuis la 1.20 ; avant, --server pour
+ * un serveur, et rien pour un monde (le jeu n'a pas d'option pour ça : le bouton Solo n'est pas proposé)
+ */
+function joinArgs(gameVersion: string, join: JoinTarget): string[] {
+  const quickPlay = supportsQuickPlay(gameVersion)
+  if ('world' in join) return quickPlay ? ['--quickPlaySingleplayer', join.world] : []
   return quickPlay ? ['--quickPlayMultiplayer', `${join.host}:${join.port}`] : ['--server', join.host, '--port', String(join.port)]
 }
 
-/** `join` : serveur à rejoindre dès l'ouverture du jeu (bouton « Rejoindre » de la page Serveurs) */
-export async function play(sender: WebContents, profileId: string, join?: { host: string; port: number }): Promise<void> {
+/** `join` : serveur ou monde à ouvrir dès l'ouverture du jeu (page Serveurs, boutons Solo / Multijoueur de l'accueil) */
+export async function play(sender: WebContents, profileId: string, join?: JoinTarget): Promise<void> {
   if (launch) throw new Error(tm('err.alreadyLaunching', { profile: launch.profile }))
   if (running.has(profileId)) throw new Error(tm('err.alreadyRunning'))
   target = sender
@@ -204,6 +209,9 @@ export async function play(sender: WebContents, profileId: string, join?: { host
       // Réglages du HUD communs à tous les profils, puis arguments de test en développement
       // (ex. ALORIA_EXTRA_GAME_ARGS="--quickPlaySingleplayer Demo_World")
       extraJvmArgs: [...(await hudJvmArgs(profile)), ...(app.isPackaged ? [] : splitArgs(process.env.ALORIA_EXTRA_JVM_ARGS))],
+      // Connexion automatique (/login) : mots de passe pour Aloria HUD, jamais écrits sur le disque
+      // (en développement, ALORIA_TEST_AUTOLOGIN remplace la liste enregistrée : test du serveur local)
+      env: hudEnabled(profile) ? { ALORIA_AUTOLOGIN: (!app.isPackaged && process.env.ALORIA_TEST_AUTOLOGIN) || autoLoginEnv() || '' } : {},
       extraGameArgs: [
         ...(join ? joinArgs(gameVersion, join) : []),
         ...(app.isPackaged ? [] : splitArgs(process.env.ALORIA_EXTRA_GAME_ARGS))

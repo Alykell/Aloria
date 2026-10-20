@@ -60,6 +60,7 @@ public class AloriaHud implements ClientModInitializer {
 	public static void tick(MinecraftClient mc) {
 		Stats.tick(mc);
 		Toggles.tick(mc);
+		AutoLogin.tick(mc);
 		// Déplacements de souris faits dans un menu : oubliés, la vue ne doit pas sauter en le fermant
 		if (mc.currentScreen != null) RawInput.reset();
 		if (SelfTest.enabled()) SelfTest.tick(mc);

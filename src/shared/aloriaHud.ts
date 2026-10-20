@@ -19,17 +19,26 @@ export function hudVersionsLabel(loader: string, and: string): string {
 }
 
 /**
- * e4mc utilisable sans planter : il existe à partir de la 1.17, mais ses versions pour Minecraft 26 appellent une méthode
+ * Depuis la 1.21.11, Minecraft n'a plus hasPermission(int), qu'e4mc appelle encore : sans le correctif d'Aloria HUD
+ * (CommandPermissionCompatMixin), le serveur plante dès qu'un joueur se connecte
+ */
+export function needsE4mcCompat(gameVersion: string): boolean {
+  const [major, minor, patch] = gameVersion.split('.').map(Number)
+  return major >= 26 || (major === 1 && (minor > 21 || (minor === 21 && (patch || 0) >= 11)))
+}
+
+/**
+ * e4mc utilisable sans planter : il existe à partir de la 1.17, mais ses versions récentes appellent une méthode
  * retirée du jeu (hasPermission) dès qu'un joueur se connecte. Aloria HUD la remet (CommandPermissionCompatMixin) :
- * en 26.x, e4mc demande donc Fabric et une version où Aloria HUD existe.
+ * depuis la 1.21.11, e4mc demande donc Fabric et une version où Aloria HUD existe.
  */
 export function e4mcSupported(loader: string, gameVersion: string): boolean {
   if (!['fabric', 'forge', 'neoforge'].includes(loader) || !friendsSupported(gameVersion)) return false
-  return Number(gameVersion.split('.')[0]) < 26 || hudAvailable(loader, gameVersion)
+  return !needsE4mcCompat(gameVersion) || hudAvailable(loader, gameVersion)
 }
 
 /** « Jouer avec des amis » dans un profil : en 26.x, le correctif vient d'Aloria HUD, qui doit donc être activé */
 export function friendsUsable(profile: { loader: string; aloriaHud?: boolean }, gameVersion: string): boolean {
   if (!e4mcSupported(profile.loader, gameVersion)) return false
-  return Number(gameVersion.split('.')[0]) < 26 || profile.aloriaHud !== false
+  return !needsE4mcCompat(gameVersion) || profile.aloriaHud !== false
 }

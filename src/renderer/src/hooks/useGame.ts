@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { GameExit, GameStatus } from '../../../shared/types'
+import type { GameExit, GameStatus, JoinTarget } from '../../../shared/types'
 
 export function useGame() {
   const [status, setStatus] = useState<GameStatus>({ launch: null, running: [] })
@@ -18,10 +18,11 @@ export function useGame() {
     }
   }, [])
 
-  const play = async (profileId: string) => {
+  /** `join` : monde ou serveur à ouvrir dès l'ouverture du jeu (boutons Solo / Multijoueur) */
+  const play = async (profileId: string, join?: JoinTarget) => {
     setError(null)
     setCrash(null)
-    const res = await window.aloria.game.play(profileId)
+    const res = await window.aloria.game.play(profileId, join)
     if (!res.ok) setError(res.error)
   }
 

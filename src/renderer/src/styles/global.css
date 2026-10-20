@@ -1195,3 +1195,34 @@ kbd { display: inline-block; padding: 2px 7px; border-radius: 6px; background: v
 .secondary.small { padding: 5px 10px; font-size: 13px; }
 .secondary.danger { color: var(--danger); background: rgba(201, 65, 58, 0.1); }
 .secondary.danger:hover { background: rgba(201, 65, 58, 0.2); }
+
+/* Boutons Solo / Multijoueur de l'accueil et leurs listes */
+.quick-play { display: flex; gap: 10px; justify-content: center; margin-top: 12px; }
+.quick-play__btn {
+  padding: 9px 20px; border-radius: 999px; font-weight: 700; font-size: 15px;
+  background: var(--card); color: var(--sea-deep); border: 1px solid var(--line); backdrop-filter: blur(6px);
+  transition: transform 0.15s, border-color 0.15s;
+}
+.quick-play__btn:hover:not(:disabled) { transform: translateY(-1px); border-color: var(--lagoon); }
+.quick-play__btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.dialog.quick-list { width: min(560px, 92vw); max-height: 86vh; }
+.quick-list__items { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; min-height: 0; flex: 1; padding-right: 2px; }
+.quick-item {
+  display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; text-align: left; cursor: pointer;
+  border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--text);
+}
+.quick-item:hover { border-color: var(--lagoon); background: var(--row-hover); }
+.quick-item img, .quick-item__icon { width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0; image-rendering: pixelated; }
+.quick-item__icon { display: grid; place-items: center; font-size: 24px; background: var(--foam); }
+.quick-item__text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.quick-item__text strong, .quick-item__text small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.quick-item__badge { margin-left: 8px; color: var(--success); font-weight: 700; }
+.quick-item__gear { padding: 6px 8px; border-radius: 8px; font-size: 16px; }
+.quick-item__gear:hover { background: var(--foam); }
+.quick-item__go { color: var(--sea); font-size: 14px; padding: 0 4px; }
+.password-input { display: flex; gap: 8px; align-items: center; }
+.password-input input { flex: 1; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); font: inherit; color: var(--text); background: var(--surface); user-select: text; }
+.password-input input:focus { outline: 2px solid var(--lagoon); outline-offset: 1px; }
+/* Fenêtres ouvertes depuis l'accueil : texte aligné à gauche (l'accueil est centré) */
+.hero .dialog { text-align: left; }
+.hero .dialog h3 { text-align: center; }

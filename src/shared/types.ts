@@ -204,6 +204,39 @@ export interface RunningGame {
   stopping: boolean
 }
 
+/** Où arriver dès l'ouverture du jeu : un serveur, ou un monde solo du profil (dossier dans saves) */
+export type JoinTarget = { host: string; port: number } | { world: string }
+
+/** Monde solo d'un profil (boutons « Solo » de l'accueil) */
+export interface LocalWorld {
+  /** Nom du dossier dans saves, utilisé pour l'ouvrir */
+  id: string
+  name: string
+  lastPlayed: number
+  mode: 'survival' | 'creative' | 'adventure' | 'spectator' | 'hardcore'
+  /** icon.png du monde en data URL */
+  icon: string | null
+}
+
+/** Serveur de la liste Multijoueur du jeu (servers.dat du profil, ou liste commune) */
+export interface SavedServer {
+  /** Place dans la liste : sert à le retrouver pour le modifier */
+  index: number
+  name: string
+  address: string
+  icon: string | null
+  /** Connexion automatique (/login) activée, avec un mot de passe enregistré */
+  autoLogin: boolean
+}
+
+/** Modification d'un serveur : `password` vide = garder celui enregistré */
+export interface ServerEdit {
+  name: string
+  address: string
+  autoLogin: boolean
+  password: string
+}
+
 export interface GameStatus {
   /** Lancement en cours : un seul à la fois (les téléchargements sont communs aux profils). `cancelling` : « Annuler » cliqué */
   launch: (LaunchStep & { profileId: string; profile: string; cancelling?: boolean }) | null

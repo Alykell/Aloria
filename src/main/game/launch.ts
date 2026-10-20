@@ -18,6 +18,8 @@ export interface LaunchOptions {
   /** Arguments ajoutés pour les tests en développement */
   extraJvmArgs?: string[]
   extraGameArgs?: string[]
+  /** Variables d'environnement ajoutées pour le jeu */
+  env?: Record<string, string>
 }
 
 // Arguments JVM utilisés par les versions d'avant 1.13 (qui n'en fournissent pas)
@@ -116,7 +118,7 @@ export async function launchGame(opts: LaunchOptions): Promise<{ child: ChildPro
   try {
     const child = spawn(opts.installed.javaPath, buildArguments(opts), {
       cwd: opts.gameDir,
-      env: { ...process.env, ...gpuEnv() },
+      env: { ...process.env, ...gpuEnv(), ...opts.env },
       windowsHide: false,
       detached: true,
       stdio: ['ignore', fd, fd]

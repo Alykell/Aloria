@@ -24,6 +24,7 @@ import { saveKeyboardLayout } from './shared/options'
 import { e4mcSupported } from '../shared/aloriaHud'
 import { createServer, deleteServer, freePort, getServer, lanAddress, listServers, openServerFolder, serverDirOf, updateServer } from './server/store'
 import { deleteTunnel, linkPlayit, playitLinked, playitUsage, unlinkPlayit } from './server/playit'
+import * as quickplay from './quickplay'
 import { createServerProfile, exportServerPack, writeServerPack } from './server/profile'
 import { deleteBackup, listBackups, openBackupFolder, restoreBackup } from './server/backups'
 import { editPlayersOffline, listPlayers, playerCommand, readProperties, writeProperties } from './server/manage'
@@ -32,6 +33,8 @@ import { createEntry, deleteEntries, downloadFile, listFiles, quickFiles, readTe
 import { backupServer, connectTunnel, anyServerRunning, isServerAlive, killServer, restartServer, sendCommand, serverLog, serverStatuses, setServerTarget, startServer, stopAllServers, stopServer } from './server/runner'
 import type {
   ExportOptions,
+  JoinTarget,
+  ServerEdit,
   ModpackSource,
   DatapackCreation,
   PackElement,
@@ -153,7 +156,7 @@ ipcMain.handle('game:versions', async (_e, snapshots: boolean): Promise<Result<V
 ipcMain.handle('game:status', () => getStatus())
 ipcMain.handle('game:cancel', () => cancelLaunch())
 ipcMain.handle('game:stop', (_e, profileId: string) => stopGame(profileId))
-ipcMain.handle('game:play', async (e, profileId: string, join?: { host: string; port: number }): Promise<Result<null>> => {
+ipcMain.handle('game:play', async (e, profileId: string, join?: JoinTarget): Promise<Result<null>> => {
   try {
     await play(e.sender, profileId, join)
     return { ok: true, value: null }
@@ -392,6 +395,16 @@ ipcMain.handle('servers:downloadFile', (e, id: string, rel: string) => wrap(() =
 ipcMain.handle('servers:contentRemove', (_e, id: string, fileName: string) => wrap(() => removeServerContent(id, fileName)))
 ipcMain.handle('playit:linked', () => playitLinked())
 ipcMain.handle('playit:usage', () => wrap(() => playitUsage()))
+
+// Boutons Solo / Multijoueur de l'accueil
+ipcMain.handle('quick:worlds', (_e, profileId: string) => wrap(() => quickplay.listWorlds(profileId)))
+ipcMain.handle('quick:servers', (_e, profileId: string) => wrap(() => quickplay.listServers(profileId)))
+ipcMain.handle('quick:saveServer', (_e, profileId: string, index: number | null, previous: string | null, edit: ServerEdit) =>
+  wrap(() => quickplay.saveServer(profileId, index, previous, edit))
+)
+ipcMain.handle('quick:deleteServer', (_e, profileId: string, index: number, previous: string) =>
+  wrap(() => quickplay.deleteServer(profileId, index, previous))
+)
 ipcMain.handle('servers:createProfile', (_e, id: string, name?: string) => wrap(() => createServerProfile(id, name)))
 ipcMain.handle('servers:exportPack', (e, id: string) => wrap(() => exportServerPack(BrowserWindow.fromWebContents(e.sender), id)))
 ipcMain.handle('playit:link', () => wrap(() => linkPlayit()))
@@ -536,11 +549,23 @@ app.whenReady().then(() => {
           const joinProfile = process.env.ALORIA_TEST_SERVER_JOIN
           if (joinProfile && status?.state === 'running') {
             sendCommand(server.id, 'whitelist off')
+            // ALORIA_TEST_SERVER_AUTOLOGIN=1 : mot de passe pour ce serveur ; le serveur demande le /login dès l'arrivée
+            const autoLogin = !!process.env.ALORIA_TEST_SERVER_AUTOLOGIN
+            if (autoLogin) process.env.ALORIA_TEST_AUTOLOGIN = JSON.stringify({ [`localhost:${server.port}`]: 'aloria-test' })
             await play(win.webContents, joinProfile, { host: 'localhost', port: server.port })
             const end = Date.now() + 240_000
-            while (Date.now() < end && !serverLog(server.id).some((l) => /joined the game/.test(l))) await new Promise((r) => setTimeout(r, 2000))
+            while (Date.now() < end && !serverLog(server.id).some((l) => /joined the game/.test(l))) await new Promise((r) => setTimeout(r, 500))
             const joined = serverLog(server.id).find((l) => /joined the game|lost connection|Disconnecting/.test(l))
             console.log(`[server-test] ${item} : rejoindre → ${joined ?? 'personne'}`)
+            if (autoLogin && joined && /joined/.test(joined)) {
+              sendCommand(server.id, 'tellraw @a "Connecte-toi avec /login <mot de passe>"')
+              await new Promise((r) => setTimeout(r, 8000))
+              const { readFile } = await import('node:fs/promises')
+              const log = await readFile(join(gameDirOf(joinProfile), 'logs', 'latest.log'), 'utf8').catch(() => '')
+              const sent = (log.match(/Connexion automatique envoyée/g) ?? []).length
+              console.log(`[server-test] ${item} : connexion automatique → ${sent === 1 ? 'OK (1 envoi)' : `ÉCHEC (${sent} envois)`}, mot de passe affiché par le jeu : ${/\[CHAT\].*aloria-test(?!<--)/.test(log) ? 'OUI (ÉCHEC)' : 'non'} (le serveur de test, sans /login, le renvoie dans son erreur)`)
+              delete process.env.ALORIA_TEST_AUTOLOGIN
+            }
           }
           // ALORIA_TEST_SERVER_PROFILE=1 : profil du serveur (avec ses mods) et pack pour les amis réimporté, puis effacés
           if (process.env.ALORIA_TEST_SERVER_PROFILE && status?.state === 'running') {
@@ -840,6 +865,25 @@ async function captureScreens(win: BrowserWindow, dir: string): Promise<void> {
     await click(L('home.changeSkin'))
     await wait(2500)
     await writeFile(join(dir, 'nuit-skin.png'), (await snap()).toPNG())
+    await win.webContents.executeJavaScript(`document.querySelector('.overlay')?.click()`)
+    await wait(300)
+    // Boutons Solo / Multijoueur, et réglages du premier serveur (rien n'est enregistré : fenêtre refermée sans sauver)
+    await writeFile(join(dir, 'nuit-accueil-compte.png'), (await snap()).toPNG())
+    await click(L('quick.solo'))
+    await wait(1200)
+    await writeFile(join(dir, 'nuit-solo.png'), (await snap()).toPNG())
+    await win.webContents.executeJavaScript(`document.querySelector('.overlay')?.click()`)
+    await wait(300)
+    await click(L('quick.multi'))
+    await wait(1500)
+    await writeFile(join(dir, 'nuit-multi.png'), (await snap()).toPNG())
+    await win.webContents.executeJavaScript(`(() => { const gear = document.querySelector('.quick-item__gear'); if (gear) gear.click(); else [...document.querySelectorAll('button')].find((b) => b.textContent.includes(${JSON.stringify(L('quick.addServer'))}))?.click() })()`)
+    await wait(500)
+    await win.webContents.executeJavaScript(`(() => { const c = document.querySelector('.dialog.editor input[type=checkbox]'); if (c && !c.checked) c.click() })()`)
+    await wait(500)
+    await writeFile(join(dir, 'nuit-serveur-reglages.png'), (await snap()).toPNG())
+    await click(L('common.cancel'))
+    await wait(300)
     await win.webContents.executeJavaScript(`document.querySelector('.overlay')?.click()`)
     await wait(300)
   }

@@ -4,6 +4,7 @@ import type { AccountsState } from '../hooks/useAccounts'
 import type { ProfilesState } from '../hooks/useProfiles'
 import type { useGame } from '../hooks/useGame'
 import Select from './Select'
+import QuickPlay from './QuickPlay'
 import SkinViewer from './SkinViewer'
 import { t } from '../i18n'
 
@@ -53,6 +54,14 @@ export default function HomePage({ accounts, profiles, game, onSkin }: Props) {
                     value: p.id,
                     label: `${p.icon} ${p.name} · ${describeProfile(p)}`
                   }))}
+                />
+              )}
+              {/* Ouvrir directement un monde ou un serveur du profil choisi */}
+              {selected && game.status.launch?.profileId !== selected.id && (
+                <QuickPlay
+                  profile={selected}
+                  disabled={!!game.status.launch || game.status.running.some((r) => r.profileId === selected.id)}
+                  onPlay={(target) => game.play(selected.id, target)}
                 />
               )}
               <RunningGames status={game.status} exceptId={selected?.id ?? null} onStop={game.stop} />

@@ -76,6 +76,7 @@ public class AloriaHud implements ClientModInitializer {
 		);
 
 		if (SelfTest.enabled()) SelfTest.init();
+		AutoLogin.init();
 
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> {
 			Stats.tick(mc);
