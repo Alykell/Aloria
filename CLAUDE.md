@@ -3,6 +3,9 @@
 Launcher Minecraft perso d'Alykell (« Aloria Client »), répondre **en français**.
 Electron 44 + electron-vite + React 19 + TypeScript (`src/`), mod Fabric **Aloria HUD** (`mod/`) de la 1.20.1 à la 26.3, et en 1.8.9 (`mod-legacy/`, Legacy Fabric ; `mod-forge/`, même code pour Forge).
 Données du jeu : `%APPDATA%\.aloria` (profils, instances, `shared/` = serveurs et jeux de réglages communs).
+Dossier d'un profil : `instances/<nom du profil>` (champ `dir`, renommé avec le profil ; anciens profils migrés au démarrage),
+toujours via `gameDirOf(id)` ; profils de test : `instances/<id>`. En développement, `ALORIA_ROOT=<dossier>` remplace `.aloria`
+(le launcher installé partage le vrai : la migration des dossiers ne tourne en dev que sur un `.aloria` de test).
 
 ## Langues (launcher)
 - Textes dans `src/shared/i18n/fr.ts` (référence) et `en.ts` (mêmes clés, sinon la compilation échoue). Interface : `t('clé', { param })`
