@@ -23,6 +23,8 @@ public class ModuleSettings {
 	public boolean ownStyle = false;
 	/** Caché pendant que le chat est ouvert, pour ne pas le recouvrir */
 	public boolean hideInChat = false;
+	/** Module Coordonnées : ligne du biome */
+	public boolean showBiome = true;
 
 	public ModuleSettings() {
 	}

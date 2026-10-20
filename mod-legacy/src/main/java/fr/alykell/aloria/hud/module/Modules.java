@@ -1,13 +1,16 @@
 package fr.alykell.aloria.hud.module;
 
+import fr.alykell.aloria.hud.AloriaHud;
 import fr.alykell.aloria.hud.Stats;
 import fr.alykell.aloria.hud.Tr;
 import fr.alykell.aloria.hud.config.ModuleSettings;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
@@ -95,15 +98,20 @@ public final class Modules {
 		@Override
 		protected List<Line> lines(MinecraftClient mc, boolean preview) {
 			PlayerEntity p = mc.player;
-			if (p == null) {
-				return Arrays.asList(new Line("X", "128.5"), new Line("Y", "64"), new Line("Z", "-256.5"), new Line(Tr.tr("coords.facing"), Tr.tr("coords.north")));
+			boolean showBiome = AloriaHud.config().get(this).showBiome;
+			List<Line> lines = new ArrayList<Line>();
+			if (p == null || mc.world == null) {
+				lines.addAll(Arrays.asList(new Line("X", "128.5"), new Line("Y", "64"), new Line("Z", "-256.5"), new Line(Tr.tr("coords.facing"), Tr.tr("coords.north"))));
+				if (showBiome) lines.add(new Line(Tr.tr("coords.biome"), Tr.tr("coords.biomeExample")));
+				return lines;
 			}
-			return Arrays.asList(
-				new Line("X", String.format(Locale.ROOT, "%.1f", p.x)),
-				new Line("Y", String.valueOf((int) Math.floor(p.y))),
-				new Line("Z", String.format(Locale.ROOT, "%.1f", p.z)),
-				new Line(Tr.tr("coords.facing"), facing(p.getHorizontalDirection()))
-			);
+			lines.add(new Line("X", String.format(Locale.ROOT, "%.1f", p.x)));
+			lines.add(new Line("Y", String.valueOf((int) Math.floor(p.y))));
+			lines.add(new Line("Z", String.format(Locale.ROOT, "%.1f", p.z)));
+			lines.add(new Line(Tr.tr("coords.facing"), facing(p.getHorizontalDirection())));
+			// En 1.8.9 les biomes n'ont pas de traduction : leur nom anglais (« Plains »)
+			if (showBiome) lines.add(new Line(Tr.tr("coords.biome"), mc.world.getBiome(new BlockPos(p)).name));
+			return lines;
 		}
 	}
 

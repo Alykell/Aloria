@@ -28,6 +28,15 @@ public class HudMenuScreen extends AloriaScreen {
 
 	private String tab = "all";
 	private HudModule editing;
+
+	private boolean hasBiomeOption() {
+		return editing != null && "coords".equals(editing.id());
+	}
+
+	/** Lignes de réglages du module ouvert (pour le défilement) */
+	private int optionRows() {
+		return OPTION_ROWS + (hasBiomeOption() ? 1 : 0);
+	}
 	private int scroll;
 	private int optionsScroll;
 	private Picker picker;
@@ -314,7 +323,7 @@ public class HudMenuScreen extends AloriaScreen {
 		int ow = x + w - PAD - ox;
 		int cx = ox + 58;
 		int cw = ow - 58;
-		optionsScroll = Draw.clamp(optionsScroll, 0, Math.max(0, OPTION_ROWS * ROW_H - (bottom - top)));
+		optionsScroll = Draw.clamp(optionsScroll, 0, Math.max(0, optionRows() * ROW_H - (bottom - top)));
 		int oy = top + 4 - optionsScroll;
 
 		g.enableScissor(ox - 2, top, ox + ow + 2, bottom);
@@ -364,6 +373,13 @@ public class HudMenuScreen extends AloriaScreen {
 		toggle("hideInChat", g, ox + ow - 24, oy, s.hideInChat, () -> s.hideInChat = !s.hideInChat);
 		oy += ROW_H;
 
+		// Option propre au module Coordonnées
+		if (hasBiomeOption()) {
+			label(g, Tr.tr("edit.showBiome"), ox, oy);
+			toggle("showBiome", g, ox + ow - 24, oy, s.showBiome, () -> s.showBiome = !s.showBiome);
+			oy += ROW_H;
+		}
+
 		label(g, Tr.tr("edit.ownStyle"), ox, oy);
 		toggle("ownStyle", g, ox + ow - 24, oy, s.ownStyle, () -> s.ownStyle = !s.ownStyle);
 		oy += ROW_H;
@@ -386,7 +402,7 @@ public class HudMenuScreen extends AloriaScreen {
 		unclip();
 		g.disableScissor();
 
-		int content = OPTION_ROWS * ROW_H;
+		int content = optionRows() * ROW_H;
 		int view = bottom - top;
 		if (content > view) {
 			int trackX = x + w - 6;

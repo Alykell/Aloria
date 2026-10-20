@@ -1,14 +1,17 @@
 package fr.alykell.aloria.hud.module;
 
+import fr.alykell.aloria.hud.AloriaHud;
 import fr.alykell.aloria.hud.Stats;
 import fr.alykell.aloria.hud.Tr;
 import fr.alykell.aloria.hud.config.ModuleSettings;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
 
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -90,18 +93,34 @@ public final class Modules {
 			};
 		}
 
+		/** Nom du biome dans la langue du jeu (« Plaines »), ou son identifiant pour un biome de mod sans traduction */
+		private static String biome(Minecraft mc, LocalPlayer p) {
+			return mc.level.getBiome(p.blockPosition()).unwrapKey().map(key -> {
+				//#if MC >= 12111
+				var id = key.identifier();
+				//#else
+				//$$ var id = key.location();
+				//#endif
+				return Component.translatable("biome." + id.getNamespace() + "." + id.getPath()).getString();
+			}).orElse("?");
+		}
+
 		@Override
 		protected List<Line> lines(Minecraft mc, boolean preview) {
 			LocalPlayer p = mc.player;
-			if (p == null) {
-				return List.of(new Line("X", "128.5"), new Line("Y", "64"), new Line("Z", "-256.5"), new Line(Tr.tr("coords.facing"), Tr.tr("coords.north")));
+			boolean showBiome = AloriaHud.config().get(this).showBiome;
+			List<Line> lines = new ArrayList<>();
+			if (p == null || mc.level == null) {
+				lines.addAll(List.of(new Line("X", "128.5"), new Line("Y", "64"), new Line("Z", "-256.5"), new Line(Tr.tr("coords.facing"), Tr.tr("coords.north"))));
+				if (showBiome) lines.add(new Line(Tr.tr("coords.biome"), Tr.tr("coords.biomeExample")));
+				return lines;
 			}
-			return List.of(
-				new Line("X", String.format(Locale.ROOT, "%.1f", p.getX())),
-				new Line("Y", String.valueOf(p.blockPosition().getY())),
-				new Line("Z", String.format(Locale.ROOT, "%.1f", p.getZ())),
-				new Line(Tr.tr("coords.facing"), facing(p.getDirection()))
-			);
+			lines.add(new Line("X", String.format(Locale.ROOT, "%.1f", p.getX())));
+			lines.add(new Line("Y", String.valueOf(p.blockPosition().getY())));
+			lines.add(new Line("Z", String.format(Locale.ROOT, "%.1f", p.getZ())));
+			lines.add(new Line(Tr.tr("coords.facing"), facing(p.getDirection())));
+			if (showBiome) lines.add(new Line(Tr.tr("coords.biome"), biome(mc, p)));
+			return lines;
 		}
 	}
 
