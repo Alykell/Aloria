@@ -188,6 +188,21 @@ function recipeRefs(adv: Record<string, unknown>): string[] {
   return refs.map((id) => (id.includes(':') ? id : `minecraft:${id}`))
 }
 
+/**
+ * Composants d'une variante (« minecraft:potion@healing », « minecraft:enchanted_book@sharpness:5 ») ; les
+ * enchantements sont une simple table depuis la 1.21.5 (format de données 71), avant { levels: … }
+ */
+function variantComponents(result: string, f: RecipeFormat): Record<string, unknown> | undefined {
+  const [item, variant] = result.split('@')
+  if (!variant) return undefined
+  if (item === 'minecraft:enchanted_book') {
+    const [ench, level] = variant.split(':')
+    const levels = { [`minecraft:${ench}`]: Number(level) || 1 }
+    return { 'minecraft:stored_enchantments': f.dataFormat[0] >= 71 ? levels : { levels } }
+  }
+  return { 'minecraft:potion_contents': { potion: `minecraft:${variant}` } }
+}
+
 /** Recette au format de la version, ou null si elle est incomplète ou utilise un item absent de cette version */
 export function recipeJson(r: Recipe, f: RecipeFormat, items: Set<string>, tags: Record<string, string[]>): Record<string, unknown> | null {
   if (!f.kinds.includes(r.kind) || !items.has(r.result)) return null
@@ -205,7 +220,10 @@ export function recipeJson(r: Recipe, f: RecipeFormat, items: Set<string>, tags:
     const objs = ok.map((i) => (i.startsWith('#') ? { tag: i.slice(1) } : { item: i }))
     return objs.length === 1 ? objs[0] : objs
   }
-  const stack = f.idResult ? { id: r.result, count } : { item: r.result, count }
+  // Variante (potion, livre enchanté) : l'item et ses composants (n'existent que là où idResult est vrai)
+  const resultId = r.result.split('@')[0]
+  const components = variantComponents(r.result, f)
+  const stack = f.idResult ? { id: resultId, count, ...(components && { components }) } : { item: r.result, count }
   const json: Record<string, unknown> = { type: RECIPE_TYPES[r.kind] }
   if (r.group) json.group = r.group
 
@@ -253,7 +271,7 @@ export function recipeJson(r: Recipe, f: RecipeFormat, items: Set<string>, tags:
       if (f.idResult) json.result = stack
       else Object.assign(json, { result: r.result, count })
     } else {
-      json.result = f.idResult ? { id: r.result } : r.result
+      json.result = f.idResult ? { id: resultId, ...(components && { components }) } : r.result
       json.experience = Math.max(0, r.experience ?? 0)
       json.cookingtime = Math.max(1, Math.round(r.cookingTime ?? COOKING_TIME[r.kind]))
     }

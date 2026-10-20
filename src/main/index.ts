@@ -494,6 +494,11 @@ app.whenReady().then(() => {
             { id: 'aloria:obsidian', kind: 'stonecutting', input: ['minecraft:stone'], result: 'minecraft:obsidian', count: 2 },
             { id: 'aloria:cherry', kind: 'campfire', input: ['minecraft:cherry_log'], result: 'minecraft:charcoal', count: 1 }
           ]
+          // Variantes (1.20.5+) : potion et livre enchanté en résultat
+          const ids = new Set(data.items.map((i) => i.id))
+          if (ids.has('minecraft:potion@strong_healing')) dp.recipes.push({ id: 'aloria:potion_strong_healing', kind: 'shapeless', ingredients: [['minecraft:glistering_melon_slice'], ['minecraft:glass_bottle']], result: 'minecraft:potion@strong_healing', count: 1 })
+          if (ids.has('minecraft:enchanted_book@sharpness:5')) dp.recipes.push({ id: 'aloria:enchanted_book_sharpness_5', kind: 'smelting', input: ['minecraft:book'], result: 'minecraft:enchanted_book@sharpness:5', count: 1, experience: 1, cookingTime: 100 })
+          log(gameVersion, 'variantes', data.items.filter((i) => i.id.includes('@')).length, data.items.filter((i) => i.id.includes('@')).slice(0, 4).map((i) => i.name).join(' · '))
           dp.removed = ['minecraft:piston', 'minecraft:stick']
           await saveDatapack(dp)
           const file = join(app.getPath('temp'), `aloria-recipes-${gameVersion}.zip`)
@@ -700,7 +705,7 @@ app.whenReady().then(() => {
       // Icônes particulières : têtes de mobs (dessinées à part par le jeu) et noyau lourd
       await js(`document.querySelector('.popover-backdrop, .overlay')?.click()`)
       await wait(300)
-      for (const [name, query] of [['8-tetes', 'tête'], ['9-noyau', 'noyau'], ['10-cranes', 'crâne']]) {
+      for (const [name, query] of [['8-tetes', 'tête'], ['9-noyau', 'noyau'], ['10-cranes', 'crâne'], ['11-potions', 'potion'], ['12-livres', 'affilage']]) {
         await type('.search-bar input', query)
         await wait(700)
         await snap(name)

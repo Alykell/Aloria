@@ -150,6 +150,11 @@ export default function RecipeEditor({ datapack, profiles, onBack, onChanged, on
   const putItem = (key: string, id: string, add: boolean) => {
     // Le résultat est toujours un item précis ; une case peut accepter plusieurs items (Maj)
     if (key === 'out' && id.startsWith('#')) return
+    // Potion ou livre enchanté précis : seulement en résultat (en ingrédient, le jeu accepterait n'importe lequel)
+    if (id.includes('@') && key !== 'out') {
+      setSlots({ out: [id] })
+      return
+    }
     const cur = getSlot(key)
     const value = add && key !== 'out' && cur ? (cur.includes(id) ? cur : [...cur, id]) : [id]
     setSlots({ [key]: value })

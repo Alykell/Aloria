@@ -407,6 +407,68 @@ function headIcon(zip: AdmZip, models: Models, itemId: string): ItemIcon | null 
   return { kind: 'model', elements, gui: { rotation: [30, 45, 0], translation: [0, 3, 0], scale: [1, 1, 1] } }
 }
 
+// ---------------------------------------------------------------- variantes (potions, livres enchantés)
+
+/**
+ * Variantes d'un item, utilisables comme résultat d'une recette (composants, 1.20.5+) : « minecraft:potion@healing »,
+ * « minecraft:enchanted_book@sharpness:5 ». Le registre des potions est dans le code du jeu : les versions longues et
+ * renforcées sont donc listées ici (seules celles dont la potion de base existe dans la version sont gardées).
+ */
+const LONG_POTIONS = ['night_vision', 'invisibility', 'leaping', 'fire_resistance', 'swiftness', 'slowness', 'water_breathing',
+  'poison', 'regeneration', 'strength', 'weakness', 'turtle_master', 'slow_falling']
+const STRONG_POTIONS = ['leaping', 'swiftness', 'slowness', 'healing', 'harming', 'poison', 'regeneration', 'strength', 'turtle_master']
+/** Couleur du liquide (couleur de l'effet dans le jeu) */
+const POTION_COLORS: Record<string, string> = {
+  water: '#385dc6', awkward: '#385dc6', mundane: '#385dc6', thick: '#385dc6', swiftness: '#33ebff', slowness: '#8bafe0',
+  strength: '#ffc700', healing: '#f82423', harming: '#a9656a', leaping: '#fdff84', regeneration: '#cd5cab',
+  fire_resistance: '#ff9900', water_breathing: '#98dac0', invisibility: '#f6f6f6', night_vision: '#c2ff66',
+  weakness: '#484d48', poison: '#87a363', slow_falling: '#f3cfb9', turtle_master: '#9146f0', luck: '#59c106',
+  infested: '#8c9b8c', oozing: '#99ffa3', weaving: '#78695a', wind_charged: '#bdc9ff'
+}
+const POTION_ITEMS = ['potion', 'splash_potion', 'lingering_potion', 'tipped_arrow']
+const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
+
+/** Même icône que l'item de base, liquide (couche teintée) de la couleur de la potion */
+function tinted(icon: ItemIcon, color: string): ItemIcon {
+  if (icon.kind !== 'flat') return icon
+  return { kind: 'flat', layers: icon.layers.map((l) => (l.tint && l.tint !== '#ffffff' ? { ...l, tint: color } : l)) }
+}
+
+function variantsOf(zip: AdmZip, lang: Record<string, string>, base: GameItem): GameItem[] {
+  const id = strip(base.id)
+  if (POTION_ITEMS.includes(id)) {
+    const potions: string[] = []
+    const prefix = `item.minecraft.${id}.effect.`
+    for (const key of Object.keys(lang)) {
+      const m = key.startsWith(prefix) ? /^([a-z0-9_]+)$/.exec(key.slice(prefix.length)) : null
+      // « empty » : potion impossible à obtenir
+      if (m && m[1] !== 'empty') potions.push(m[1])
+    }
+    const out: GameItem[] = []
+    for (const p of potions) {
+      const name = lang[`item.minecraft.${id}.effect.${p}`]
+      const color = POTION_COLORS[p] ?? '#385dc6'
+      out.push({ id: `${base.id}@${p}`, name, icon: tinted(base.icon, color) })
+      if (LONG_POTIONS.includes(p)) out.push({ id: `${base.id}@long_${p}`, name: `${name} (+)`, icon: tinted(base.icon, color) })
+      if (STRONG_POTIONS.includes(p)) out.push({ id: `${base.id}@strong_${p}`, name: `${name} II`, icon: tinted(base.icon, color) })
+    }
+    return out
+  }
+  if (id === 'enchanted_book') {
+    // Enchantements décrits dans les données du jeu depuis la 1.21 (niveau maximum compris)
+    const out: GameItem[] = []
+    for (const [ench, def] of jsonFiles(zip, 'data/minecraft/enchantment/')) {
+      const max = Math.min(10, Math.max(1, Number(def.max_level) || 1))
+      const enchName = lang[`enchantment.minecraft.${ench}`] ?? ench
+      for (let level = 1; level <= max; level++) {
+        out.push({ id: `${base.id}@${ench}:${level}`, name: `${base.name} : ${enchName}${max > 1 ? ` ${ROMAN[level]}` : ''}`, icon: base.icon })
+      }
+    }
+    return out.sort((a, b) => a.name.localeCompare(b.name))
+  }
+  return []
+}
+
 /** Définition d'item (1.21.4+) : le modèle « normal » de l'arbre (repli des conditions, premier d'un composite…) */
 function pickModel(node: unknown): { model: string; tints?: unknown[] } | null {
   if (!node || typeof node !== 'object') return null
@@ -452,6 +514,7 @@ async function readGameData(gameVersion: string): Promise<GameData> {
   const lang = await gameLang(zip, gameVersion)
   const models = new Models(zip)
   const definitions = jsonFiles(zip, `${M}items/`)
+  const format = recipeFormat(zip, gameVersion)
 
   // Ordre du fichier de langue (proche de celui du jeu : blocs puis items, familles groupées)
   const ids: string[] = []
@@ -482,7 +545,10 @@ async function readGameData(gameVersion: string): Promise<GameData> {
       icon = models.icon(id, `item/${id}`)
     }
     const name = lang[`item.minecraft.${id}`] ?? lang[`block.minecraft.${id}`] ?? lang[`item.minecraft.${id}.effect.water`] ?? id
-    items.push({ id: `minecraft:${id}`, name, icon })
+    const item: GameItem = { id: `minecraft:${id}`, name, icon }
+    items.push(item)
+    // Potions et livres enchantés précis, juste après leur item (résultats avec composants : 1.20.5+)
+    if (format.idResult) items.push(...variantsOf(zip, lang, item))
   }
 
   const textures: Record<string, string> = {}
@@ -491,7 +557,6 @@ async function readGameData(gameVersion: string): Promise<GameData> {
     if (data) textures[path] = `data:image/png;base64,${data.toString('base64')}`
   }
 
-  const format = recipeFormat(zip, gameVersion)
   const recipes: Recipe[] = []
   for (const [path, raw] of jsonFiles(zip, `data/minecraft/${format.dir}/`)) {
     const recipe = parseRecipe(`minecraft:${path}`, raw)
