@@ -1,7 +1,7 @@
 package fr.alykell.aloria.hud.screen;
 
 import fr.alykell.aloria.hud.AloriaHud;
-import fr.alykell.aloria.hud.RedstonePack;
+import fr.alykell.aloria.hud.ModrinthPack;
 import fr.alykell.aloria.hud.Theme;
 import fr.alykell.aloria.hud.Tr;
 import fr.alykell.aloria.hud.Visual;
@@ -50,7 +50,7 @@ public class VisualScreen extends AloriaScreen {
 			case "hands" -> 6;
 			case "shield" -> 6;
 			case "totem" -> 3;
-			case "light" -> 6;
+			case "light" -> 8;
 			default -> 6;
 		};
 	}
@@ -164,7 +164,7 @@ public class VisualScreen extends AloriaScreen {
 		buttonWithId("totem:reset", g, mouseX, mouseY, x + PAD + w(preview) + 22, y, w(reset) + 16, 13, reset, false, () -> v().totemScale = 1f);
 	}
 
-	/** Onglet Autres : luminosité, citrouille et pack redstone */
+	/** Onglet Autres : luminosité, citrouille, packs redstone et icônes d'enchantements */
 	private void drawLight(GuiGraphicsExtractor g, int x, int y, int w) {
 		text(g, Tr.tr("visual.fullbright"), x + PAD, y + 2, Theme.FOAM, false);
 		toggle("fullbright", g, x + w - PAD - 24, y + 1, v().fullbright, () -> v().fullbright = !v().fullbright);
@@ -176,16 +176,23 @@ public class VisualScreen extends AloriaScreen {
 		y += ROW_H;
 		text(g, Tr.tr("visual.hidePumpkinHint"), x + PAD, y + 2, Theme.TEXT_SOFT, false);
 		y += ROW_H;
-		text(g, Tr.tr("visual.redstone"), x + PAD, y + 2, Theme.FOAM, false);
-		toggle("redstonePack", g, x + w - PAD - 24, y + 1, RedstonePack.active(), RedstonePack::toggle);
+		packRow(g, x, y, w, ModrinthPack.REDSTONE, "redstonePack", "visual.redstone", "visual.redstoneHint");
+		y += ROW_H * 2;
+		packRow(g, x, y, w, ModrinthPack.ENCHANT_ICONS, "enchantIconsPack", "visual.enchantIcons", "visual.enchantIconsHint");
+	}
+
+	/** Pack Modrinth en un clic : nom et interrupteur, puis l'explication ou l'état du téléchargement */
+	private void packRow(GuiGraphicsExtractor g, int x, int y, int w, ModrinthPack pack, String id, String label, String hintKey) {
+		text(g, Tr.tr(label), x + PAD, y + 2, Theme.FOAM, false);
+		toggle(id, g, x + w - PAD - 24, y + 1, pack.active(), pack::toggle);
 		y += ROW_H;
-		String hint = switch (RedstonePack.status()) {
+		String hint = switch (pack.status()) {
 			case DOWNLOADING -> Tr.tr("visual.redstone.downloading");
 			case FAILED -> Tr.tr("visual.redstone.failed");
 			case UNAVAILABLE -> Tr.tr("visual.redstone.unavailable");
-			default -> Tr.tr("visual.redstoneHint");
+			default -> Tr.tr(hintKey);
 		};
-		text(g, hint, x + PAD, y + 2, RedstonePack.status() == RedstonePack.Status.FAILED ? Theme.CORAL : Theme.TEXT_SOFT, false);
+		text(g, hint, x + PAD, y + 2, pack.status() == ModrinthPack.Status.FAILED ? Theme.CORAL : Theme.TEXT_SOFT, false);
 	}
 
 	private void drawFog(GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int y, int w) {

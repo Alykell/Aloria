@@ -26,46 +26,52 @@ import java.util.HexFormat;
 import java.util.List;
 
 /**
- * Pack de textures Redstone Tweaks (Modrinth) : sens et état des blocs de redstone visibles.
- * Téléchargé dans resourcepacks/ et activé depuis l'écran Visuel, sans relancer le jeu.
- * L'interrupteur suit l'état réel du jeu (le pack peut aussi être retiré dans le menu des packs).
+ * Pack de textures Modrinth activable en un clic depuis l'écran Visuel (onglet Autres), sans relancer le jeu :
+ * téléchargé dans resourcepacks/ dans sa version pour ce jeu. L'interrupteur suit l'état réel du jeu (le pack peut
+ * aussi être retiré dans le menu des packs).
  */
-public final class RedstonePack {
-	private static final String PROJECT = "redstone-tweaks";
-	/** Début du nom des fichiers téléchargés : sert à reconnaître le pack parmi ceux du jeu */
-	private static final String FILE_PREFIX = "Redstone Tweaks ";
+public final class ModrinthPack {
+	/** Redstone Tweaks : sens et état des blocs de redstone visibles */
+	public static final ModrinthPack REDSTONE = new ModrinthPack("redstone-tweaks", "Redstone Tweaks ");
+	/** Enchant Icons : icône et couleur devant chaque enchantement (texte des objets), dans toutes les langues */
+	public static final ModrinthPack ENCHANT_ICONS = new ModrinthPack("enchant-icons-countxd", "Enchant Icons ");
 
 	public enum Status { IDLE, DOWNLOADING, FAILED, UNAVAILABLE }
 
-	private static volatile Status status = Status.IDLE;
+	private final String project;
+	/** Début du nom des fichiers téléchargés : sert à reconnaître le pack parmi ceux du jeu */
+	private final String filePrefix;
+	private volatile Status status = Status.IDLE;
 
-	private RedstonePack() {
+	private ModrinthPack(String project, String filePrefix) {
+		this.project = project;
+		this.filePrefix = filePrefix;
 	}
 
-	public static Status status() {
+	public Status status() {
 		return status;
 	}
 
 	/** Le pack est activé dans le jeu */
-	public static boolean active() {
+	public boolean active() {
 		return !selectedIds(Minecraft.getInstance().getResourcePackRepository()).isEmpty();
 	}
 
-	public static void toggle() {
+	public void toggle() {
 		if (status == Status.DOWNLOADING) return;
 		if (active()) disable();
 		else enable();
 	}
 
-	private static List<String> selectedIds(PackRepository repository) {
+	private List<String> selectedIds(PackRepository repository) {
 		List<String> ids = new ArrayList<>();
 		for (String id : repository.getSelectedIds()) {
-			if (id.startsWith("file/" + FILE_PREFIX)) ids.add(id);
+			if (id.startsWith("file/" + filePrefix)) ids.add(id);
 		}
 		return ids;
 	}
 
-	private static void disable() {
+	private void disable() {
 		Minecraft mc = Minecraft.getInstance();
 		PackRepository repository = mc.getResourcePackRepository();
 		for (String id : selectedIds(repository)) repository.removePack(id);
@@ -73,7 +79,7 @@ public final class RedstonePack {
 		status = Status.IDLE;
 	}
 
-	private static void enable() {
+	private void enable() {
 		status = Status.DOWNLOADING;
 		Thread thread = new Thread(() -> {
 			try {
@@ -95,25 +101,26 @@ public final class RedstonePack {
 					}
 				});
 			} catch (IOException | InterruptedException | RuntimeException e) {
-				AloriaHud.LOGGER.warn("Téléchargement de Redstone Tweaks impossible", e);
+				AloriaHud.LOGGER.warn("Téléchargement du pack {} impossible", project, e);
 				status = Status.FAILED;
 			}
-		}, "Aloria HUD - Redstone Tweaks");
+		}, "Aloria HUD - " + project);
 		thread.setDaemon(true);
 		thread.start();
 	}
 
 	/** Télécharge la version du pack faite pour ce jeu (si elle n'est pas déjà là) ; null si Modrinth n'en a pas */
-	private static String download() throws IOException, InterruptedException {
+	private String download() throws IOException, InterruptedException {
 		String game = FabricLoader.getInstance().getModContainer("minecraft")
 			.map(c -> c.getMetadata().getVersion().getFriendlyString()).orElseThrow();
 		HttpClient http = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).connectTimeout(Duration.ofSeconds(10)).build();
 		String query = "game_versions=" + URLEncoder.encode("[\"" + game + "\"]", StandardCharsets.UTF_8)
 			+ "&loaders=" + URLEncoder.encode("[\"minecraft\"]", StandardCharsets.UTF_8);
-		HttpResponse<String> response = http.send(request("https://api.modrinth.com/v2/project/" + PROJECT + "/version?" + query),
+		HttpResponse<String> response = http.send(request("https://api.modrinth.com/v2/project/" + project + "/version?" + query),
 			HttpResponse.BodyHandlers.ofString());
 		if (response.statusCode() != 200) throw new IOException("Modrinth : code " + response.statusCode());
 		JsonArray versions = JsonParser.parseString(response.body()).getAsJsonArray();
+		if (versions.isEmpty()) versions = sameSeries(http, game);
 		if (versions.isEmpty()) return null;
 
 		JsonObject version = versions.get(0).getAsJsonObject();
@@ -123,7 +130,7 @@ public final class RedstonePack {
 		}
 		if (file == null) return null;
 
-		String fileName = FILE_PREFIX + version.get("version_number").getAsString().replaceAll("[^A-Za-z0-9._+-]", "_") + ".zip";
+		String fileName = filePrefix + version.get("version_number").getAsString().replaceAll("[^A-Za-z0-9._+-]", "_") + ".zip";
 		Path packs = Minecraft.getInstance().gameDirectory.toPath().resolve("resourcepacks");
 		Path target = packs.resolve(fileName);
 		String sha1 = file.getAsJsonObject("hashes").get("sha1").getAsString();
@@ -137,6 +144,29 @@ public final class RedstonePack {
 		Files.write(temp, data.body());
 		Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
 		return fileName;
+	}
+
+	/**
+	 * Pas encore de version du pack pour ce jeu (sortie récente) : la plus récente faite pour la même série
+	 * (26.2 pour la 26.3, 1.21.10 pour la 1.21.11). Le jeu la signale « faite pour une version antérieure », sans gêne.
+	 */
+	private JsonArray sameSeries(HttpClient http, String game) throws IOException, InterruptedException {
+		String[] parts = game.split("\\.");
+		String series = (parts[0].equals("1") && parts.length > 1 ? parts[0] + "." + parts[1] : parts[0]) + ".";
+		HttpResponse<String> response = http.send(request("https://api.modrinth.com/v2/project/" + project + "/version?loaders="
+			+ URLEncoder.encode("[\"minecraft\"]", StandardCharsets.UTF_8)), HttpResponse.BodyHandlers.ofString());
+		JsonArray matching = new JsonArray();
+		if (response.statusCode() != 200) return matching;
+		// Modrinth les donne de la plus récente à la plus ancienne
+		for (JsonElement v : JsonParser.parseString(response.body()).getAsJsonArray()) {
+			for (JsonElement gv : v.getAsJsonObject().getAsJsonArray("game_versions")) {
+				if (gv.getAsString().startsWith(series)) {
+					matching.add(v);
+					return matching;
+				}
+			}
+		}
+		return matching;
 	}
 
 	private static HttpRequest request(String url) {

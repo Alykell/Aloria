@@ -687,11 +687,13 @@ public final class SelfTest {
 			});
 			return true;
 		});
+		// Pack resté actif après un test interrompu : on part sans lui
+		add("pack redstone éteint au départ", 2, () -> !ModrinthPack.REDSTONE.active() || click(mc, "redstonePack"));
 		add("capture redstone (sans pack)", 15, () -> screenshot(mc, "17d-redstone-normal"));
 		add("pack redstone activé", 2, () -> click(mc, "redstonePack"));
 		add("pack redstone téléchargé", 200, () -> {
-			if (RedstonePack.status() == RedstonePack.Status.DOWNLOADING) return false;
-			return check("le pack Redstone Tweaks est téléchargé et activé (" + RedstonePack.status() + ")", RedstonePack.active());
+			if (ModrinthPack.REDSTONE.status() == ModrinthPack.Status.DOWNLOADING) return false;
+			return check("le pack Redstone Tweaks est téléchargé et activé (" + ModrinthPack.REDSTONE.status() + ")", ModrinthPack.REDSTONE.active());
 		});
 		add("capture redstone (avec pack)", 40, () -> screenshot(mc, "17e-redstone-pack"));
 		add("pack redstone retiré", 2, () -> {
@@ -699,7 +701,18 @@ public final class SelfTest {
 			REPLACED.clear();
 			return click(mc, "redstonePack");
 		});
-		add("pack redstone désactivé", 40, () -> check("l'interrupteur retire le pack", !RedstonePack.active()));
+		add("pack redstone désactivé", 40, () -> check("l'interrupteur retire le pack", !ModrinthPack.REDSTONE.active()));
+		add("pack Enchant Icons activé", 2, () -> click(mc, "enchantIconsPack"));
+		add("pack Enchant Icons téléchargé", 200, () -> {
+			ModrinthPack.Status status = ModrinthPack.ENCHANT_ICONS.status();
+			if (status == ModrinthPack.Status.DOWNLOADING) return false;
+			// Version du jeu que le pack ne gère pas encore : l'interrupteur doit le dire, sans rien activer
+			if (status == ModrinthPack.Status.UNAVAILABLE) return check("Enchant Icons absent pour cette version : signalé", !ModrinthPack.ENCHANT_ICONS.active());
+			return check("le pack Enchant Icons est téléchargé et activé (" + status + ")", ModrinthPack.ENCHANT_ICONS.active());
+		});
+		add("capture Enchant Icons", 40, () -> screenshot(mc, "17f-enchant-icons"));
+		add("pack Enchant Icons retiré", 2, () -> !ModrinthPack.ENCHANT_ICONS.active() || click(mc, "enchantIconsPack"));
+		add("pack Enchant Icons désactivé", 40, () -> check("l'interrupteur retire Enchant Icons", !ModrinthPack.ENCHANT_ICONS.active()));
 		add("de l'eau sur la tête", 2, () -> {
 			visual().fullbright = false;
 			command(mc, "time set noon");
