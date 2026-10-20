@@ -1,7 +1,7 @@
 {
   "name": "aloria",
   "productName": "Aloria",
-  "version": "0.1.36",
+  "version": "0.1.37",
   "description": "Aloria — launcher Minecraft personnalisé",
   "main": "./out/main/index.js",
   "author": "Alykell",
