@@ -1,12 +1,12 @@
 import { existsSync } from 'node:fs'
-import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import AdmZip from 'adm-zip'
 import { downloadAll } from './game/download'
 import { paths } from './game/paths'
 import { loadVersion, resolveVersionId } from './game/versions'
-import { gameDirOf, getProfile } from './profiles'
+import { gameDirOf, getProfile, listProfiles } from './profiles'
 import type { PackElement, PackInfo, PackLayout, PackVanilla } from '../shared/types'
 import { tm } from './i18n'
 
@@ -53,6 +53,11 @@ const packDir = (id: string) => join(PACKS, id)
 const infoFile = (id: string) => join(packDir(id), 'pack.json')
 const dataUrl = (buf: Buffer) => `data:image/png;base64,${buf.toString('base64')}`
 const fromDataUrl = (url: string) => Buffer.from(url.replace(/^data:image\/png;base64,/, ''), 'base64')
+const fileNameOf = (name: string, id: string) => `Aloria - ${name.replace(/[\\/:*?"<>|]/g, '').trim() || id}.zip`
+
+type StoredInfo = Omit<PackInfo, 'images'>
+const readInfo = async (id: string) => JSON.parse(await readFile(infoFile(id), 'utf8')) as StoredInfo
+const writeInfo = (info: StoredInfo) => writeFile(infoFile(info.id), JSON.stringify(info, null, 2))
 
 export async function listPacks(): Promise<PackInfo[]> {
   if (!existsSync(PACKS)) return []
@@ -85,11 +90,32 @@ export async function createPack(name: string): Promise<PackInfo> {
   return getPack(id)
 }
 
+/** Renomme le pack, et son fichier dans les profils où il est installé (la liste des packs actifs suit) */
 export async function renamePack(id: string, name: string): Promise<void> {
-  const info = JSON.parse(await readFile(infoFile(id), 'utf8')) as PackInfo
+  const info = await readInfo(id)
   info.name = name.trim() || info.name
   info.updatedAt = Date.now()
-  await writeFile(infoFile(id), JSON.stringify(info, null, 2))
+  const fileName = fileNameOf(info.name, id)
+  for (const [profileId, old] of Object.entries(installedIn(info))) {
+    if (old === fileName) continue
+    const dir = join(gameDirOf(profileId), 'resourcepacks')
+    if (existsSync(join(dir, old))) await rename(join(dir, old), join(dir, fileName))
+    await editPackList(gameDirOf(profileId), (packs) => packs.map((p) => (p === `file/${old}` ? `file/${fileName}` : p === old ? fileName : p)))
+    info.installed = { ...info.installed, [profileId]: fileName }
+  }
+  await writeInfo(info)
+}
+
+/**
+ * Profils où le pack est installé : ceux notés, plus (packs installés avant ce suivi) ceux qui ont un fichier à son nom
+ */
+function installedIn(info: StoredInfo): Record<string, string> {
+  const found: Record<string, string> = { ...info.installed }
+  const legacy = fileNameOf(info.name, info.id)
+  for (const p of listProfiles().profiles) {
+    if (!found[p.id] && existsSync(join(gameDirOf(p.id), 'resourcepacks', legacy))) found[p.id] = legacy
+  }
+  return found
 }
 
 /** Résolution du pack (les images ont déjà été redimensionnées par l'interface) */
@@ -100,7 +126,15 @@ export async function setPackScale(id: string, scale: number): Promise<void> {
   await writeFile(infoFile(id), JSON.stringify(info, null, 2))
 }
 
+/** Supprime le pack, et ses copies dans les profils (fichier et ligne de la liste des packs actifs) */
 export async function deletePack(id: string): Promise<void> {
+  const info = await readInfo(id).catch(() => null)
+  if (info) {
+    for (const [profileId, file] of Object.entries(installedIn(info))) {
+      await rm(join(gameDirOf(profileId), 'resourcepacks', file), { force: true })
+      await editPackList(gameDirOf(profileId), (packs) => packs.filter((p) => p !== `file/${file}` && p !== file))
+    }
+  }
   await rm(packDir(id), { recursive: true, force: true })
 }
 
@@ -198,11 +232,42 @@ export async function installPack(packId: string, profileId: string, files: Reco
   for (const [path, image] of Object.entries(files)) out.addFile(path, fromDataUrl(image))
 
   const gameDir = gameDirOf(profileId)
-  const fileName = `Aloria - ${pack.name.replace(/[\\/:*?"<>|]/g, '').trim() || pack.id}.zip`
+  const fileName = fileNameOf(pack.name, pack.id)
   await mkdir(join(gameDir, 'resourcepacks'), { recursive: true })
+  // Installé sous un autre nom avant (pack renommé) : l'ancien fichier part
+  const info = await readInfo(packId)
+  const previous = info.installed?.[profileId]
+  if (previous && previous !== fileName) {
+    await rm(join(gameDir, 'resourcepacks', previous), { force: true })
+    await editPackList(gameDir, (packs) => packs.filter((p) => p !== `file/${previous}` && p !== previous))
+  }
   await writeFile(join(gameDir, 'resourcepacks', fileName), out.toBuffer())
   await enablePack(gameDir, fileName, major)
+  await writeInfo({ ...info, installed: { ...info.installed, [profileId]: fileName } })
   return fileName
+}
+
+/** Modifie les listes resourcePacks et incompatibleResourcePacks d'options.txt (s'il existe) */
+async function editPackList(gameDir: string, edit: (packs: string[]) => string[]): Promise<void> {
+  const file = join(gameDir, 'options.txt')
+  if (!existsSync(file)) return
+  const lines = (await readFile(file, 'utf8')).split(/\r?\n/)
+  let changed = false
+  for (const key of ['resourcePacks:', 'incompatibleResourcePacks:']) {
+    const i = lines.findIndex((l) => l.startsWith(key))
+    if (i < 0) continue
+    try {
+      const before = JSON.parse(lines[i].slice(key.length)) as string[]
+      const after = edit(before)
+      if (JSON.stringify(after) !== JSON.stringify(before)) {
+        lines[i] = `${key}${JSON.stringify(after)}`
+        changed = true
+      }
+    } catch {
+      // Ligne illisible : laissée telle quelle
+    }
+  }
+  if (changed) await writeFile(file, lines.join('\n'))
 }
 
 /** Ajoute le pack à la liste des packs actifs d'options.txt (en dernier : priorité la plus haute) */

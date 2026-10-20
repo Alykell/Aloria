@@ -101,12 +101,17 @@ export function markPlayed(id: string): void {
 
 /** Supprime le profil ; son dossier (mondes, mods…) part dans la corbeille si demandé. */
 export async function deleteProfile(id: string, deleteFiles: boolean): Promise<void> {
+  if (load().profiles.length <= 1) throw new Error(tm('err.lastProfile'))
+  // Les fichiers d'abord : s'ils ne partent pas (jeu ouvert, fichier verrouillé), le profil reste, sans dossier orphelin
+  if (deleteFiles && existsSync(gameDirOf(id))) {
+    await shell.trashItem(gameDirOf(id)).catch(() => {
+      throw new Error(tm('err.profileFilesBusy'))
+    })
+  }
   const store = load()
-  if (store.profiles.length <= 1) throw new Error(tm('err.lastProfile'))
   store.profiles = store.profiles.filter((p) => p.id !== id)
   if (store.selectedId === id) store.selectedId = store.profiles[0].id
   save(store)
-  if (deleteFiles && existsSync(gameDirOf(id))) await shell.trashItem(gameDirOf(id))
 }
 
 export async function openProfileFolder(id: string): Promise<void> {

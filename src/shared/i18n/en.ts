@@ -569,6 +569,7 @@ export const en: Record<keyof typeof fr, string> = {
   'err.unknownElement': 'Unknown element: {element}',
   'err.gameMissing': 'Game not found for Minecraft {version}.',
   'err.profileMissing': 'Profile not found.',
+  'err.profileFilesBusy': "The profile folder couldn't be moved to the recycle bin: close the game (and any windows open in that folder), then try again.",
   'err.lastProfile': 'You need to keep at least one profile.',
   'err.mainPreset': '“My settings” can\'t be deleted.',
   'err.presetMissing': 'Settings set not found.',

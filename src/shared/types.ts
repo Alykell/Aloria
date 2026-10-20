@@ -31,6 +31,8 @@ export interface PackInfo {
   scale: number
   /** Images personnalisées (data URL PNG) ; absente = celle du jeu */
   images: Partial<Record<PackElement, string>>
+  /** Profils où il est installé → nom du fichier dans leur resourcepacks/ (absent : installé avant ce suivi) */
+  installed?: Record<string, string>
 }
 
 /** « sprites » : une image par élément (1.20.2+) ; « atlas » : planches icons.png / widgets.png */

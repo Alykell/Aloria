@@ -8,6 +8,7 @@ import { resolveVersionId } from './game/versions'
 import { clientJar } from './packs'
 import { gameData, jsonFiles, RECIPE_TYPES, recipeFormat, type RecipeFormat } from './gameData'
 import { gameDirOf, getProfile } from './profiles'
+import { syncDatapacks } from './game/datapacks'
 import { tm } from './i18n'
 import type { DatapackCreation, Recipe, RecipeIngredient } from '../shared/types'
 
@@ -62,7 +63,10 @@ export async function saveDatapack(next: DatapackCreation): Promise<DatapackCrea
   const dp: DatapackCreation = { ...prev, name: next.name.trim() || prev.name, gameVersion: next.gameVersion, recipes: next.recipes, removed: next.removed ?? [], updatedAt: Date.now() }
   for (const profileId of Object.keys(dp.installed)) {
     try {
-      dp.installed[profileId] = (await writeToProfile(dp, profileId, dp.installed[profileId])).fileName
+      const previous = dp.installed[profileId]
+      dp.installed[profileId] = (await writeToProfile(dp, profileId, previous)).fileName
+      // Renommé : l'ancien nom quitte aussi les mondes
+      if (previous !== dp.installed[profileId]) await refreshWorlds(profileId)
     } catch {
       // Profil supprimé entre-temps : on l'oublie
       delete dp.installed[profileId]
@@ -72,8 +76,18 @@ export async function saveDatapack(next: DatapackCreation): Promise<DatapackCrea
   return dp
 }
 
+/** Mondes du profil remis à jour tout de suite (sinon au prochain lancement) : datapack ajouté, renommé ou retiré */
+const refreshWorlds = (profileId: string) => syncDatapacks(gameDirOf(profileId)).catch(() => {})
+
+/** Supprime le datapack et ses copies : dans chaque profil où il est installé, et dans leurs mondes */
 export async function deleteDatapack(id: string): Promise<void> {
-  // Le zip reste dans les profils (comme les packs de textures) : le joueur peut le retirer dans la Bibliothèque
+  const dp = await getDatapack(id).catch(() => null)
+  for (const [profileId, name] of Object.entries(dp?.installed ?? {})) {
+    const dir = join(gameDirOf(profileId), 'datapacks')
+    await rm(join(dir, name), { force: true })
+    await rm(join(dir, `${name}.disabled`), { force: true })
+    await refreshWorlds(profileId)
+  }
   await rm(file(id), { force: true })
 }
 
@@ -95,6 +109,7 @@ export async function installDatapack(id: string, profileId: string, install: bo
     delete dp.installed[profileId]
   }
   await writeFile(file(dp.id), JSON.stringify(dp, null, 2))
+  await refreshWorlds(profileId)
   return { dp, skipped }
 }
 

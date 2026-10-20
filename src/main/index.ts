@@ -15,7 +15,8 @@ import { exportProfile, importInstance } from './instances'
 import { installModpack, modpackVersions, previewModpack } from './modrinth/modpack'
 import { createPreset, deletePreset, getPreset, listPresets, MAIN_PRESET, renamePreset, updatePresetOptions } from './shared/presets'
 import { gameLangOf, translate, type Lang, type MessageKey } from '../shared/i18n'
-import { createProfile, deleteProfile, gameDirOf, listProfiles, openProfileFolder, selectProfile, updateProfile } from './profiles'
+import { createProfile, deleteProfile, gameDirOf, getProfile, listProfiles, openProfileFolder, selectProfile, updateProfile } from './profiles'
+import { resolveVersionId } from './game/versions'
 import { getSettings, systemRamMb, updateSettings } from './settings'
 import { getUpdateStatus, initUpdater, installUpdate } from './updater'
 import { initDiscord, refreshDiscord } from './discord'
@@ -462,6 +463,51 @@ app.whenReady().then(() => {
       } catch (err) {
         console.log('[game] erreur', err)
       }
+    })
+  }
+  // Test du ménage des créations : ALORIA_TEST_CLEANUP=<profil> installe un datapack et un pack de textures dans ce profil
+  // (et ses mondes), les renomme puis les supprime : plus aucun fichier ne doit rester (journal [cleanup-test])
+  if (!app.isPackaged && process.env.ALORIA_TEST_CLEANUP) {
+    win.webContents.once('did-finish-load', async () => {
+      const profileId = process.env.ALORIA_TEST_CLEANUP!
+      const log = (...args: unknown[]) => console.log('[cleanup-test]', ...args)
+      const { readdir, readFile } = await import('node:fs/promises')
+      const { syncDatapacks } = await import('./game/datapacks')
+      const gameDir = gameDirOf(profileId)
+      // Fichiers « Aloria - Ménage… » restants : profil, mondes, liste des packs actifs
+      const leftovers = async () => {
+        const found: string[] = []
+        const scan = async (dir: string) => found.push(...(await readdir(dir).catch(() => [] as string[])).filter((f) => f.includes('Ménage')).map((f) => join(dir, f)))
+        await scan(join(gameDir, 'datapacks'))
+        await scan(join(gameDir, 'resourcepacks'))
+        for (const w of await readdir(join(gameDir, 'saves')).catch(() => [] as string[])) await scan(join(gameDir, 'saves', w, 'datapacks'))
+        const options = await readFile(join(gameDir, 'options.txt'), 'utf8').catch(() => '')
+        if (options.includes('Ménage')) found.push('options.txt')
+        return found
+      }
+      try {
+        const dp = await createDatapack('Ménage A', (await resolveVersionId(getProfile(profileId).versionId)))
+        await installDatapack(dp.id, profileId, true)
+        await syncDatapacks(gameDir)
+        log('datapack installé :', (await leftovers()).length, 'fichier(s)')
+        await saveDatapack({ ...(await listDatapacks()).find((d) => d.id === dp.id)!, name: 'Ménage B' })
+        log('datapack renommé :', (await leftovers()).map((f) => f.split(/[\\/]/).slice(-3).join('/')).join(' | '))
+        await deleteDatapack(dp.id)
+        log('datapack supprimé → restes :', (await leftovers()).length)
+
+        const pack = await createPack('Ménage A')
+        await installPack(pack.id, profileId, {})
+        log('pack installé :', (await leftovers()).length, 'fichier(s)')
+        await renamePack(pack.id, 'Ménage B')
+        log('pack renommé :', (await leftovers()).map((f) => f.split(/[\\/]/).slice(-2).join('/')).join(' | '))
+        await deletePack(pack.id)
+        const rest = await leftovers()
+        log('pack supprimé → restes :', rest.length, rest.join(' | '))
+        log(rest.length === 0 ? 'OK' : 'ÉCHEC')
+      } catch (err) {
+        log('erreur', err)
+      }
+      app.quit()
     })
   }
   // Test des recettes en développement : ALORIA_TEST_RECIPES="1.16.5,26.3" lit les items de chaque version et écrit un datapack

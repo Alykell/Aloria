@@ -567,6 +567,7 @@ export const fr = {
   'err.unknownElement': 'Élément inconnu : {element}',
   'err.gameMissing': 'Jeu introuvable pour Minecraft {version}.',
   'err.profileMissing': 'Profil introuvable.',
+  'err.profileFilesBusy': "Le dossier du profil n'a pas pu aller à la corbeille : ferme le jeu (et les fenêtres ouvertes dans ce dossier), puis réessaie.",
   'err.lastProfile': 'Il faut garder au moins un profil.',
   'err.mainPreset': '« Mes réglages » ne peut pas être supprimé.',
   'err.presetMissing': 'Jeu de réglages introuvable.',
