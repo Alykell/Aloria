@@ -7,12 +7,13 @@ import { createDatapack, deleteDatapack, exportDatapack, installDatapack, listDa
 import { gameData } from './gameData'
 import { createPack, deletePack, installPack, listPacks, packVanilla, renamePack, savePackImage, setPackScale } from './packs'
 import { cancelLaunch, getStatus, isGameRunning, listVersions, play, stopGame } from './game/controller'
+import { checkMods, fixMods } from './game/modCheck'
 import { fabricLoaders } from './game/fabric'
 import { forgeLoaders } from './game/forge'
 import { neoforgeLoaders } from './game/neoforge'
 import { addOptiFine, importFiles, installContent, listInstalled, openContentFolder, removeContent, searchContent, setContentEnabled } from './modrinth/content'
 import { exportProfile, importInstance } from './instances'
-import { installModpack, modpackVersions, previewModpack } from './modrinth/modpack'
+import { installModpack, modpackUpdate, modpackVersions, previewModpack, updateModpack } from './modrinth/modpack'
 import { createPreset, deletePreset, getPreset, listPresets, MAIN_PRESET, renamePreset, updatePresetOptions } from './shared/presets'
 import { gameLangOf, translate, type Lang, type MessageKey } from '../shared/i18n'
 import { createProfile, deleteProfile, gameDirOf, getProfile, listProfiles, migrateProfileDirs, openProfileFolder, selectProfile, updateProfile } from './profiles'
@@ -51,7 +52,8 @@ import type {
   ServerInput,
   ServerPlayerAction,
   Settings,
-  VersionEntry
+  VersionEntry,
+  ModCheck
 } from '../shared/types'
 import { tm } from './i18n'
 
@@ -158,6 +160,9 @@ ipcMain.handle('game:versions', async (_e, snapshots: boolean): Promise<Result<V
 ipcMain.handle('game:status', () => getStatus())
 ipcMain.handle('game:cancel', () => cancelLaunch())
 ipcMain.handle('game:stop', (_e, profileId: string) => stopGame(profileId))
+// Mods qui en demandent d'autres absents du profil : vérifiés avant le lancement, réparés si le joueur le veut
+ipcMain.handle('game:checkMods', (_e, profileId: string) => wrap(() => checkMods(profileId)))
+ipcMain.handle('game:fixMods', (_e, profileId: string, check: ModCheck, disableOnly: boolean) => wrap(() => fixMods(profileId, check, disableOnly)))
 ipcMain.handle('game:play', async (e, profileId: string, join?: JoinTarget): Promise<Result<null>> => {
   try {
     await play(e.sender, profileId, join)
@@ -281,6 +286,25 @@ ipcMain.handle('modpacks:versions', (_e, projectId: string) => wrap(() => modpac
 ipcMain.handle('modpacks:preview', (_e, source: ModpackSource) => wrap(() => previewModpack(source)))
 ipcMain.handle('modpacks:install', (e, source: ModpackSource) =>
   wrap(() => installModpack(source, (p) => !e.sender.isDestroyed() && e.sender.send('modpacks:progress', p)))
+)
+// Mise à jour du modpack d'un profil : nouvelle version Modrinth, ou fichier .mrpack choisi par le joueur
+ipcMain.handle('modpacks:checkUpdate', (_e, profileId: string) => wrap(() => modpackUpdate(profileId)))
+ipcMain.handle('modpacks:pickFile', async (e) => {
+  const win = BrowserWindow.fromWebContents(e.sender)
+  const options = {
+    title: tm('dialog.pickModpack'),
+    defaultPath: app.getPath('downloads'),
+    filters: [{ name: tm('dialog.pickModpackFilter'), extensions: ['mrpack'] }],
+    properties: ['openFile' as const]
+  }
+  const res = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
+  return res.canceled ? null : (res.filePaths[0] ?? null)
+})
+ipcMain.handle('modpacks:update', (e, profileId: string, source: ModpackSource) =>
+  wrap(async () => {
+    if (getStatus().running.some((r) => r.profileId === profileId)) throw new Error(tm('err.modpackRunning'))
+    return updateModpack(profileId, source, (p) => !e.sender.isDestroyed() && e.sender.send('modpacks:progress', p))
+  })
 )
 ipcMain.handle('library:openFolder', async (_e, profileId: string, type: ContentType) => {
   await shell.openPath(await openContentFolder(profileId, type))
@@ -527,6 +551,116 @@ app.whenReady().then(() => {
         log(rest.length === 0 ? 'OK' : 'ÉCHEC')
       } catch (err) {
         log('erreur', err)
+      }
+      app.quit()
+    })
+  }
+  // Test de la mise à jour des modpacks (avec ALORIA_ROOT=<.aloria de test>) : ALORIA_TEST_MODPACK=<projet Modrinth> installe
+  // l'avant-dernière version, désactive un mod, modifie une config, ajoute un mod à la main et oublie aloria-modpack.json (profil
+  // d'avant), puis met à jour : le mod reste désactivé, la config et le mod ajouté restent, aucun doublon (journal [modpack-test])
+  if (!app.isPackaged && process.env.ALORIA_TEST_MODPACK && process.env.ALORIA_ROOT) {
+    win.webContents.once('did-finish-load', async () => {
+      const log = (...args: unknown[]) => console.log('[modpack-test]', ...args)
+      const { readdir, readFile, rename, rm, writeFile } = await import('node:fs/promises')
+      const { existsSync: exists } = await import('node:fs')
+      const { modpackVersions } = await import('./modrinth/modpack')
+      const projectId = process.env.ALORIA_TEST_MODPACK!
+      try {
+        const versions = (await modpackVersions(projectId)).filter((v) => v.supported && v.stable)
+        const [latest, previous] = versions
+        log('versions :', previous.versionNumber, '→', latest.versionNumber)
+        const profile = await installModpack({ kind: 'modrinth', projectId, versionId: previous.id }, () => {})
+        const gameDir = gameDirOf(profile.id)
+        const mods = join(gameDir, 'mods')
+        const index = JSON.parse(await readFile(join(gameDir, 'aloria-content.json'), 'utf8')) as Record<string, { projectId?: string }>
+        const disabled = Object.keys(index).find((f) => f.endsWith('.jar'))!
+        await rename(join(mods, disabled), join(mods, disabled + '.disabled'))
+        await writeFile(join(mods, 'ajout-a-la-main.jar'), 'test')
+        const configs = await readdir(join(gameDir, 'config')).catch(() => [] as string[])
+        const config = configs.find((f) => f.endsWith('.json') || f.endsWith('.toml') || f.endsWith('.properties'))
+        if (config) await writeFile(join(gameDir, 'config', config), 'modifié par le joueur')
+        await rm(join(gameDir, 'aloria-modpack.json'))
+        log('installé :', (await readdir(mods)).length, 'fichiers dans mods ; désactivé :', disabled, '; config modifiée :', config ?? '(aucune)')
+
+        const found = await modpackUpdate(profile.id)
+        log('nouvelle version trouvée :', found?.versionNumber ?? 'AUCUNE')
+        const updated = await updateModpack(profile.id, { kind: 'modrinth', projectId, versionId: latest.id }, () => {})
+        const after = await readdir(mods)
+        const newIndex = JSON.parse(await readFile(join(gameDir, 'aloria-content.json'), 'utf8')) as Record<string, { projectId?: string }>
+        const disabledProject = index[disabled].projectId
+        const disabledNow = after.filter((f) => f.endsWith('.disabled') && newIndex[f.replace(/\.disabled$/, '')]?.projectId === disabledProject)
+        const byProject = new Map<string, number>()
+        for (const f of after) {
+          const id = newIndex[f.replace(/\.disabled$/, '')]?.projectId
+          if (id) byProject.set(id, (byProject.get(id) ?? 0) + 1)
+        }
+        const doubles = [...byProject].filter(([, n]) => n > 1)
+        const configKept = !config || (await readFile(join(gameDir, 'config', config), 'utf8')) === 'modifié par le joueur'
+        const checks = {
+          profil: updated.modpack?.versionId === latest.id && updated.versionId === latest.gameVersions[0],
+          desactiveGarde: disabledNow.length === 1 || !after.some((f) => newIndex[f.replace(/\.disabled$/, '')]?.projectId === disabledProject),
+          ajoutGarde: after.includes('ajout-a-la-main.jar'),
+          configGardee: configKept,
+          sansDoublon: doubles.length === 0,
+          manifeste: exists(join(gameDir, 'aloria-modpack.json')),
+          aJour: (await modpackUpdate(profile.id)) === null
+        }
+        log('après :', after.length, 'fichiers ; Minecraft', updated.versionId, '; désactivé :', disabledNow.join(', ') || '(mod retiré par le modpack)')
+        log(JSON.stringify(checks))
+        log(Object.values(checks).every(Boolean) ? 'OK' : 'ÉCHEC')
+        await deleteProfile(profile.id, true)
+      } catch (err) {
+        log('erreur', err)
+      }
+      app.quit()
+    })
+  }
+  // Test de la vérification des mods (avec ALORIA_ROOT=<.aloria de test>) : ALORIA_TEST_MODCHECK="fabric:1.21.1,neoforge:1.21.1"
+  // installe REI (qui demande Architectury et Cloth Config), supprime une dépendance et en désactive une autre, puis vérifie,
+  // répare et revérifie : plus rien ne doit manquer (journal [modcheck-test])
+  if (!app.isPackaged && process.env.ALORIA_TEST_MODCHECK && process.env.ALORIA_ROOT) {
+    win.webContents.once('did-finish-load', async () => {
+      const log = (...args: unknown[]) => console.log('[modcheck-test]', ...args)
+      const { rm, rename } = await import('node:fs/promises')
+      const { listInstalled } = await import('./modrinth/content')
+      for (const spec of process.env.ALORIA_TEST_MODCHECK!.split(',').filter(Boolean)) {
+        const [loader, versionId] = spec.split(':') as [Profile['loader'], string]
+        // « modpack:<projet> » : un modpack complet qui marche, la vérification ne doit rien trouver
+        if (loader === ('modpack' as string)) {
+          try {
+            const { modpackVersions } = await import('./modrinth/modpack')
+            const version = (await modpackVersions(versionId)).find((v) => v.supported)!
+            const profile = await installModpack({ kind: 'modrinth', projectId: versionId, versionId: version.id }, () => {})
+            const started = Date.now()
+            const check = await checkMods(profile.id)
+            log(spec, `${profile.loader} ${profile.versionId}, vérification (${Date.now() - started} ms) :`, check ? JSON.stringify(check.missing.map((m) => [m.id, m.requiredBy.map((r) => r.title)])) : 'rien ne manque')
+            log(spec, check ? 'ÉCHEC' : 'OK')
+            await deleteProfile(profile.id, true)
+          } catch (err) {
+            log(spec, 'erreur', err)
+          }
+          continue
+        }
+        try {
+          const profile = createProfile({ name: `Test mods ${loader}`, icon: '🧪', versionId, loader, loaderVersion: null, ramMb: null })
+          await installContent(profile.id, 'rei', 'mod')
+          const mods = join(gameDirOf(profile.id), 'mods')
+          const deps = (await listInstalled(profile.id)).filter((m) => m.auto)
+          log(spec, 'installé :', (await listInstalled(profile.id)).map((m) => m.title).join(', '))
+          if (deps[0]) await rm(join(mods, deps[0].fileName))
+          if (deps[1]) await rename(join(mods, deps[1].fileName), join(mods, deps[1].fileName + '.disabled'))
+          let started = Date.now()
+          const check = await checkMods(profile.id)
+          log(spec, `vérification (${Date.now() - started} ms) :`, JSON.stringify(check?.missing.map((m) => ({ id: m.id, par: m.requiredBy.map((r) => r.title), fix: m.fix.kind === 'none' ? 'aucune' : `${m.fix.kind} ${m.fix.title}` }))))
+          if (check) await fixMods(profile.id, check, false)
+          started = Date.now()
+          const after = await checkMods(profile.id)
+          log(spec, `après réparation (${Date.now() - started} ms) :`, after ? JSON.stringify(after.missing.map((m) => m.id)) : 'rien ne manque')
+          log(spec, check && check.missing.every((m) => m.fix.kind !== 'none') && !after ? 'OK' : 'ÉCHEC')
+          await deleteProfile(profile.id, true)
+        } catch (err) {
+          log(spec, 'erreur', err)
+        }
       }
       app.quit()
     })

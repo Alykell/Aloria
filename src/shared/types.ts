@@ -253,6 +253,20 @@ export interface GameExit {
   crashLog: string | null
 }
 
+/** Mod demandé par d'autres mods du profil mais absent (identifiant du chargeur : « fabric-api », « architectury »…) */
+export interface MissingMod {
+  id: string
+  /** Mods activés qui en ont besoin */
+  requiredBy: { fileName: string; title: string }[]
+  /** Réparation proposée : l'installer depuis Modrinth, réactiver le fichier désactivé, sinon rien (désactiver ceux qui le demandent) */
+  fix: { kind: 'install'; projectId: string; title: string; iconUrl: string | null } | { kind: 'enable'; fileName: string; title: string } | { kind: 'none' }
+}
+
+/** Vérification des mods avant le lancement */
+export interface ModCheck {
+  missing: MissingMod[]
+}
+
 export type Loader = 'vanilla' | 'fabric' | 'forge' | 'neoforge'
 
 export interface LoaderVersion {

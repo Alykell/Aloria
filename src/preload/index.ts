@@ -10,6 +10,7 @@ import type {
   ModpackPreview,
   ModpackProgress,
   ModpackSource,
+  ModCheck,
   ModpackVersion,
   GameExit,
   InstalledContent,
@@ -121,6 +122,11 @@ const api = {
     versions: (projectId: string): Promise<Result<ModpackVersion[]>> => ipcRenderer.invoke('modpacks:versions', projectId),
     preview: (source: ModpackSource): Promise<Result<ModpackPreview>> => ipcRenderer.invoke('modpacks:preview', source),
     install: (source: ModpackSource): Promise<Result<Profile>> => ipcRenderer.invoke('modpacks:install', source),
+    /** Nouvelle version du modpack d'un profil (null : à jour, ou modpack venu d'un fichier) */
+    checkUpdate: (profileId: string): Promise<Result<ModpackVersion | null>> => ipcRenderer.invoke('modpacks:checkUpdate', profileId),
+    /** Fichier .mrpack choisi par le joueur, null si annulé */
+    pickFile: (): Promise<string | null> => ipcRenderer.invoke('modpacks:pickFile'),
+    update: (profileId: string, source: ModpackSource): Promise<Result<Profile>> => ipcRenderer.invoke('modpacks:update', profileId, source),
     onProgress: (cb: (p: ModpackProgress) => void) => subscribe('modpacks:progress', cb)
   },
   skins: {
@@ -227,6 +233,10 @@ const api = {
     stop: (profileId: string): Promise<void> => ipcRenderer.invoke('game:stop', profileId),
     /** `join` : serveur à rejoindre dès l'ouverture du jeu */
     play: (profileId: string, join?: JoinTarget): Promise<Result<null>> => ipcRenderer.invoke('game:play', profileId, join),
+    /** Mods demandés par d'autres mais absents (null : tout est là) */
+    checkMods: (profileId: string): Promise<Result<ModCheck | null>> => ipcRenderer.invoke('game:checkMods', profileId),
+    fixMods: (profileId: string, check: ModCheck, disableOnly: boolean): Promise<Result<void>> =>
+      ipcRenderer.invoke('game:fixMods', profileId, check, disableOnly),
     fabricLoaders: (gameVersion: string): Promise<Result<LoaderVersion[]>> => ipcRenderer.invoke('fabric:loaders', gameVersion),
     forgeLoaders: (gameVersion: string): Promise<Result<LoaderVersion[]>> => ipcRenderer.invoke('forge:loaders', gameVersion),
     neoforgeLoaders: (gameVersion: string): Promise<Result<LoaderVersion[]>> => ipcRenderer.invoke('neoforge:loaders', gameVersion),

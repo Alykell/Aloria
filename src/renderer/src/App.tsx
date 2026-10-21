@@ -7,6 +7,7 @@ import LibraryPage from './components/LibraryPage'
 import SettingsPage from './components/SettingsPage'
 import GameSettingsPage from './components/GameSettingsPage'
 import CrashDialog from './components/CrashDialog'
+import ModCheckDialog from './components/ModCheckDialog'
 import { useAccounts } from './hooks/useAccounts'
 import { useSettings } from './hooks/useSettings'
 import { useGame } from './hooks/useGame'
@@ -118,6 +119,14 @@ export default function App() {
         </main>
       </div>
       {skinOpen && accounts.active && <SkinDialog uuid={accounts.active.uuid} onClose={() => setSkinOpen(false)} onError={setPageError} />}
+      {game.modCheck && (
+        <ModCheckDialog
+          check={game.modCheck.check}
+          profileName={profiles.profiles.find((p) => p.id === game.modCheck!.profileId)?.name ?? ''}
+          onChoose={game.resolveMods}
+          onClose={game.closeModCheck}
+        />
+      )}
       {game.crash && <CrashDialog exit={game.crash} profileId={game.crash.profileId} onClose={game.clearCrash} />}
       {settings.settings && !lang && <LanguagePicker onChoose={(language) => settings.update({ language })} />}
     </div>

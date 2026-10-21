@@ -91,5 +91,7 @@ export const versionsByHash = (sha1: string[]) =>
 
 export const getProjects = (ids: string[]) => get<ModrinthProject[]>('/projects', { ids })
 
+export const getVersions = (ids: string[]) => get<ModrinthVersion[]>('/versions', { ids })
+
 export const listVersions = (projectId: string, loaders: string[] | undefined, gameVersions: string[] | undefined) =>
   get<ModrinthVersion[]>(`/project/${encodeURIComponent(projectId)}/version`, { loaders, game_versions: gameVersions })

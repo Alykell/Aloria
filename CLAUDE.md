@@ -66,6 +66,14 @@ toujours via `gameDirOf(id)` ; profils de test : `instances/<id>`. En développe
 - Auto-tests : `selftestneo1211` (NeoForge 1.21.1), `selftestforge1201` (Forge 1.20.1), en démo comme les autres.
 - OptiFine n'est pas redistribuable : le joueur le télécharge, « Ajouter OptiFine » (bibliothèque) le range dans `mods`.
 
+## Modpacks et dépendances
+- Mise à jour d'un modpack (fiche du profil) : `updateModpack` (`src/main/modrinth/modpack.ts`) s'appuie sur `aloria-modpack.json`
+  du profil (fichiers et configs de la version installée, SHA-1) ; sans lui, l'ancienne version est retéléchargée depuis Modrinth.
+  Test : `ALORIA_ROOT=<test> ALORIA_TEST_MODPACK=fabulously-optimized` (journal `[modpack-test]`).
+- Avant chaque lancement, `src/main/game/modCheck.ts` cherche les mods demandés mais absents (fabric.mod.json, mods.toml,
+  neoforge.mods.toml, jars embarqués ; + dépendances Modrinth des mods ajoutés par le joueur, pas ceux d'un modpack).
+  Test : `ALORIA_ROOT=<test> ALORIA_TEST_MODCHECK="fabric:1.21.1,neoforge:1.21.1,modpack:create_plus"` (journal `[modcheck-test]`).
+
 ## Serveurs (page « Serveurs »)
 - `src/main/server/` : `store` (servers.json, `%APPDATA%\.aloria\servers\<id>`), `install` (Vanilla, Fabric, Paper via fill.papermc.io,
   Forge/NeoForge via `--installServer`), `runner` (processus, console, TPS par `/tick query` caché, sauvegardes), `stats` (RAM/CPU),

@@ -1,13 +1,13 @@
 import { app } from 'electron'
 import { existsSync } from 'node:fs'
-import { mkdir, rename, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import AdmZip from 'adm-zip'
 import { inflateRawSync } from 'node:zlib'
 import { createHash } from 'node:crypto'
 import { downloadAll, fetchBytes } from '../game/download'
 import { forgeLoaders } from '../game/forge'
-import { createProfile, deleteProfile, gameDirOf } from '../profiles'
+import { createProfile, deleteProfile, gameDirOf, getProfile, updateProfile } from '../profiles'
 import { forgeSupported, neoforgeSupported } from '../../shared/loaders'
 import { getProject, getProjects, getVersion, listVersions, versionsByHash } from './api'
 import type { ContentType, ModpackEntry, ModpackPreview, ModpackProgress, ModpackSource, ModpackVersion, Profile } from '../../shared/types'
@@ -302,28 +302,9 @@ export async function forgeVersion(gameVersion: string, forge: string): Promise<
   return found.version
 }
 
-/**
- * Installe un modpack dans un nouveau profil : chargeur et version du jeu du modpack, fichiers téléchargés (SHA-1 vérifié),
- * puis overrides copiés par-dessus. En cas d'échec, le profil à moitié installé est supprimé.
- */
-export async function installModpack(source: ModpackSource, report: (p: ModpackProgress) => void): Promise<Profile> {
-  // Au plus une dizaine de messages par seconde vers la fenêtre (le téléchargement en produit des milliers)
-  let last = { step: '', time: 0 }
-  const onProgress = (p: ModpackProgress) => {
-    const now = Date.now()
-    if (p.step === last.step && now - last.time < 100 && p.done < p.total) return
-    last = { step: p.step, time: now }
-    report(p)
-  }
-  onProgress({ step: 'prepare', done: 0, total: 0 })
-  const { zip, index } = await openPack(source, (done, total) => onProgress({ step: 'pack', done, total }))
-  const { loader, loaderVersion, unsupported } = loaderOf(index)
-  if (unsupported) throw new Error(unsupported)
-  const manual = localManual(zip, index)
-  if (manual !== null) throw new Error(manualMessage(manual))
-  const gameVersion = index.dependencies.minecraft
-
-  const files = clientFiles(index)
+/** Adresse de téléchargement autorisée de chaque fichier (refus de tout le modpack si l'un vient d'ailleurs) */
+function downloadUrls(files: MrpackIndex['files']): Map<string, string> {
+  const urls = new Map<string, string>()
   for (const f of files) {
     const url = f.downloads.find((d) => {
       try {
@@ -333,63 +314,263 @@ export async function installModpack(source: ModpackSource, report: (p: ModpackP
       }
     })
     if (!url) throw new Error(tm('err.modpackHost', { file: fileName(f.path) }))
+    urls.set(f.path, url)
   }
+  return urls
+}
 
-  const profile = createProfile({
-    name: index.name,
-    icon: '📦',
-    versionId: gameVersion,
+/** Configs, réglages, packs fournis tels quels, par chemin dans le profil ; client-overrides passe après (propre au jeu) */
+function providedFiles(zip: AdmZip): Map<string, AdmZip.IZipEntry> {
+  const out = new Map<string, AdmZip.IZipEntry>()
+  for (const prefix of OVERRIDES) {
+    for (const entry of zip.getEntries()) {
+      if (!entry.isDirectory && entry.entryName.startsWith(prefix)) out.set(entry.entryName.slice(prefix.length), entry)
+    }
+  }
+  return out
+}
+
+const sha1Of = (data: Buffer) => createHash('sha1').update(data).digest('hex')
+
+async function fileSha1(path: string): Promise<string | null> {
+  try {
+    return sha1Of(await readFile(path))
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Ce qu'une version du modpack a mis dans le profil (fichiers téléchargés et fichiers fournis, avec leur SHA-1),
+ * gardé dans aloria-modpack.json : la mise à jour sait ainsi quoi retirer et quelles configs le joueur a modifiées.
+ */
+interface Manifest {
+  files: Record<string, string>
+  overrides: Record<string, string>
+}
+
+const manifestPath = (gameDir: string) => join(gameDir, 'aloria-modpack.json')
+
+function manifestOf(index: MrpackIndex, zip: AdmZip): Manifest {
+  const overrides: Record<string, string> = {}
+  for (const [path, entry] of providedFiles(zip)) overrides[path] = sha1Of(entry.getData())
+  return { files: Object.fromEntries(clientFiles(index).map((f) => [f.path, f.hashes.sha1])), overrides }
+}
+
+/** Manifeste de la version installée : le fichier du profil, sinon (profils d'avant) la version Modrinth retéléchargée */
+async function installedManifest(profile: Profile): Promise<Manifest | null> {
+  try {
+    return JSON.parse(await readFile(manifestPath(gameDirOf(profile.id)), 'utf8')) as Manifest
+  } catch {
+    const { projectId, versionId } = profile.modpack ?? {}
+    if (!projectId || !versionId) return null
+    const { zip, index } = await openPack({ kind: 'modrinth', projectId, versionId })
+    return manifestOf(index, zip)
+  }
+}
+
+type Known = Awaited<ReturnType<typeof lookup>>
+
+/** Index de la Bibliothèque (aloria-content.json) : nom et icône des fichiers du modpack dans « Installés » */
+async function writeContentIndex(gameDir: string, files: MrpackIndex['files'], known: Known, removed: string[]): Promise<void> {
+  let contentIndex: Record<string, object> = {}
+  try {
+    contentIndex = JSON.parse(await readFile(join(gameDir, 'aloria-content.json'), 'utf8')) as Record<string, object>
+  } catch {
+    // Pas encore d'index
+  }
+  for (const path of removed) delete contentIndex[fileName(path)]
+  for (const f of files) {
+    const type = typeOf(f.path)
+    const info = known.get(f.hashes.sha1)
+    if (type === 'other' || !info || f.path.split('/').length !== 2) continue
+    contentIndex[fileName(f.path)] = { type, ...info }
+  }
+  // Un modpack sans fichier (ou presque) n'a pas encore créé le dossier du profil
+  await mkdir(gameDir, { recursive: true })
+  await writeFile(join(gameDir, 'aloria-content.json'), JSON.stringify(contentIndex, null, 2))
+}
+
+/** Au plus une dizaine de messages par seconde vers la fenêtre (le téléchargement en produit des milliers) */
+function throttled(report: (p: ModpackProgress) => void): (p: ModpackProgress) => void {
+  let last = { step: '', time: 0 }
+  return (p) => {
+    const now = Date.now()
+    if (p.step === last.step && now - last.time < 100 && p.done < p.total) return
+    last = { step: p.step, time: now }
+    report(p)
+  }
+}
+
+/** Ouvre un modpack et vérifie qu'Aloria peut l'installer (chargeur, mods CurseForge, hébergeurs) */
+async function openInstallable(source: ModpackSource, onProgress: (p: ModpackProgress) => void) {
+  onProgress({ step: 'prepare', done: 0, total: 0 })
+  const { zip, index } = await openPack(source, (done, total) => onProgress({ step: 'pack', done, total }))
+  const { loader, loaderVersion, unsupported } = loaderOf(index)
+  if (unsupported) throw new Error(unsupported)
+  const manual = localManual(zip, index)
+  if (manual !== null) throw new Error(manualMessage(manual))
+  const files = clientFiles(index)
+  const gameVersion = index.dependencies.minecraft
+  return {
+    zip,
+    index,
+    files,
+    urls: downloadUrls(files),
+    gameVersion,
     loader: loader as Profile['loader'],
     loaderVersion: loader === 'forge' && loaderVersion ? await forgeVersion(gameVersion, loaderVersion) : loaderVersion,
-    ramMb: null,
     modpack: {
       name: index.name,
       versionNumber: index.versionId,
       ...(source.kind === 'modrinth' ? { projectId: source.projectId, versionId: source.versionId } : {})
     }
+  }
+}
+
+type Pack = Awaited<ReturnType<typeof openInstallable>>
+
+async function downloadFiles(gameDir: string, pack: Pack, files: Pack['files'], onProgress: (p: ModpackProgress) => void) {
+  const tasks = files.map((f) => ({ url: pack.urls.get(f.path)!, path: safeJoin(gameDir, f.path), sha1: f.hashes.sha1, size: f.fileSize }))
+  await downloadAll(tasks, (p) =>
+    onProgress({ step: 'files', done: p.doneBytes, total: p.totalBytes, doneFiles: p.doneFiles, totalFiles: p.totalFiles })
+  )
+}
+
+/**
+ * Installe un modpack dans un nouveau profil : chargeur et version du jeu du modpack, fichiers téléchargés (SHA-1 vérifié),
+ * puis overrides copiés par-dessus. En cas d'échec, le profil à moitié installé est supprimé.
+ */
+export async function installModpack(source: ModpackSource, report: (p: ModpackProgress) => void): Promise<Profile> {
+  const onProgress = throttled(report)
+  const pack = await openInstallable(source, onProgress)
+  const profile = createProfile({
+    name: pack.index.name,
+    icon: '📦',
+    versionId: pack.gameVersion,
+    loader: pack.loader,
+    loaderVersion: pack.loaderVersion,
+    ramMb: null,
+    modpack: pack.modpack
   })
   const gameDir = gameDirOf(profile.id)
 
   try {
-    const tasks = files.map((f) => ({
-      url: f.downloads.find((d) => ALLOWED_HOSTS.includes(new URL(d).hostname))!,
-      path: safeJoin(gameDir, f.path),
-      sha1: f.hashes.sha1,
-      size: f.fileSize
-    }))
-    await downloadAll(tasks, (p) =>
-      onProgress({ step: 'files', done: p.doneBytes, total: p.totalBytes, doneFiles: p.doneFiles, totalFiles: p.totalFiles })
-    )
-
-    // Configs, réglages, packs fournis tels quels ; client-overrides passe après (spécifique au jeu, pas au serveur)
-    const provided = OVERRIDES.flatMap((prefix) =>
-      zip.getEntries().filter((e) => !e.isDirectory && e.entryName.startsWith(prefix)).map((entry) => ({ entry, prefix }))
-    )
+    await downloadFiles(gameDir, pack, pack.files, onProgress)
+    const provided = providedFiles(pack.zip)
     let copied = 0
-    onProgress({ step: 'overrides', done: 0, total: provided.length })
-    for (const { entry, prefix } of provided) {
-      const dest = safeJoin(gameDir, entry.entryName.slice(prefix.length))
+    onProgress({ step: 'overrides', done: 0, total: provided.size })
+    for (const [path, entry] of provided) {
+      const dest = safeJoin(gameDir, path)
       await mkdir(dirname(dest), { recursive: true })
       await writeFile(dest, entry.getData())
-      onProgress({ step: 'overrides', done: ++copied, total: provided.length })
+      onProgress({ step: 'overrides', done: ++copied, total: provided.size })
     }
     onProgress({ step: 'finish', done: 0, total: 0 })
 
     // Bibliothèque : les fichiers du modpack apparaissent avec leur nom et leur icône dans « Installés »
-    const known = await lookup(index)
-    const contentIndex: Record<string, object> = {}
-    for (const f of files) {
-      const type = typeOf(f.path)
-      const info = known.get(f.hashes.sha1)
-      if (type === 'other' || !info || f.path.split('/').length !== 2) continue
-      contentIndex[fileName(f.path)] = { type, ...info }
-    }
-    // Un modpack sans fichier (ou presque) n'a pas encore créé le dossier du profil
-    await mkdir(gameDir, { recursive: true })
-    await writeFile(join(gameDir, 'aloria-content.json'), JSON.stringify(contentIndex, null, 2))
+    await writeContentIndex(gameDir, pack.files, await lookup(pack.index), [])
+    await writeFile(manifestPath(gameDir), JSON.stringify(manifestOf(pack.index, pack.zip)))
   } catch (err) {
     await deleteProfile(profile.id, true).catch(() => {})
     throw err
   }
   return profile
+}
+
+/** Nouvelle version installable du modpack d'un profil (finale, sauf si le joueur suit déjà les bêtas), sinon null */
+export async function modpackUpdate(profileId: string): Promise<ModpackVersion | null> {
+  const modpack = getProfile(profileId).modpack
+  if (!modpack?.projectId || !modpack.versionId) return null
+  const versions = await modpackVersions(modpack.projectId)
+  const current = versions.findIndex((v) => v.id === modpack.versionId)
+  if (current < 0) return null
+  const beta = !versions[current].stable
+  return versions.slice(0, current).find((v) => v.supported && (v.stable || beta)) ?? null
+}
+
+const DISABLED = '.disabled'
+// Fichiers du joueur jamais remplacés quand ils existent déjà et qu'on ne sait pas s'il les a modifiés
+const PLAYER_FILES = ['options.txt', 'servers.dat', 'saves/']
+const isPlayerFile = (path: string) => PLAYER_FILES.some((p) => (p.endsWith('/') ? path.startsWith(p) : path === p))
+
+/**
+ * Passe le profil à une autre version de son modpack : les fichiers que la version installée avait ajoutés et que la
+ * nouvelle n'a plus sont retirés, les nouveaux téléchargés, les configs remplacées sauf celles que le joueur a modifiées.
+ * Mods ajoutés à la main, mondes et réglages restent ; un mod désactivé par le joueur le reste dans sa nouvelle version.
+ */
+export async function updateModpack(profileId: string, source: ModpackSource, report: (p: ModpackProgress) => void): Promise<Profile> {
+  const profile = getProfile(profileId)
+  if (!profile.modpack) throw new Error(tm('err.modpackNotModpack'))
+  const gameDir = gameDirOf(profile.id)
+  const onProgress = throttled(report)
+  const pack = await openInstallable(source, onProgress)
+  const old = await installedManifest(profile)
+  if (!old) throw new Error(tm('err.modpackNoPrevious'))
+
+  // Mods désactivés par le joueur : retrouvés par projet Modrinth (le nom du fichier change d'une version à l'autre)
+  let contentIndex: Record<string, { projectId?: string }> = {}
+  try {
+    contentIndex = JSON.parse(await readFile(join(gameDir, 'aloria-content.json'), 'utf8'))
+  } catch {
+    // Pas d'index : aucun mod connu comme désactivé
+  }
+  const disabledProjects = new Set<string>()
+  for (const path of Object.keys(old.files)) {
+    const projectId = contentIndex[fileName(path)]?.projectId
+    if (projectId && existsSync(safeJoin(gameDir, path) + DISABLED)) disabledProjects.add(projectId)
+  }
+
+  // Fichiers téléchargés : retirés s'ils ont changé ou disparu, puis ceux qui manquent sont téléchargés
+  const wanted = new Map(pack.files.map((f) => [f.path, f.hashes.sha1]))
+  const removed = Object.keys(old.files).filter((path) => wanted.get(path) !== old.files[path])
+  for (const path of removed) {
+    const dest = safeJoin(gameDir, path)
+    await rm(dest, { force: true })
+    await rm(dest + DISABLED, { force: true })
+  }
+  const missing: Pack['files'] = []
+  for (const f of pack.files) {
+    const dest = safeJoin(gameDir, f.path)
+    if ((await fileSha1(dest)) !== f.hashes.sha1 && (await fileSha1(dest + DISABLED)) !== f.hashes.sha1) missing.push(f)
+  }
+  await downloadFiles(gameDir, pack, missing, onProgress)
+
+  // Fichiers fournis : remplacés s'ils sont encore tels que l'ancienne version les avait mis, gardés si le joueur les a changés
+  const provided = providedFiles(pack.zip)
+  let copied = 0
+  onProgress({ step: 'overrides', done: 0, total: provided.size })
+  for (const [path, entry] of provided) {
+    const dest = safeJoin(gameDir, path)
+    const onDisk = await fileSha1(dest)
+    const untouched = onDisk === null || (old.overrides[path] ? onDisk === old.overrides[path] : !isPlayerFile(path))
+    if (untouched) {
+      await mkdir(dirname(dest), { recursive: true })
+      await writeFile(dest, entry.getData())
+    }
+    onProgress({ step: 'overrides', done: ++copied, total: provided.size })
+  }
+  for (const [path, sha1] of Object.entries(old.overrides)) {
+    if (provided.has(path)) continue
+    const dest = safeJoin(gameDir, path)
+    if ((await fileSha1(dest)) === sha1) await rm(dest, { force: true })
+  }
+  onProgress({ step: 'finish', done: 0, total: 0 })
+
+  const known = await lookup(pack.index)
+  for (const f of missing) {
+    const projectId = known.get(f.hashes.sha1)?.projectId
+    if (projectId && disabledProjects.has(projectId)) {
+      const dest = safeJoin(gameDir, f.path)
+      await rename(dest, dest + DISABLED)
+    }
+  }
+  await writeContentIndex(gameDir, pack.files, known, removed)
+  await writeFile(manifestPath(gameDir), JSON.stringify(manifestOf(pack.index, pack.zip)))
+  return updateProfile(profile.id, {
+    versionId: pack.gameVersion,
+    loader: pack.loader,
+    loaderVersion: pack.loaderVersion,
+    modpack: pack.modpack
+  })
 }

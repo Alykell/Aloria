@@ -39,7 +39,7 @@ export default function HomePage({ accounts, profiles, game, onSkin }: Props) {
               <PlayButton
                 status={game.status}
                 profileId={selected?.id ?? null}
-                disabled={!selected}
+                disabled={!selected || game.checking}
                 onPlay={() => selected && game.play(selected.id)}
                 onCancel={game.cancel}
                 onStop={game.stop}

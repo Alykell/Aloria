@@ -140,6 +140,7 @@ export default function ProfilesPage({ profiles, settings, onPlay, onError }: Pr
           defaultRamMb={s.ramMb}
           maxRamMb={maxRamMb}
           onClose={() => setEditing(undefined)}
+          onModpackUpdated={() => profiles.refresh()}
           onSave={async (input) => {
             if (editing) await profiles.update(editing.id, input)
             else await profiles.create(input)

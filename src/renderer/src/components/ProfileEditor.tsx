@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { useVersions } from '../hooks/useVersions'
 import { e4mcSupported, friendsUsable, hudAvailable, hudVersionsLabel } from '../../../shared/aloriaHud'
 import { forgeSupported, neoforgeSupported, prefersForge } from '../../../shared/loaders'
-import type { Loader, LoaderVersion, Profile, ProfileInput, SettingsPreset } from '../../../shared/types'
+import type { Loader, LoaderVersion, ModpackVersion, Profile, ProfileInput, SettingsPreset } from '../../../shared/types'
+import ModpackDialog, { type ModpackTarget } from './ModpackDialog'
 import Select from './Select'
 import { gb, presetName, t } from '../i18n'
 
@@ -16,6 +17,8 @@ interface Props {
   maxRamMb: number
   onSave: (input: ProfileInput) => Promise<void>
   onDelete?: (deleteFiles: boolean) => Promise<void>
+  /** Modpack du profil mis à jour (version du jeu, chargeur et mods changés) */
+  onModpackUpdated?: (profile: Profile) => void
   onClose: () => void
 }
 
@@ -30,7 +33,7 @@ const EMPTY: ProfileInput = {
   ramMb: null
 }
 
-export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, maxRamMb, onSave, onDelete, onClose }: Props) {
+export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, maxRamMb, onSave, onDelete, onModpackUpdated, onClose }: Props) {
   const [form, setForm] = useState<ProfileInput>(profile ?? EMPTY)
   const [loaders, setLoaders] = useState<LoaderVersion[] | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -53,6 +56,25 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
     setExporting(false)
     if (!res.ok) setExportError(res.error)
     else if (res.value) setExported(res.value)
+  }
+  // Modpack d'origine : nouvelle version publiée (undefined = recherche en cours), fenêtre de mise à jour
+  const [modpack, setModpack] = useState(profile?.modpack)
+  const [modpackNew, setModpackNew] = useState<ModpackVersion | null | undefined>(undefined)
+  const [modpackTarget, setModpackTarget] = useState<ModpackTarget | null>(null)
+  useEffect(() => {
+    if (!profile?.modpack?.projectId) return
+    window.aloria.modpacks.checkUpdate(profile.id).then((res) => setModpackNew(res.ok ? res.value : null))
+  }, [profile?.id])
+  const updateFromFile = async () => {
+    const file = await window.aloria.modpacks.pickFile()
+    if (file) setModpackTarget({ file })
+  }
+  const modpackUpdated = (updated: Profile) => {
+    // Le formulaire suit, sinon « Enregistrer » remettrait l'ancienne version du jeu
+    set({ versionId: updated.versionId, loader: updated.loader, loaderVersion: updated.loaderVersion, modpack: updated.modpack })
+    setModpack(updated.modpack)
+    setModpackNew(null)
+    onModpackUpdated?.(updated)
   }
   const { versions, latestRelease, latestSnapshot } = useVersions(showSnapshots || form.versionId.includes('snapshot'))
 
@@ -123,6 +145,48 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
             ))}
           </div>
         </div>
+
+        {profile && modpack && (
+          <div className="export-box">
+            <strong>📦 {t('editor.modpack')}</strong>
+            <span>
+              {t('editor.modpackInfo', { name: modpack.name, version: modpack.versionNumber })}
+              {modpack.projectId && (
+                <small className="muted">
+                  {' · '}
+                  {modpackNew === undefined
+                    ? t('editor.modpackChecking')
+                    : modpackNew
+                      ? t('editor.modpackNew', { version: modpackNew.versionNumber })
+                      : t('editor.modpackUpToDate')}
+                </small>
+              )}
+            </span>
+            <div className="export-box__actions">
+              {modpack.projectId ? (
+                <button
+                  className={modpackNew ? 'primary' : 'secondary'}
+                  onClick={() => setModpackTarget({ projectId: modpack.projectId!, title: modpack.name, iconUrl: null })}
+                >
+                  {t(modpackNew ? 'editor.modpackUpdate' : 'editor.modpackVersions')}
+                </button>
+              ) : (
+                <button className="secondary" onClick={updateFromFile}>
+                  {t('editor.modpackFromFile')}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+        {profile && modpackTarget && (
+          <ModpackDialog
+            target={modpackTarget}
+            update={{ ...profile, ...form, modpack }}
+            preferredVersionId={modpackNew?.id}
+            onClose={() => setModpackTarget(null)}
+            onInstalled={modpackUpdated}
+          />
+        )}
 
         <label className="field">
           <span>{t('editor.name')}</span>

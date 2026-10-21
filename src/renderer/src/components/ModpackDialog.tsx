@@ -20,10 +20,14 @@ interface Props {
   target: ModpackTarget
   onClose: () => void
   onInstalled: (profile: Profile) => void
+  /** Profil dont on met à jour le modpack (sinon, installation dans un nouveau profil) */
+  update?: Profile
+  /** Version choisie d'office (la nouvelle version trouvée pour le profil) */
+  preferredVersionId?: string
 }
 
-/** Aperçu d'un modpack (version, liste des mods) puis installation dans un nouveau profil */
-export default function ModpackDialog({ target, onClose, onInstalled }: Props) {
+/** Aperçu d'un modpack (version, liste des mods) puis installation dans un nouveau profil, ou mise à jour d'un profil */
+export default function ModpackDialog({ target, onClose, onInstalled, update, preferredVersionId }: Props) {
   const [versions, setVersions] = useState<ModpackVersion[] | null>(null)
   const [versionId, setVersionId] = useState<string | null>(null)
   const [preview, setPreview] = useState<ModpackPreview | null>(null)
@@ -38,7 +42,11 @@ export default function ModpackDialog({ target, onClose, onInstalled }: Props) {
     window.aloria.modpacks.versions(target.projectId).then((res) => {
       if (!res.ok) return setError(res.error)
       setVersions(res.value)
-      const pick = res.value.find((v) => v.supported && v.stable) ?? res.value.find((v) => v.supported) ?? res.value[0]
+      const pick =
+        res.value.find((v) => v.id === preferredVersionId) ??
+        res.value.find((v) => v.supported && v.stable) ??
+        res.value.find((v) => v.supported) ??
+        res.value[0]
       setVersionId(pick?.id ?? null)
     })
   }, [target])
@@ -68,7 +76,7 @@ export default function ModpackDialog({ target, onClose, onInstalled }: Props) {
     setInstalling(true)
     setError(null)
     setProgress(null)
-    const res = await window.aloria.modpacks.install(source)
+    const res = update ? await window.aloria.modpacks.update(update.id, source) : await window.aloria.modpacks.install(source)
     setInstalling(false)
     if (!res.ok) return setError(res.error)
     setDone(res.value)
@@ -76,6 +84,8 @@ export default function ModpackDialog({ target, onClose, onInstalled }: Props) {
   }
 
   const title = preview?.name ?? ('title' in target ? target.title : '…')
+  // Mise à jour vers la version déjà installée : rien à faire
+  const sameVersion = !!update && 'projectId' in target && versionId === update.modpack?.versionId
   const iconUrl = 'iconUrl' in target ? target.iconUrl : null
   // Étape en cours : numéro, texte et pourcentage (barre animée tant qu'on ne connaît pas la quantité)
   const STEPS = ['pack', 'files', 'overrides'] as const
@@ -83,7 +93,7 @@ export default function ModpackDialog({ target, onClose, onInstalled }: Props) {
   const percent = progress && progress.total > 0 ? Math.min(100, Math.floor((progress.done / progress.total) * 100)) : null
   const mb = (bytes: number) => (bytes / 1e6).toFixed(bytes < 1e7 ? 1 : 0)
   const stepLabel = !progress
-    ? t('modpack.installing')
+    ? t(update ? 'modpack.stepUpdate' : 'modpack.installing')
     : progress.step === 'pack'
       ? t('modpack.stepPack', { done: mb(progress.done), total: mb(progress.total) })
       : progress.step === 'files'
@@ -119,7 +129,7 @@ export default function ModpackDialog({ target, onClose, onInstalled }: Props) {
               onChange={setVersionId}
               options={versions.map((v) => ({
                 value: v.id,
-                label: `${v.versionNumber} · ${v.gameVersions.join(', ')}${v.stable ? '' : ` · ${t('modpack.beta')}`}${v.supported ? '' : ` · ${t('modpack.notSupported')}`}`
+                label: `${v.versionNumber} · ${v.gameVersions.join(', ')}${v.stable ? '' : ` · ${t('modpack.beta')}`}${v.supported ? '' : ` · ${t('modpack.notSupported')}`}${v.id === update?.modpack?.versionId ? ` · ${t('modpack.current')}` : ''}`
               }))}
             />
           </label>
@@ -127,6 +137,14 @@ export default function ModpackDialog({ target, onClose, onInstalled }: Props) {
 
         {preview?.summary && <p className="muted">{preview.summary}</p>}
         {preview?.unsupported && <p className="modpack__warning">⚠️ {preview.unsupported}</p>}
+        {update && preview && !preview.unsupported && !sameVersion && (
+          <>
+            <p className="muted">{t('modpack.updateHint')}</p>
+            {preview.gameVersion !== update.versionId && (
+              <p className="modpack__warning">⚠️ {t('modpack.gameChange', { from: update.versionId, to: preview.gameVersion })}</p>
+            )}
+          </>
+        )}
         {error && <p className="modpack__warning">⚠️ {error}</p>}
 
         {!preview && !error && <p className="muted center">{t('common.loading')}</p>}
@@ -170,15 +188,23 @@ export default function ModpackDialog({ target, onClose, onInstalled }: Props) {
           </div>
         )}
 
-        {done && <p className="modpack__done">✓ {t('modpack.done', { name: done.name })}</p>}
+        {done && (
+          <p className="modpack__done">
+            ✓ {update ? t('modpack.updated', { name: done.name, version: done.modpack?.versionNumber ?? '' }) : t('modpack.done', { name: done.name })}
+          </p>
+        )}
 
         <div className="dialog__actions">
           <button className="secondary" disabled={installing} onClick={onClose}>
             {t(done ? 'common.close' : 'common.cancel')}
           </button>
           {!done && (
-            <button className="primary" disabled={!preview || !!preview.unsupported || installing} onClick={install}>
-              {installing ? t('library.installing') : preview?.unsupported ? t('modpack.notInstallable') : t('modpack.install')}
+            <button className="primary" disabled={!preview || !!preview.unsupported || installing || sameVersion} onClick={install}>
+              {installing
+                ? t('library.installing')
+                : preview?.unsupported
+                  ? t('modpack.notInstallable')
+                  : t(update ? 'modpack.update' : 'modpack.install')}
             </button>
           )}
         </div>
