@@ -177,6 +177,8 @@ export interface Settings {
   language?: Lang
   /** Parties du launcher masquées par le joueur (pour un launcher plus simple) */
   hiddenModules: AppModule[]
+  /** Sauvegarde automatique des mondes solo après chaque partie (absent = oui) */
+  worldBackups?: boolean
 }
 
 /** Parties du launcher qu'on peut masquer : pages du menu, et l'onglet Modpacks de la Bibliothèque */
@@ -210,6 +212,24 @@ export interface RunningGame {
 export type JoinTarget = { host: string; port: number } | { world: string }
 
 /** Monde solo d'un profil (boutons « Solo » de l'accueil) */
+/** Occasion d'une sauvegarde de monde : après une partie, à la main, avant un changement de version, avant une restauration */
+export type WorldBackupKind = 'auto' | 'manual' | 'version' | 'restore'
+
+export interface WorldBackup {
+  file: string
+  kind: WorldBackupKind
+  date: number
+  sizeMb: number
+}
+
+/** Un monde solo et ses sauvegardes (exists = false : monde supprimé dont il reste des sauvegardes) */
+export interface WorldBackups {
+  world: string
+  name: string
+  exists: boolean
+  backups: WorldBackup[]
+}
+
 export interface LocalWorld {
   /** Nom du dossier dans saves, utilisé pour l'ouvrir */
   id: string

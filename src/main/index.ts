@@ -8,6 +8,7 @@ import { gameData } from './gameData'
 import { createPack, deletePack, installPack, listPacks, packVanilla, renamePack, savePackImage, setPackScale } from './packs'
 import { cancelLaunch, getStatus, isGameRunning, listVersions, play, stopGame } from './game/controller'
 import { checkMods, fixMods } from './game/modCheck'
+import { backupWorld, deleteWorldBackup, listWorldBackups, openWorldBackups, restoreWorld } from './worldBackups'
 import { fabricLoaders } from './game/fabric'
 import { forgeLoaders } from './game/forge'
 import { neoforgeLoaders } from './game/neoforge'
@@ -163,6 +164,18 @@ ipcMain.handle('game:stop', (_e, profileId: string) => stopGame(profileId))
 // Mods qui en demandent d'autres absents du profil : vérifiés avant le lancement, réparés si le joueur le veut
 ipcMain.handle('game:checkMods', (_e, profileId: string) => wrap(() => checkMods(profileId)))
 ipcMain.handle('game:fixMods', (_e, profileId: string, check: ModCheck, disableOnly: boolean) => wrap(() => fixMods(profileId, check, disableOnly)))
+// Sauvegardes des mondes solo d'un profil (restaurer : jeu du profil fermé)
+const profileRunning = (profileId: string) => getStatus().running.some((r) => r.profileId === profileId)
+ipcMain.handle('worlds:backups', (_e, profileId: string) => wrap(() => listWorldBackups(profileId)))
+ipcMain.handle('worlds:backup', (_e, profileId: string, world: string) => wrap(() => backupWorld(profileId, world, 'manual')))
+ipcMain.handle('worlds:restore', (_e, profileId: string, world: string, file: string) =>
+  wrap(async () => {
+    if (profileRunning(profileId)) throw new Error(tm('err.worldRestoreRunning'))
+    await restoreWorld(profileId, world, file)
+  })
+)
+ipcMain.handle('worlds:deleteBackup', (_e, profileId: string, world: string, file: string) => wrap(() => deleteWorldBackup(profileId, world, file)))
+ipcMain.handle('worlds:openBackups', (_e, profileId: string, world: string) => openWorldBackups(profileId, world))
 ipcMain.handle('game:play', async (e, profileId: string, join?: JoinTarget): Promise<Result<null>> => {
   try {
     await play(e.sender, profileId, join)
@@ -661,6 +674,61 @@ app.whenReady().then(() => {
         } catch (err) {
           log(spec, 'erreur', err)
         }
+      }
+      app.quit()
+    })
+  }
+  // Test des sauvegardes de mondes (avec ALORIA_ROOT=<.aloria de test>) : ALORIA_TEST_WORLDS=1 crée un monde, le « joue » plusieurs
+  // fois (sauvegardes automatiques, 5 gardées), le restaure, le supprime puis le récupère (journal [worlds-test])
+  if (!app.isPackaged && process.env.ALORIA_TEST_WORLDS && process.env.ALORIA_ROOT) {
+    win.webContents.once('did-finish-load', async () => {
+      const log = (...args: unknown[]) => console.log('[worlds-test]', ...args)
+      const { mkdir, readFile, rm, utimes, writeFile } = await import('node:fs/promises')
+      const { gzipSync } = await import('node:zlib')
+      const { writeNbt } = await import('./shared/nbt')
+      const wb = await import('./worldBackups')
+      const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+      try {
+        const profile = createProfile({ name: 'Test mondes', icon: '🧪', versionId: '1.21.1', loader: 'vanilla', loaderVersion: null, ramMb: null })
+        const world = join(gameDirOf(profile.id), 'saves', 'Monde')
+        await mkdir(join(world, 'region'), { recursive: true })
+        const data = new Map([['LevelName', { type: 8 as const, value: 'Mon monde' }]])
+        await writeFile(join(world, 'level.dat'), gzipSync(writeNbt(new Map([['Data', { type: 10 as const, value: data }]]))))
+        const play = async (content: string) => {
+          await writeFile(join(world, 'region', 'r.0.0.mca'), content)
+          const now = new Date()
+          await utimes(join(world, 'level.dat'), now, now)
+          await wb.backupAfterPlay(profile.id)
+          await sleep(1100)
+        }
+        const count = async () => (await wb.listWorldBackups(profile.id))[0]?.backups.length ?? 0
+        await play('A')
+        await wb.backupAfterPlay(profile.id)
+        const afterSame = await count()
+        for (const c of ['B', 'C', 'D', 'E', 'F', 'G']) await play(c)
+        const list = await wb.listWorldBackups(profile.id)
+        log('après 7 parties :', list[0].name, list[0].backups.length, 'sauvegardes', list[0].backups.map((b) => b.kind).join(','))
+        const oldest = list[0].backups[list[0].backups.length - 1]
+        await wb.restoreWorld(profile.id, 'Monde', oldest.file)
+        const restored = await readFile(join(world, 'region', 'r.0.0.mca'), 'utf8')
+        const kinds = (await wb.listWorldBackups(profile.id))[0].backups.map((b) => b.kind)
+        await rm(world, { recursive: true })
+        const gone = await wb.listWorldBackups(profile.id)
+        await wb.restoreWorld(profile.id, 'Monde', gone[0].backups[0].file)
+        const back = await readFile(join(world, 'region', 'r.0.0.mca'), 'utf8').catch(() => '(absent)')
+        const checks = {
+          pasDeDoublon: afterSame === 1,
+          rotation: list[0].backups.length === 5,
+          restauration: restored === 'C',
+          sauvegardeAvantRestauration: kinds.includes('restore'),
+          mondeSupprimeListe: gone.length === 1 && !gone[0].exists,
+          mondeRecupere: back === 'G'
+        }
+        log(JSON.stringify(checks), 'contenu restauré :', restored, '/', back)
+        log(Object.values(checks).every(Boolean) ? 'OK' : 'ÉCHEC')
+        await deleteProfile(profile.id, true)
+      } catch (err) {
+        log('erreur', err)
       }
       app.quit()
     })

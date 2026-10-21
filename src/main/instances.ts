@@ -14,7 +14,7 @@ import { sharedServers } from './shared/sync'
 const PROFILE_FILE = 'aloria-profile.json'
 
 // Jamais exportés : journaux, caches et fichiers propres au PC ou au compte
-const SKIPPED = new Set(['logs', 'crash-reports', '.fabric', '.mixin.out', 'downloads', 'natives', 'usercache.json', 'usernamecache.json'])
+const SKIPPED = new Set(['aloria-backups', 'logs', 'crash-reports', '.fabric', '.mixin.out', 'downloads', 'natives', 'usercache.json', 'usernamecache.json'])
 
 /** Ce qu'on garde d'un profil pour le recréer ailleurs (ni id, ni dates) */
 function portable(p: Profile): ProfileInput {

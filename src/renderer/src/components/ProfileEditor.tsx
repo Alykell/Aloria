@@ -5,6 +5,7 @@ import { forgeSupported, neoforgeSupported, prefersForge } from '../../../shared
 import type { Loader, LoaderVersion, ModpackVersion, Profile, ProfileInput, SettingsPreset } from '../../../shared/types'
 import ModpackDialog, { type ModpackTarget } from './ModpackDialog'
 import Select from './Select'
+import WorldBackupsDialog from './WorldBackupsDialog'
 import { gb, presetName, t } from '../i18n'
 
 const ICONS = ['🏝️', '🌊', '🐚', '⚓', '🐬', '🐠', '🦀', '🌴', '⛵', '🏰', '⚔️', '🧪', '🌙', '🔥', '💎', '🌸']
@@ -61,6 +62,7 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
   const [modpack, setModpack] = useState(profile?.modpack)
   const [modpackNew, setModpackNew] = useState<ModpackVersion | null | undefined>(undefined)
   const [modpackTarget, setModpackTarget] = useState<ModpackTarget | null>(null)
+  const [backupsOpen, setBackupsOpen] = useState(false)
   useEffect(() => {
     if (!profile?.modpack?.projectId) return
     window.aloria.modpacks.checkUpdate(profile.id).then((res) => setModpackNew(res.ok ? res.value : null))
@@ -351,6 +353,13 @@ export default function ProfileEditor({ profile, showSnapshots, defaultRamMb, ma
             {t('editor.sharedServers')} <small className="muted">{t('editor.sharedServersHint')}</small>
           </span>
         </label>
+
+        {profile && (
+          <button className="secondary editor__backups" onClick={() => setBackupsOpen(true)}>
+            💾 {t('editor.worldBackups')}
+          </button>
+        )}
+        {profile && backupsOpen && <WorldBackupsDialog profileId={profile.id} onClose={() => setBackupsOpen(false)} />}
 
         {profile && exportOpen && (
           <div className="export-box">

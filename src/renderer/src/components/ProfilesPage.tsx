@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import ProfileEditor from './ProfileEditor'
 import ModpackDialog from './ModpackDialog'
 import { describeProfile } from '../hooks/useVersions'
@@ -71,6 +71,27 @@ export default function ProfilesPage({ profiles, settings, onPlay, onError }: Pr
       if (file) importProfile(file)
     }
   }
+  // Modpacks qui ont une nouvelle version (id du profil → numéro), vérifiés à l'ouverture et après chaque mise à jour
+  const [updates, setUpdates] = useState<Record<string, string>>({})
+  const modpackKey = profiles.profiles.map((p) => (p.modpack?.projectId ? `${p.id}:${p.modpack.versionId}` : '')).join()
+  useEffect(() => {
+    let current = true
+    for (const p of profiles.profiles) {
+      if (!p.modpack?.projectId) continue
+      window.aloria.modpacks.checkUpdate(p.id).then((res) => {
+        if (!current) return
+        const version = res.ok ? res.value?.versionNumber : undefined
+        setUpdates((u) => {
+          const { [p.id]: _old, ...rest } = u
+          return version ? { ...rest, [p.id]: version } : rest
+        })
+      })
+    }
+    return () => {
+      current = false
+    }
+  }, [modpackKey])
+
   const s = settings.settings
   if (!s) return null
   const maxRamMb = Math.max(1024, Math.floor((settings.systemRamMb - 2048) / 512) * 512)
@@ -100,6 +121,18 @@ export default function ProfilesPage({ profiles, settings, onPlay, onError }: Pr
             onClick={() => profiles.select(p.id)}
           >
             <span className="profile-card__icon">{p.icon}</span>
+            {updates[p.id] && (
+              <button
+                className="profile-card__update"
+                title={t('profiles.updateHint', { version: updates[p.id] })}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setEditing(p)
+                }}
+              >
+                ⬆ {t('profiles.update')}
+              </button>
+            )}
             <strong>{p.name}</strong>
             <span className="profile-card__version">{describeProfile(p)}</span>
             <small>{lastPlayed(p.lastPlayed)}</small>

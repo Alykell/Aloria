@@ -428,6 +428,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .profile-card:hover { transform: translateY(-2px); }
 .profile-card.selected { border-color: var(--sea); }
 .profile-card__icon { font-size: 30px; margin-bottom: 6px; }
+.profile-card__update { position: absolute; top: 12px; right: 12px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--sea); color: #fff; }
 .profile-card strong { font-family: 'Quicksand', sans-serif; font-size: 17px; color: var(--sea-deep); }
 .profile-card__version { font-weight: 600; font-size: 14px; }
 .profile-card small { color: var(--text-soft); }
@@ -527,6 +528,10 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .export-box strong { font-family: 'Quicksand', sans-serif; color: var(--sea-deep); }
 .export-box .toggle-line { font-weight: 500; font-size: 14px; }
 .export-box__actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.editor__backups { align-self: flex-start; }
+.worlds__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.worlds__backup { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 6px; border-top: 1px solid var(--line, rgba(0, 0, 0, 0.06)); font-size: 14px; }
+.worlds__backup .export-box__actions button { padding: 4px 10px; font-size: 13px; }
 
 /* Aperçu d'un modpack */
 .dialog.modpack { width: min(620px, 92vw); max-height: 88vh; }

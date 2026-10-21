@@ -21,6 +21,7 @@ import { supportsQuickPlay } from '../../shared/loaders'
 import { getManifest, loadVersion, resolveVersionId } from './versions'
 import { applyShared, collectShared } from '../shared/sync'
 import { anyServerRunning } from '../server/runner'
+import { backupAfterPlay, waitForBackup } from '../worldBackups'
 import type { GameExit, GameStatus, JoinTarget, LaunchStep, VersionEntry } from '../../shared/types'
 import { tm } from '../i18n'
 
@@ -143,6 +144,9 @@ export async function play(sender: WebContents, profileId: string, join?: JoinTa
     const testDemo = !app.isPackaged && process.env.ALORIA_TEST_DEMO === '1'
     if (!active && !testDemo) throw new Error(tm('err.loginToPlay'))
 
+    // Mondes encore en cours de sauvegarde depuis la partie précédente : le jeu ne doit pas les rouvrir avant la fin
+    setStatus({ state: 'preparing', label: tm('status.backup') })
+    await waitForBackup(profile.id)
     setStatus({ state: 'preparing', label: tm('status.version') })
     const player = active
       ? await getValidSession(active)
@@ -265,10 +269,13 @@ export async function play(sender: WebContents, profileId: string, join?: JoinTa
         else setDiscordIdle()
       }
       await collectShared(sync, gameVersion, gameDir).catch((err) => console.warn('[réglages partagés]', err))
+      // Mondes joués pendant la partie : sauvegardés en arrière-plan
+      const backup = backupAfterPlay(profile.id)
       if (child.pid) removePending(child.pid)
       const win = BrowserWindow.fromWebContents(sender)
       // Fenêtre cachée (« Se fermer » après le lancement) : le launcher quitte avec la dernière partie
       if (win && !win.isVisible() && !win.isMinimized()) {
+        await backup
         if (running.size === 0 && !launch && !anyServerRunning()) app.quit()
         return
       }

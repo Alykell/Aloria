@@ -73,6 +73,9 @@ toujours via `gameDirOf(id)` ; profils de test : `instances/<id>`. En développe
 - Avant chaque lancement, `src/main/game/modCheck.ts` cherche les mods demandés mais absents (fabric.mod.json, mods.toml,
   neoforge.mods.toml, jars embarqués ; + dépendances Modrinth des mods ajoutés par le joueur, pas ceux d'un modpack).
   Test : `ALORIA_ROOT=<test> ALORIA_TEST_MODCHECK="fabric:1.21.1,neoforge:1.21.1,modpack:create_plus"` (journal `[modcheck-test]`).
+- Sauvegardes des mondes solo : `src/main/worldBackups.ts`, zips dans `<profil>/aloria-backups/<monde>` (hors export) ; après chaque
+  partie (mondes modifiés, 5 automatiques gardées), avant une mise à jour de modpack qui change la version du jeu, ou à la main.
+  Test : `ALORIA_ROOT=<test> ALORIA_TEST_WORLDS=1` (journal `[worlds-test]`).
 
 ## Serveurs (page « Serveurs »)
 - `src/main/server/` : `store` (servers.json, `%APPDATA%\.aloria\servers\<id>`), `install` (Vanilla, Fabric, Paper via fill.papermc.io,

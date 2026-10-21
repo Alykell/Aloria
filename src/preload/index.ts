@@ -11,6 +11,7 @@ import type {
   ModpackProgress,
   ModpackSource,
   ModCheck,
+  WorldBackups,
   ModpackVersion,
   GameExit,
   InstalledContent,
@@ -94,6 +95,15 @@ const api = {
     importZip: (file: File | string | null): Promise<Result<Profile | { modpack: string } | null>> =>
       ipcRenderer.invoke('profiles:import', file instanceof File ? webUtils.getPathForFile(file) : file),
     showFile: (path: string): Promise<void> => ipcRenderer.invoke('profiles:showFile', path)
+  },
+  worlds: {
+    backups: (profileId: string): Promise<Result<WorldBackups[]>> => ipcRenderer.invoke('worlds:backups', profileId),
+    /** Nom du fichier créé */
+    backup: (profileId: string, world: string): Promise<Result<string | null>> => ipcRenderer.invoke('worlds:backup', profileId, world),
+    restore: (profileId: string, world: string, file: string): Promise<Result<void>> => ipcRenderer.invoke('worlds:restore', profileId, world, file),
+    deleteBackup: (profileId: string, world: string, file: string): Promise<Result<void>> =>
+      ipcRenderer.invoke('worlds:deleteBackup', profileId, world, file),
+    openBackups: (profileId: string, world: string): Promise<void> => ipcRenderer.invoke('worlds:openBackups', profileId, world)
   },
   presets: {
     list: (): Promise<SettingsPreset[]> => ipcRenderer.invoke('presets:list'),

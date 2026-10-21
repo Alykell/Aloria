@@ -12,6 +12,7 @@ import { forgeSupported, neoforgeSupported } from '../../shared/loaders'
 import { getProject, getProjects, getVersion, listVersions, versionsByHash } from './api'
 import type { ContentType, ModpackEntry, ModpackPreview, ModpackProgress, ModpackSource, ModpackVersion, Profile } from '../../shared/types'
 import { tm } from '../i18n'
+import { backupWorlds } from '../worldBackups'
 
 /** Format .mrpack de Modrinth : un zip avec modrinth.index.json et les dossiers overrides/ et client-overrides/ */
 interface MrpackIndex {
@@ -507,6 +508,8 @@ export async function updateModpack(profileId: string, source: ModpackSource, re
   const pack = await openInstallable(source, onProgress)
   const old = await installedManifest(profile)
   if (!old) throw new Error(tm('err.modpackNoPrevious'))
+  // Nouvelle version du jeu : les mondes seront convertis sans retour possible, on les garde d'abord tels quels
+  if (pack.gameVersion !== profile.versionId) await backupWorlds(profile.id, 'version')
 
   // Mods désactivés par le joueur : retrouvés par projet Modrinth (le nom du fichier change d'une version à l'autre)
   let contentIndex: Record<string, { projectId?: string }> = {}
