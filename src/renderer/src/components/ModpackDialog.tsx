@@ -35,6 +35,8 @@ export default function ModpackDialog({ target, onClose, onInstalled, update, pr
   const [progress, setProgress] = useState<ModpackProgress | null>(null)
   const [installing, setInstalling] = useState(false)
   const [done, setDone] = useState<Profile | null>(null)
+  // « Vérifier mes téléchargements » : l'aperçu relit le dossier Téléchargements
+  const [recheck, setRecheck] = useState(0)
 
   // Projet Modrinth : ses versions, la plus récente installable (finale de préférence) choisie d'office
   useEffect(() => {
@@ -57,9 +59,9 @@ export default function ModpackDialog({ target, onClose, onInstalled, update, pr
   useEffect(() => {
     if (!source) return
     let cancelled = false
-    setPreview(null)
+    if (recheck === 0) setPreview(null)
     setError(null)
-    window.aloria.modpacks.preview(source).then((res) => {
+    window.aloria.modpacks.preview(source, update?.id).then((res) => {
       if (cancelled) return
       if (res.ok) setPreview(res.value)
       else setError(res.error)
@@ -67,7 +69,7 @@ export default function ModpackDialog({ target, onClose, onInstalled, update, pr
     return () => {
       cancelled = true
     }
-  }, [source?.kind === 'file' ? source.path : versionId])
+  }, [source?.kind === 'file' ? source.path : versionId, recheck])
 
   useEffect(() => window.aloria.modpacks.onProgress(setProgress), [])
 
@@ -149,6 +151,30 @@ export default function ModpackDialog({ target, onClose, onInstalled, update, pr
 
         {!preview && !error && <p className="muted center">{t('common.loading')}</p>}
 
+        {preview && preview.manual.length > 0 && (
+          <div className="modpack__manual">
+            <h4>
+              ⬇ {t('modpack.manualTitle', { found: preview.manual.filter((m) => m.found).length, total: preview.manual.length })}
+            </h4>
+            <p className="muted">{t('modpack.manualHint')}</p>
+            {preview.manual.map((m) => (
+              <div key={m.fileName} className="modpack__file">
+                <span>{m.title}</span>
+                {m.found ? (
+                  <span className="chip">✓ {t('modpack.manualFound')}</span>
+                ) : (
+                  <a className="secondary small" href={m.url} target="_blank" rel="noreferrer">
+                    {t('modpack.manualDownload')}
+                  </a>
+                )}
+              </div>
+            ))}
+            {preview.manual.some((m) => !m.found) && (
+              <button className="secondary" disabled={installing} onClick={() => setRecheck((n) => n + 1)}>
+                {t('modpack.manualCheck')}
+              </button>
+            )}
+
         {preview && (
           <div className="modpack__files">
             {GROUPS.map((group) => {
@@ -170,6 +196,9 @@ export default function ModpackDialog({ target, onClose, onInstalled, update, pr
               )
             })}
             {preview.overrides > 0 && <p className="muted">{t('modpack.overrides', { n: preview.overrides })}</p>}
+          </div>
+        )}
+
           </div>
         )}
 
@@ -202,8 +231,10 @@ export default function ModpackDialog({ target, onClose, onInstalled, update, pr
             <button className="primary" disabled={!preview || !!preview.unsupported || installing || sameVersion} onClick={install}>
               {installing
                 ? t('library.installing')
-                : preview?.unsupported
-                  ? t('modpack.notInstallable')
+                : preview?.manual.some((m) => !m.found)
+                  ? t('modpack.manualMissing')
+                  : preview?.unsupported
+                    ? t('modpack.notInstallable')
                   : t(update ? 'modpack.update' : 'modpack.install')}
             </button>
           )}

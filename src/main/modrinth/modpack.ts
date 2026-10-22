@@ -1,6 +1,6 @@
 import { app } from 'electron'
 import { existsSync } from 'node:fs'
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import AdmZip from 'adm-zip'
 import { inflateRawSync } from 'node:zlib'
@@ -12,6 +12,7 @@ import { forgeSupported, neoforgeSupported } from '../../shared/loaders'
 import { getProject, getProjects, getVersion, listVersions, versionsByHash } from './api'
 import type { ContentType, ModpackEntry, ModpackPreview, ModpackProgress, ModpackSource, ModpackVersion, Profile } from '../../shared/types'
 import { tm } from '../i18n'
+import { cfModpackVersions, cfPackFile, isCurseforgeId, modpackSummary, resolveFiles, resolveManifest, type CfManifest, type CfPackFile } from '../curseforge'
 import { backupWorlds } from '../worldBackups'
 
 /** Format .mrpack de Modrinth : un zip avec modrinth.index.json et les dossiers overrides/ et client-overrides/ */
@@ -27,12 +28,33 @@ interface MrpackIndex {
     env?: { client?: 'required' | 'optional' | 'unsupported'; server?: string }
     downloads: string[]
     fileSize: number
+    /** Modpack CurseForge : nom, icône et projet donnés par l'API CurseForge */
+    info?: KnownFile
   }[]
   dependencies: Record<string, string>
+  /** Modpack CurseForge : fichiers que leurs auteurs ne laissent télécharger que sur le site de CurseForge */
+  manual?: ManualFile[]
+}
+
+interface KnownFile {
+  title: string
+  iconUrl: string | null
+  projectId: string
+  versionId: string
+  versionNumber: string
+}
+
+interface ManualFile {
+  path: string
+  title: string
+  fileName: string
+  sha1: string
+  pageUrl: string
 }
 
 // Hébergeurs autorisés par le format .mrpack : un modpack ne peut pas faire télécharger n'importe quoi
-const ALLOWED_HOSTS = ['cdn.modrinth.com', 'github.com', 'raw.githubusercontent.com', 'gitlab.com']
+// (plus le CDN de CurseForge, d'où viennent les adresses données par son API)
+const ALLOWED_HOSTS = ['cdn.modrinth.com', 'github.com', 'raw.githubusercontent.com', 'gitlab.com', 'edge.forgecdn.net', 'mediafilez.forgecdn.net']
 const OVERRIDES = ['overrides/', 'client-overrides/']
 const FOLDER_TYPES: Record<string, ContentType> = { mods: 'mod', resourcepacks: 'resourcepack', shaderpacks: 'shader' }
 
@@ -47,8 +69,9 @@ export function safeJoin(gameDir: string, path: string): string {
   return dest
 }
 
-/** Versions d'un modpack Modrinth, les plus récentes d'abord */
+/** Versions d'un modpack Modrinth ou CurseForge (« cf:<id> »), les plus récentes d'abord */
 export async function modpackVersions(projectId: string): Promise<ModpackVersion[]> {
+  if (isCurseforgeId(projectId)) return cfModpackVersions(projectId)
   const versions = await listVersions(projectId, undefined, undefined)
   return versions.map((v) => ({
     id: v.id,
@@ -66,12 +89,81 @@ export async function modpackVersions(projectId: string): Promise<ModpackVersion
 // Fichiers .mrpack téléchargés pour un aperçu, réutilisés à l'installation
 const cacheDir = () => join(app.getPath('temp'), 'aloria-modpacks')
 
-/** Fichier .mrpack d'une version Modrinth (adresse, taille, SHA-1) */
-async function packFile(versionId: string) {
-  const version = await getVersion(versionId)
+type PublishedSource = Extract<ModpackSource, { kind: 'modrinth' }>
+
+/** Fichier du modpack d'une version publiée (adresse, taille, SHA-1) : .mrpack Modrinth ou .zip CurseForge */
+async function packFile(source: PublishedSource): Promise<{ url: string; size: number; sha1: string }> {
+  if (isCurseforgeId(source.projectId)) return cfPackFile(source.projectId, source.versionId)
+  const version = await getVersion(source.versionId)
   const file = version.files.find((f) => f.filename.endsWith('.mrpack')) ?? version.files.find((f) => f.primary)
   if (!file) throw new Error(tm('err.modpackNoFile'))
-  return file
+  return { url: file.url, size: file.size, sha1: file.hashes.sha1 }
+}
+
+const cachedPack = (source: PublishedSource) =>
+  join(cacheDir(), isCurseforgeId(source.projectId) ? `cf-${source.versionId}.zip` : `${source.versionId}.mrpack`)
+
+const INDEX_FILES = ['modrinth.index.json', 'manifest.json']
+
+/** Index du modpack : modrinth.index.json tel quel, ou manifest.json de CurseForge complété par son API */
+async function parseIndex(name: string, raw: Buffer): Promise<MrpackIndex> {
+  let json: MrpackIndex | CfManifest
+  try {
+    json = JSON.parse(raw.toString('utf8').replace(/^\uFEFF/, ''))
+  } catch {
+    throw new Error(tm('err.modpackRead'))
+  }
+  if (name === 'modrinth.index.json') return json as MrpackIndex
+  const manifest = json as CfManifest
+  if (manifest.manifestType !== 'minecraftModpack' || !manifest.minecraft) throw new Error(tm('err.modpackRead'))
+  const { dependencies, files } = await resolveManifest(manifest)
+  return { formatVersion: 1, game: 'minecraft', versionId: manifest.version, name: manifest.name, dependencies, ...(await cfEntries(files)) }
+}
+
+/** Fichiers CurseForge au format de l'index ; ceux que CurseForge ne laisse pas télécharger sont pris sur Modrinth (même SHA-1), sinon à la main */
+async function cfEntries(files: CfPackFile[]): Promise<Pick<MrpackIndex, 'files' | 'manual'>> {
+  const blocked = files.filter((f) => !f.url && f.sha1)
+  if (blocked.length > 0) {
+    const found = await versionsByHash(blocked.map((f) => f.sha1)).catch(() => ({}) as Awaited<ReturnType<typeof versionsByHash>>)
+    for (const f of blocked) f.url = found[f.sha1]?.files.find((file) => file.hashes.sha1 === f.sha1)?.url ?? null
+  }
+  return {
+    files: files.map((f) => ({
+      path: f.path,
+      hashes: { sha1: f.sha1 },
+      downloads: f.url ? [f.url] : [],
+      fileSize: f.size,
+      info: { title: f.title, iconUrl: f.iconUrl, projectId: f.projectId, versionId: f.versionId, versionNumber: f.fileName }
+    })),
+    manual: files.filter((f) => !f.url).map((f) => ({ path: f.path, title: f.title, fileName: f.fileName, sha1: f.sha1, pageUrl: f.pageUrl }))
+  }
+}
+
+/**
+ * Modpack Modrinth avec la liste de Missing Mods Checker : ses adresses CurseForge (« …/download/<numéro> ») donnent les
+ * fichiers, téléchargés comme ceux d'un modpack CurseForge. false si la liste est illisible ou si l'API ne répond pas.
+ */
+async function applyChecker(index: MrpackIndex, raw: Buffer): Promise<boolean> {
+  try {
+    const list = JSON.parse(raw.toString('utf8').replace(/^﻿/, '')) as { url?: string; destination?: string }[]
+    if (!Array.isArray(list) || list.length === 0) return false
+    const byFolder = new Map<string, number[]>()
+    for (const item of list) {
+      const id = Number(/\/(?:download|files)\/(\d+)\/?$/.exec(item.url ?? '')?.[1])
+      if (!id) return false
+      const folder = (item.destination || 'mods').replace(/^\/+|\/+$/g, '')
+      byFolder.set(folder, [...(byFolder.get(folder) ?? []), id])
+    }
+    const files: CfPackFile[] = []
+    for (const [folder, ids] of byFolder) files.push(...(await resolveFiles(ids, folder)))
+    if (files.length !== list.length) return false
+    const entries = await cfEntries(files)
+    index.files.push(...entries.files)
+    index.manual = entries.manual
+    return true
+  } catch {
+    return false
+  }
 }
 
 /** Télécharge un gros fichier en suivant sa progression (octets reçus), SHA-1 vérifié avant de le garder */
@@ -79,7 +171,7 @@ async function downloadWithProgress(url: string, path: string, sha1: string, siz
   // Un nouvel essai (connexion coupée) repart de zéro : la barre recule alors un instant
   const res = await fetchBytes(url, { onBytes: (done) => onBytes(Math.min(done, size)) })
   if (!res.ok) throw new Error(tm('err.download', { url, reason: `HTTP ${res.status}` }))
-  if (createHash('sha1').update(res.data).digest('hex') !== sha1) throw new Error(tm('err.corrupted'))
+  if (sha1 && createHash('sha1').update(res.data).digest('hex') !== sha1) throw new Error(tm('err.corrupted'))
   await mkdir(dirname(path), { recursive: true })
   await writeFile(`${path}.part`, res.data)
   await rename(`${path}.part`, path)
@@ -89,21 +181,26 @@ async function openPack(source: ModpackSource, onDownload?: (done: number, total
   let path: string
   if (source.kind === 'file') path = source.path
   else {
-    path = join(cacheDir(), `${source.versionId}.mrpack`)
+    path = cachedPack(source)
     if (!existsSync(path)) {
-      const file = await packFile(source.versionId)
-      if (onDownload) await downloadWithProgress(file.url, path, file.hashes.sha1, file.size, (done) => onDownload(done, file.size))
-      else await downloadAll([{ url: file.url, path, sha1: file.hashes.sha1, size: file.size }], () => {})
+      const file = await packFile(source)
+      if (onDownload) await downloadWithProgress(file.url, path, file.sha1, file.size, (done) => onDownload(done, file.size))
+      else await downloadAll([{ url: file.url, path, sha1: file.sha1 || undefined, size: file.size }], () => {})
     }
   }
+  let zip: AdmZip | null = null
+  let entry: AdmZip.IZipEntry | null = null
   try {
-    const zip = new AdmZip(path)
-    const raw = zip.getEntry('modrinth.index.json')?.getData().toString('utf8')
-    if (!raw) throw new Error()
-    return { zip, index: JSON.parse(raw) as MrpackIndex }
+    zip = new AdmZip(path)
+    entry = INDEX_FILES.map((name) => zip!.getEntry(name)).find((e) => !!e) ?? null
   } catch {
-    throw new Error(tm('err.modpackRead'))
+    // Zip illisible
   }
+  if (!zip || !entry) throw new Error(tm('err.modpackRead'))
+  const index = await parseIndex(entry.entryName, entry.getData())
+  const checker = index.manual ? undefined : zip.getEntries().find((e) => OVERRIDES.some((o) => e.entryName.startsWith(o)) && isCheckerList(e.entryName))
+  if (checker) await applyChecker(index, checker.getData())
+  return { zip, index }
 }
 
 /** Morceau d'un fichier distant (null si le serveur ne sait pas envoyer seulement une partie) */
@@ -158,14 +255,14 @@ async function remoteSummary(url: string, size: number): Promise<PackSummary | n
 
   type Entry = { method: number; compressedSize: number; offset: number }
   let overrides = 0
-  let indexEntry: Entry | null = null
+  let indexEntry: (Entry & { name: string }) | null = null
   let checkerList: Entry | null = null
   let checkerJar = false
   for (let p = 0; p + 46 <= cd.length && cd.readUInt32LE(p) === 0x02014b50; ) {
     const nameLen = cd.readUInt16LE(p + 28)
     const name = cd.toString('utf8', p + 46, p + 46 + nameLen)
     const entry = { method: cd.readUInt16LE(p + 10), compressedSize: cd.readUInt32LE(p + 20), offset: cd.readUInt32LE(p + 42) }
-    if (name === 'modrinth.index.json') indexEntry = entry
+    if (INDEX_FILES.includes(name)) indexEntry = { ...entry, name }
     else if (!name.endsWith('/') && OVERRIDES.some((o) => name.startsWith(o))) {
       overrides++
       if (isCheckerList(name)) checkerList = entry
@@ -186,7 +283,11 @@ async function remoteSummary(url: string, size: number): Promise<PackSummary | n
   }
   const raw = await read(indexEntry)
   if (!raw) return null
-  const index = JSON.parse(raw.toString('utf8')) as MrpackIndex
+  const index = await parseIndex(indexEntry.name, raw)
+  if (checkerList) {
+    const list = await read(checkerList)
+    if (list && (await applyChecker(index, list))) return { index, overrides, manualMods: null }
+  }
   const listed = index.files.some((f) => isCheckerJar(f.path))
   const manualMods = checkerList ? countManual((await read(checkerList)) ?? undefined) : checkerJar || listed ? 0 : null
   return { index, overrides, manualMods }
@@ -205,9 +306,13 @@ const manualMessage = (n: number) => (n > 0 ? tm('err.modpackManual', { n }) : t
 
 /** Index et nombre de fichiers fournis, pour l'aperçu : lecture partielle quand c'est possible */
 async function packSummary(source: ModpackSource): Promise<PackSummary> {
-  if (source.kind === 'modrinth' && !existsSync(join(cacheDir(), `${source.versionId}.mrpack`))) {
-    const file = await packFile(source.versionId)
-    const summary = await remoteSummary(file.url, file.size).catch(() => null)
+  if (source.kind === 'modrinth' && !existsSync(cachedPack(source))) {
+    const file = await packFile(source)
+    // Lecture partielle impossible : on télécharge le modpack ; une erreur de l'API CurseForge, elle, est montrée telle quelle
+    const summary = await remoteSummary(file.url, file.size).catch((err: Error) => {
+      if (err.message.includes('CurseForge')) throw err
+      return null
+    })
     if (summary) return summary
   }
   const { zip, index } = await openPack(source)
@@ -240,10 +345,10 @@ function loaderOf(index: MrpackIndex): { loader: string; loaderVersion: string |
 }
 
 /** Nom, icône et projet Modrinth des fichiers du modpack (retrouvés par leur SHA-1 ; tant pis si Modrinth ne répond pas) */
-async function lookup(index: MrpackIndex): Promise<Map<string, { title: string; iconUrl: string | null; projectId: string; versionId: string; versionNumber: string }>> {
-  const out = new Map<string, { title: string; iconUrl: string | null; projectId: string; versionId: string; versionNumber: string }>()
+async function lookup(index: MrpackIndex): Promise<Map<string, KnownFile>> {
+  const out = new Map<string, KnownFile>()
   try {
-    const versions = await versionsByHash(index.files.map((f) => f.hashes.sha1))
+    const versions = await versionsByHash(index.files.map((f) => f.hashes.sha1).filter((h) => !!h))
     const ids = [...new Set(Object.values(versions).map((v) => v.project_id))]
     const projects = new Map<string, { title: string; icon_url: string | null }>()
     // Par paquets : l'adresse de la requête a une longueur limitée
@@ -257,17 +362,48 @@ async function lookup(index: MrpackIndex): Promise<Map<string, { title: string; 
   } catch {
     // Les noms de fichiers suffiront
   }
+  // Modpack CurseForge : ce que son API a donné, pour les fichiers que Modrinth ne connaît pas
+  for (const f of index.files) if (f.info && f.hashes.sha1 && !out.has(f.hashes.sha1)) out.set(f.hashes.sha1, f.info)
   return out
+}
+
+/**
+ * Fichiers CurseForge que leurs auteurs ne laissent télécharger que sur le site : le joueur les télécharge depuis la fenêtre
+ * du modpack (dossier Téléchargements), on les reconnaît à leur nom et leur SHA-1. Déjà dans le profil : rien à faire.
+ */
+async function findManual(manual: ManualFile[], gameDir?: string): Promise<{ found: Map<string, string>; missing: ManualFile[] }> {
+  const found = new Map<string, string>()
+  const missing: ManualFile[] = []
+  const downloads = app.getPath('downloads')
+  for (const m of manual) {
+    const candidates = [join(downloads, m.fileName)]
+    if (gameDir) candidates.unshift(safeJoin(gameDir, m.path), safeJoin(gameDir, m.path) + DISABLED)
+    let hit: string | null = null
+    for (const path of candidates) {
+      if (m.sha1 ? (await fileSha1(path)) === m.sha1 : existsSync(path)) {
+        hit = path
+        break
+      }
+    }
+    if (hit) found.set(m.path, hit)
+    else missing.push(m)
+  }
+  return { found, missing }
 }
 
 const clientFiles = (index: MrpackIndex) => index.files.filter((f) => f.env?.client !== 'unsupported')
 
-export async function previewModpack(source: ModpackSource): Promise<ModpackPreview> {
+export async function previewModpack(source: ModpackSource, profileId?: string): Promise<ModpackPreview> {
   const { index, overrides, manualMods } = await packSummary(source)
   const known = await lookup(index)
   const { loader, loaderVersion, unsupported: loaderProblem } = loaderOf(index)
+  const cf = await findManual(index.manual ?? [], profileId ? gameDirOf(profileId) : undefined)
   // Mods à télécharger à la main : le jeu ne se lancerait pas sans eux (ou il faudrait en désactiver d'autres en cascade)
-  const unsupported = loaderProblem ?? (manualMods !== null ? manualMessage(manualMods) : null)
+  const unsupported =
+    loaderProblem ??
+    // Modpack CurseForge : sa propre liste de mods à télécharger à la main remplace celle de Missing Mods Checker
+    (manualMods !== null && !index.manual ? manualMessage(manualMods) : null) ??
+    (cf.missing.length > 0 ? tm('err.modpackCfManual', { n: cf.missing.length }) : null)
   const files: ModpackEntry[] = clientFiles(index).map((f) => {
     const info = known.get(f.hashes.sha1)
     return {
@@ -281,7 +417,11 @@ export async function previewModpack(source: ModpackSource): Promise<ModpackPrev
   })
   files.sort((a, b) => a.title.localeCompare(b.title))
   let summary = index.summary ?? ''
-  if (!summary && source.kind === 'modrinth') summary = (await getProject(source.projectId).catch(() => null))?.description ?? ''
+  if (!summary && source.kind === 'modrinth') {
+    summary = isCurseforgeId(source.projectId)
+      ? await modpackSummary(source.projectId).catch(() => '')
+      : ((await getProject(source.projectId).catch(() => null))?.description ?? '')
+  }
   return {
     name: index.name,
     summary,
@@ -291,7 +431,8 @@ export async function previewModpack(source: ModpackSource): Promise<ModpackPrev
     loaderVersion,
     unsupported,
     files,
-    overrides
+    overrides,
+    manual: (index.manual ?? []).map((m) => ({ title: m.title, fileName: m.fileName, url: m.pageUrl, found: cf.found.has(m.path) }))
   }
 }
 
@@ -304,9 +445,10 @@ export async function forgeVersion(gameVersion: string, forge: string): Promise<
 }
 
 /** Adresse de téléchargement autorisée de chaque fichier (refus de tout le modpack si l'un vient d'ailleurs) */
-function downloadUrls(files: MrpackIndex['files']): Map<string, string> {
+function downloadUrls(files: MrpackIndex['files'], local: Map<string, string>): Map<string, string> {
   const urls = new Map<string, string>()
   for (const f of files) {
+    if (local.has(f.path)) continue
     const url = f.downloads.find((d) => {
       try {
         return ALLOWED_HOSTS.includes(new URL(d).hostname)
@@ -330,6 +472,8 @@ function providedFiles(zip: AdmZip): Map<string, AdmZip.IZipEntry> {
   }
   return out
 }
+
+const DISABLED = '.disabled'
 
 const sha1Of = (data: Buffer) => createHash('sha1').update(data).digest('hex')
 
@@ -404,20 +548,23 @@ function throttled(report: (p: ModpackProgress) => void): (p: ModpackProgress) =
 }
 
 /** Ouvre un modpack et vérifie qu'Aloria peut l'installer (chargeur, mods CurseForge, hébergeurs) */
-async function openInstallable(source: ModpackSource, onProgress: (p: ModpackProgress) => void) {
+async function openInstallable(source: ModpackSource, onProgress: (p: ModpackProgress) => void, gameDir?: string) {
   onProgress({ step: 'prepare', done: 0, total: 0 })
   const { zip, index } = await openPack(source, (done, total) => onProgress({ step: 'pack', done, total }))
   const { loader, loaderVersion, unsupported } = loaderOf(index)
   if (unsupported) throw new Error(unsupported)
-  const manual = localManual(zip, index)
+  const manual = index.manual ? null : localManual(zip, index)
   if (manual !== null) throw new Error(manualMessage(manual))
+  const cf = await findManual(index.manual ?? [], gameDir)
+  if (cf.missing.length > 0) throw new Error(tm('err.modpackCfManual', { n: cf.missing.length }))
   const files = clientFiles(index)
   const gameVersion = index.dependencies.minecraft
   return {
     zip,
     index,
     files,
-    urls: downloadUrls(files),
+    urls: downloadUrls(files, cf.found),
+    local: cf.found,
     gameVersion,
     loader: loader as Profile['loader'],
     loaderVersion: loader === 'forge' && loaderVersion ? await forgeVersion(gameVersion, loaderVersion) : loaderVersion,
@@ -432,7 +579,17 @@ async function openInstallable(source: ModpackSource, onProgress: (p: ModpackPro
 type Pack = Awaited<ReturnType<typeof openInstallable>>
 
 async function downloadFiles(gameDir: string, pack: Pack, files: Pack['files'], onProgress: (p: ModpackProgress) => void) {
-  const tasks = files.map((f) => ({ url: pack.urls.get(f.path)!, path: safeJoin(gameDir, f.path), sha1: f.hashes.sha1, size: f.fileSize }))
+  // Fichiers téléchargés à la main par le joueur : copiés depuis Téléchargements
+  for (const f of files) {
+    const from = pack.local.get(f.path)
+    const dest = safeJoin(gameDir, f.path)
+    if (!from || from === dest) continue
+    await mkdir(dirname(dest), { recursive: true })
+    await copyFile(from, dest)
+  }
+  const tasks = files
+    .filter((f) => !pack.local.has(f.path))
+    .map((f) => ({ url: pack.urls.get(f.path)!, path: safeJoin(gameDir, f.path), sha1: f.hashes.sha1 || undefined, size: f.fileSize }))
   await downloadAll(tasks, (p) =>
     onProgress({ step: 'files', done: p.doneBytes, total: p.totalBytes, doneFiles: p.doneFiles, totalFiles: p.totalFiles })
   )
@@ -490,7 +647,6 @@ export async function modpackUpdate(profileId: string): Promise<ModpackVersion |
   return versions.slice(0, current).find((v) => v.supported && (v.stable || beta)) ?? null
 }
 
-const DISABLED = '.disabled'
 // Fichiers du joueur jamais remplacés quand ils existent déjà et qu'on ne sait pas s'il les a modifiés
 const PLAYER_FILES = ['options.txt', 'servers.dat', 'saves/']
 const isPlayerFile = (path: string) => PLAYER_FILES.some((p) => (p.endsWith('/') ? path.startsWith(p) : path === p))
@@ -505,7 +661,7 @@ export async function updateModpack(profileId: string, source: ModpackSource, re
   if (!profile.modpack) throw new Error(tm('err.modpackNotModpack'))
   const gameDir = gameDirOf(profile.id)
   const onProgress = throttled(report)
-  const pack = await openInstallable(source, onProgress)
+  const pack = await openInstallable(source, onProgress, gameDir)
   const old = await installedManifest(profile)
   if (!old) throw new Error(tm('err.modpackNoPrevious'))
   // Nouvelle version du jeu : les mondes seront convertis sans retour possible, on les garde d'abord tels quels

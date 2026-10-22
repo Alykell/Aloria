@@ -130,7 +130,9 @@ const api = {
   },
   modpacks: {
     versions: (projectId: string): Promise<Result<ModpackVersion[]>> => ipcRenderer.invoke('modpacks:versions', projectId),
-    preview: (source: ModpackSource): Promise<Result<ModpackPreview>> => ipcRenderer.invoke('modpacks:preview', source),
+    /** profileId : profil mis à jour (les mods CurseForge à télécharger à la main y sont peut-être déjà) */
+    preview: (source: ModpackSource, profileId?: string): Promise<Result<ModpackPreview>> =>
+      ipcRenderer.invoke('modpacks:preview', source, profileId),
     install: (source: ModpackSource): Promise<Result<Profile>> => ipcRenderer.invoke('modpacks:install', source),
     /** Nouvelle version du modpack d'un profil (null : à jour, ou modpack venu d'un fichier) */
     checkUpdate: (profileId: string): Promise<Result<ModpackVersion | null>> => ipcRenderer.invoke('modpacks:checkUpdate', profileId),

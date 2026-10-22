@@ -13,7 +13,8 @@ import { fabricLoaders } from './game/fabric'
 import { forgeLoaders } from './game/forge'
 import { neoforgeLoaders } from './game/neoforge'
 import { addOptiFine, importFiles, installContent, listInstalled, openContentFolder, removeContent, searchContent, setContentEnabled } from './modrinth/content'
-import { exportProfile, importInstance } from './instances'
+import { exportProfile, importInstance, isCurseforgePack } from './instances'
+import AdmZip from 'adm-zip'
 import { installModpack, modpackUpdate, modpackVersions, previewModpack, updateModpack } from './modrinth/modpack'
 import { createPreset, deletePreset, getPreset, listPresets, MAIN_PRESET, renamePreset, updatePresetOptions } from './shared/presets'
 import { gameLangOf, translate, type Lang, type MessageKey } from '../shared/i18n'
@@ -233,8 +234,13 @@ ipcMain.handle('profiles:import', (e, path: string | null) =>
       if (res.canceled || res.filePaths.length === 0) return null
       path = res.filePaths[0]
     }
-    // Modpack Modrinth : le renderer l'affiche (aperçu) avant de l'installer dans un nouveau profil
+    // Modpack Modrinth ou CurseForge : le renderer l'affiche (aperçu) avant de l'installer dans un nouveau profil
     if (path.toLowerCase().endsWith('.mrpack')) return { modpack: path }
+    try {
+      if (isCurseforgePack(new AdmZip(path))) return { modpack: path }
+    } catch {
+      // Zip illisible : importInstance le dira
+    }
     return importInstance(path)
   })
 )
@@ -296,7 +302,7 @@ ipcMain.handle('library:import', (e, profileId: string, paths: string[] | null) 
 )
 // Modpacks (.mrpack) : versions, aperçu (liste des mods) puis installation dans un nouveau profil
 ipcMain.handle('modpacks:versions', (_e, projectId: string) => wrap(() => modpackVersions(projectId)))
-ipcMain.handle('modpacks:preview', (_e, source: ModpackSource) => wrap(() => previewModpack(source)))
+ipcMain.handle('modpacks:preview', (_e, source: ModpackSource, profileId?: string) => wrap(() => previewModpack(source, profileId)))
 ipcMain.handle('modpacks:install', (e, source: ModpackSource) =>
   wrap(() => installModpack(source, (p) => !e.sender.isDestroyed() && e.sender.send('modpacks:progress', p)))
 )
@@ -307,7 +313,7 @@ ipcMain.handle('modpacks:pickFile', async (e) => {
   const options = {
     title: tm('dialog.pickModpack'),
     defaultPath: app.getPath('downloads'),
-    filters: [{ name: tm('dialog.pickModpackFilter'), extensions: ['mrpack'] }],
+    filters: [{ name: tm('dialog.pickModpackFilter'), extensions: ['mrpack', 'zip'] }],
     properties: ['openFile' as const]
   }
   const res = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)

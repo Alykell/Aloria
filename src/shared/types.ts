@@ -314,7 +314,7 @@ export interface ProfileInput {
   playWithFriends?: boolean
   /** Jeu de réglages appliqué au lancement (absent = « Mes réglages », null = réglages propres au profil) */
   settingsPreset?: string | null
-  /** Modpack d'origine du profil (installé depuis Modrinth ou un fichier .mrpack) */
+  /** Modpack d'origine du profil (Modrinth, CurseForge ou fichier) ; projectId « cf:<id> » pour CurseForge, versionId = id du fichier */
   modpack?: { name: string; versionNumber: string; projectId?: string; versionId?: string }
 }
 
@@ -343,6 +343,8 @@ export interface SearchQuery {
   query: string
   sort: SearchSort
   offset: number
+  /** Modpacks : site où chercher (absent = Modrinth) */
+  source?: 'modrinth' | 'curseforge'
 }
 
 export interface SearchHit {
@@ -354,6 +356,8 @@ export interface SearchHit {
   downloads: number
   iconUrl: string | null
   categories: string[]
+  /** Page du projet (absent : page Modrinth) */
+  url?: string
 }
 
 /** Résultat d'un import de fichiers : type de chaque fichier ajouté, et erreurs des fichiers refusés */
@@ -372,7 +376,7 @@ export interface ExportOptions {
   screenshots: boolean
 }
 
-/** Modpack à afficher ou installer : une version publiée sur Modrinth, ou un fichier .mrpack du joueur */
+/** Modpack à afficher ou installer : une version publiée (Modrinth, ou CurseForge avec projectId « cf:<id> »), ou un fichier .mrpack / .zip du joueur */
 export type ModpackSource = { kind: 'modrinth'; projectId: string; versionId: string } | { kind: 'file'; path: string }
 
 export interface ModpackVersion {
@@ -409,6 +413,8 @@ export interface ModpackPreview {
   files: ModpackEntry[]
   /** Fichiers fournis directement par le modpack (configs, réglages, mondes…) */
   overrides: number
+  /** Modpack CurseForge : mods à télécharger à la main sur le site (found : trouvé dans Téléchargements ou le profil) */
+  manual: { title: string; fileName: string; url: string; found: boolean }[]
 }
 
 /**

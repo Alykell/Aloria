@@ -550,6 +550,11 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .modcheck__item > div:last-child { display: flex; flex-direction: column; gap: 2px; }
 .modpack__file img, .modpack__file .result__noicon { width: 24px; height: 24px; border-radius: 6px; font-size: 13px; }
 .dialog.modpack .progress { margin-top: 0; width: 100%; }
+.modpack__manual { flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 12px; background: var(--card); max-height: 24vh; overflow-y: auto; }
+.modpack__manual h4 { font-family: 'Quicksand', sans-serif; color: var(--sea-deep); }
+.modpack__manual .modpack__file > span:first-child { flex: 1; }
+.modpack__manual > button { align-self: flex-start; }
+.modpack__manual a { text-decoration: none; }
 
 /* Contenu installé */
 .installed { display: flex; flex-direction: column; gap: 18px; }

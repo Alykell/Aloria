@@ -134,6 +134,11 @@ async function loaderCheck(p: ProfileInput): Promise<Pick<ProfileInput, 'loader'
   return { loader: p.loader as Loader, loaderVersion: p.loaderVersion }
 }
 
+/** Modpack CurseForge (manifest.json) : installé comme un modpack, avec l'API CurseForge */
+export function isCurseforgePack(zip: AdmZip): boolean {
+  return /"manifestType"\s*:\s*"minecraftModpack"/.test(entryText(zip, 'manifest.json') ?? '')
+}
+
 /** Le zip est-il un profil complet (Aloria, Prism, MultiMC, CurseForge) plutôt qu'un resource pack ? */
 export function isInstanceZip(zip: AdmZip): boolean {
   return zip

@@ -3,7 +3,7 @@ import InstalledList from './InstalledList'
 import ModpackDialog, { type ModpackTarget } from './ModpackDialog'
 import { describeProfile } from '../hooks/useVersions'
 import type { ProfilesState } from '../hooks/useProfiles'
-import type { ContentType, InstalledContent, Profile, SearchHit, SearchSort } from '../../../shared/types'
+import type { ContentType, InstalledContent, Profile, SearchHit, SearchQuery, SearchSort } from '../../../shared/types'
 import Select from './Select'
 import { compactNumber, t } from '../i18n'
 import type { MessageKey } from '../../../shared/i18n'
@@ -53,6 +53,8 @@ export default function LibraryPage({ profiles, showModpacks, onError, onOpenPro
   const [tab, setTab] = useState<Tab>('mod')
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<SearchSort>('relevance')
+  // Modpacks : Modrinth ou CurseForge
+  const [source, setSource] = useState<NonNullable<SearchQuery['source']>>('modrinth')
   const [hits, setHits] = useState<SearchHit[]>([])
   const [total, setTotal] = useState(0)
   const [gameVersion, setGameVersion] = useState('')
@@ -102,7 +104,14 @@ export default function LibraryPage({ profiles, showModpacks, onError, onOpenPro
       if (!profile || tab === 'installed') return
       const id = ++requestId.current
       setLoading(true)
-      const res = await window.aloria.library.search({ profileId: profile.id, type: tab, query, sort, offset })
+      const res = await window.aloria.library.search({
+        profileId: profile.id,
+        type: tab,
+        query,
+        sort,
+        offset,
+        ...(tab === 'modpack' ? { source } : {})
+      })
       // On ignore les réponses d'une recherche déjà remplacée par une plus récente
       if (id !== requestId.current) return
       setLoading(false)
@@ -111,7 +120,7 @@ export default function LibraryPage({ profiles, showModpacks, onError, onOpenPro
       setTotal(res.value.total)
       setHits((prev) => (offset === 0 ? res.value.hits : [...prev, ...res.value.hits]))
     },
-    [profile?.id, tab, query, sort, onError]
+    [profile?.id, tab, query, sort, source, onError]
   )
 
   // Recherche avec un petit délai pendant la frappe
@@ -276,6 +285,17 @@ export default function LibraryPage({ profiles, showModpacks, onError, onOpenPro
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
+            {tab === 'modpack' && (
+              <Select
+                name="modpack-source"
+                value={source}
+                onChange={setSource}
+                options={[
+                  { value: 'modrinth', label: 'Modrinth' },
+                  { value: 'curseforge', label: 'CurseForge' }
+                ]}
+              />
+            )}
             <Select value={sort} onChange={setSort} options={SORTS.map((s) => ({ value: s.id, label: t(s.label) }))} />
           </div>
           {gameVersion && (
@@ -297,7 +317,7 @@ export default function LibraryPage({ profiles, showModpacks, onError, onOpenPro
                   {hit.iconUrl ? <img src={hit.iconUrl} alt="" /> : <div className="result__noicon">🐚</div>}
                   <div className="result__body">
                     <div className="result__title">
-                      <a href={`https://modrinth.com/${tab}/${hit.slug}`} target="_blank" rel="noreferrer">
+                      <a href={hit.url ?? `https://modrinth.com/${tab}/${hit.slug}`} target="_blank" rel="noreferrer">
                         {hit.title}
                       </a>
                       <span className="muted">{t('library.by', { author: hit.author })}</span>

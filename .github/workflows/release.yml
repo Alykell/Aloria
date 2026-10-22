@@ -100,6 +100,7 @@ jobs:
         run: npm run release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
 
       # Mise à jour légère : code du launcher + jars, remplacés par le launcher lui-même (pas d'installeur à lancer)
       - name: Envoyer la mise à jour légère et l'installeur à nom fixe
@@ -145,6 +146,7 @@ jobs:
         run: npm run release:linux
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
 
       # Copies sous un nom fixe : le site les télécharge via …/releases/latest/download/Aloria.AppImage et Aloria.deb
       - name: Envoyer l'AppImage et le .deb à nom fixe

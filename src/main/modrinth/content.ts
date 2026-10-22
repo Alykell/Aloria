@@ -8,7 +8,8 @@ import { gameDirOf, getProfile } from '../profiles'
 import { getProject, getVersion, listVersions, search, type ModrinthVersion } from './api'
 import type { ContentType, ImportResult, InstalledContent, Loader, Profile, SearchHit, SearchQuery } from '../../shared/types'
 import { tm } from '../i18n'
-import { isInstanceZip } from '../instances'
+import { isCurseforgePack, isInstanceZip } from '../instances'
+import { searchModpacks } from '../curseforge'
 
 /** Les datapacks sont propres à chaque monde : ceux du profil sont copiés dans tous ses mondes au lancement (game/datapacks.ts) */
 const FOLDERS: Record<ContentType, string> = { mod: 'mods', resourcepack: 'resourcepacks', shader: 'shaderpacks', datapack: 'datapacks' }
@@ -88,6 +89,7 @@ function requireModLoader(ctx: Context, type: ContentType): void {
 
 export async function searchContent(q: SearchQuery): Promise<{ hits: SearchHit[]; total: number; gameVersion: string }> {
   const { gameVersion, profile } = await context(q.profileId)
+  if (q.type === 'modpack' && q.source === 'curseforge') return { ...(await searchModpacks(q)), gameVersion }
   const loaders = q.type === 'modpack' ? ['fabric', 'neoforge', 'forge'] : modrinthLoaders(q.type, profile.loader)
   return { ...(await search(q, gameVersion, loaders)), gameVersion }
 }
@@ -328,7 +330,12 @@ export async function importFiles(profileId: string, paths: string[]): Promise<I
         throw new Error(tm('err.importUnreadable', { name }))
       }
 
-      // Profil complet exporté (Aloria, Prism, MultiMC, CurseForge) : il devient un nouveau profil
+      // Modpack CurseForge : aperçu puis nouveau profil, comme un .mrpack
+      if (zip && lower.endsWith('.zip') && isCurseforgePack(zip)) {
+        modpacks.push(path)
+        continue
+      }
+      // Profil complet exporté (Aloria, Prism, MultiMC) : il devient un nouveau profil
       if (zip && lower.endsWith('.zip') && isInstanceZip(zip)) {
         instances.push(path)
         continue
