@@ -343,8 +343,8 @@ export interface SearchQuery {
   query: string
   sort: SearchSort
   offset: number
-  /** Modpacks : site où chercher (absent = Modrinth) */
-  source?: 'modrinth' | 'curseforge'
+  /** Site où chercher : Modrinth, CurseForge, ou les deux (absent = les deux) */
+  source?: 'all' | 'modrinth' | 'curseforge'
 }
 
 export interface SearchHit {
@@ -366,7 +366,7 @@ export interface ImportResult {
   errors: string[]
   /** Modpacks (.mrpack) glissés ou choisis : ils créent un profil, après un aperçu */
   modpacks: string[]
-  /** Profils complets (zip Aloria, Prism, MultiMC, CurseForge) : chacun devient un nouveau profil */
+  /** Profils complets (zip Aloria, Prism, MultiMC) : chacun devient un nouveau profil */
   instances: string[]
 }
 
@@ -434,8 +434,10 @@ export interface InstalledContent {
   fileName: string
   type: ContentType
   enabled: boolean
-  /** Absent pour un fichier ajouté à la main dans le dossier */
+  /** Absent pour un fichier ajouté à la main dans le dossier ; « cf:<id> » pour CurseForge */
   projectId?: string
+  /** Contenu CurseForge publié aussi sur Modrinth (même fichier) : son projet Modrinth, pour ne pas l'installer en double */
+  modrinthId?: string
   versionId?: string
   versionNumber?: string
   title: string

@@ -52,7 +52,7 @@ export async function exportProfile(id: string, dest: string, options: ExportOpt
   await zip.writeZipPromise(dest)
 }
 
-/** Profil décrit par un zip : Aloria (aloria-profile.json), Prism Launcher / MultiMC (mmc-pack.json) ou CurseForge (manifest.json) */
+/** Profil décrit par un zip : Aloria (aloria-profile.json), Prism Launcher / MultiMC (mmc-pack.json) ; CurseForge passe par les modpacks */
 interface Detected {
   input: ProfileInput
   /** Dossier du zip qui devient le dossier du profil (« » pour la racine) */
@@ -121,10 +121,6 @@ async function detect(zip: AdmZip, fallbackName: string): Promise<Detected> {
     }
   }
 
-  // CurseForge : la liste des mods ne donne que des numéros, téléchargeables seulement avec une clé de l'API CurseForge
-  const manifest = entryText(zip, 'manifest.json')
-  if (manifest && /"manifestType"\s*:\s*"minecraftModpack"/.test(manifest)) throw new Error(tm('err.instanceCurseforge'))
-
   throw new Error(tm('err.instanceUnknown', { name: fallbackName }))
 }
 
@@ -139,11 +135,11 @@ export function isCurseforgePack(zip: AdmZip): boolean {
   return /"manifestType"\s*:\s*"minecraftModpack"/.test(entryText(zip, 'manifest.json') ?? '')
 }
 
-/** Le zip est-il un profil complet (Aloria, Prism, MultiMC, CurseForge) plutôt qu'un resource pack ? */
+/** Le zip est-il un profil complet (Aloria, Prism, MultiMC) plutôt qu'un resource pack ? */
 export function isInstanceZip(zip: AdmZip): boolean {
   return zip
     .getEntries()
-    .some((e) => e.entryName === PROFILE_FILE || e.entryName === 'mmc-pack.json' || e.entryName.endsWith('/mmc-pack.json') || e.entryName === 'manifest.json')
+    .some((e) => e.entryName === PROFILE_FILE || e.entryName === 'mmc-pack.json' || e.entryName.endsWith('/mmc-pack.json'))
 }
 
 /** Crée un profil à partir d'un zip de profil ; en cas d'échec, rien ne reste */

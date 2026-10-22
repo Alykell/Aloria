@@ -6,6 +6,7 @@ import { gameDirOf, getProfile } from '../profiles'
 import { resolveVersionId } from './versions'
 import { installContent, modrinthLoaders, setContentEnabled } from '../modrinth/content'
 import { getProject, getProjects, getVersions, listVersions, search, versionsByHash } from '../modrinth/api'
+import { cfFiles, cfMods, modIdOf } from '../curseforge'
 import { bufferSource, fileSource, urlSource, zipEntries, zipRead, type ZipSource } from '../shared/zipPeek'
 import type { Loader, MissingMod, ModCheck } from '../../shared/types'
 
@@ -195,6 +196,9 @@ async function findOnModrinth(
 }
 
 /** Mods qui manquent aux mods activés du profil (null : rien ne manque, ou chargeur sans mods) */
+/** Ce que aloria-content.json sait d'un fichier installé depuis la Bibliothèque */
+type Indexed = { title?: string; projectId?: string; versionId?: string; modrinthId?: string }
+
 export async function checkMods(profileId: string): Promise<ModCheck | null> {
   const profile = getProfile(profileId)
   const loader = profile.loader
@@ -202,7 +206,7 @@ export async function checkMods(profileId: string): Promise<ModCheck | null> {
   const dir = join(gameDirOf(profile.id), 'mods')
   if (!existsSync(dir)) return null
 
-  let index: Record<string, { title?: string; projectId?: string }> = {}
+  let index: Record<string, Indexed> = {}
   try {
     index = JSON.parse(await readFile(join(gameDirOf(profile.id), 'aloria-content.json'), 'utf8'))
   } catch {
@@ -241,7 +245,8 @@ export async function checkMods(profileId: string): Promise<ModCheck | null> {
     if (profile.modpack) fromPack = new Set(enabled.map((m) => m.fileName))
   }
   const fromModrinth = await modrinthNeeds(enabled, fromPack, index, provided, loader === 'fabric' ? ['fabric', 'quilt'] : [loader], titleOf)
-  if (needed.size === 0 && fromModrinth.size === 0) return null
+  const fromCurseforge = await curseforgeNeeds(enabled, fromPack, index, titleOf)
+  if (needed.size === 0 && fromModrinth.size === 0 && fromCurseforge.size === 0) return null
 
   const gameVersion = await resolveVersionId(profile.versionId)
   // Dépendances déclarées sur Modrinth par les mods qui les demandent : les candidats les plus sûrs
@@ -273,9 +278,14 @@ export async function checkMods(profileId: string): Promise<ModCheck | null> {
   }
 
   const providedLoose = new Set([...provided].map(loose))
-  // Dépendances que seul Modrinth connaît : le projet est déjà identifié, il reste à le réactiver ou l'installer
-  const projects = fromModrinth.size > 0 ? await getProjects([...fromModrinth.keys()]).catch(() => []) : []
-  for (const [projectId, requiredBy] of fromModrinth) {
+  // Dépendances que seuls Modrinth ou CurseForge connaissent : le projet est déjà identifié, il reste à le réactiver ou l'installer
+  const projects: { id: string; slug: string; title: string; icon_url: string | null }[] =
+    fromModrinth.size > 0 ? await getProjects([...fromModrinth.keys()]).catch(() => []) : []
+  if (fromCurseforge.size > 0) {
+    const mods = await cfMods([...fromCurseforge.keys()].map(modIdOf)).catch(() => [])
+    projects.push(...mods.map((m) => ({ id: `cf:${m.id}`, slug: m.slug, title: m.name, icon_url: m.logo?.thumbnailUrl ?? null })))
+  }
+  for (const [projectId, requiredBy] of [...fromModrinth, ...fromCurseforge]) {
     // Déjà trouvé par le jar (sous l'identifiant du mod plutôt que celui du projet)
     const same = missing.find(
       (m) => (m.fix.kind === 'install' && m.fix.projectId === projectId) || (m.fix.kind === 'enable' && index[m.fix.fileName]?.projectId === projectId)
@@ -302,14 +312,19 @@ export async function checkMods(profileId: string): Promise<ModCheck | null> {
 async function modrinthNeeds(
   enabled: { fileName: string; meta: JarMeta }[],
   skip: Set<string>,
-  index: Record<string, { title?: string; projectId?: string; versionId?: string }>,
+  index: Record<string, Indexed>,
   provided: Set<string>,
   loaders: string[],
   titleOf: (m: { fileName: string; meta: JarMeta }) => string
 ): Promise<Map<string, { fileName: string; title: string }[]>> {
   const needs = new Map<string, { fileName: string; title: string }[]>()
-  const present = new Set(enabled.map((m) => index[m.fileName]?.projectId).filter(Boolean))
-  const byVersion = new Map(enabled.filter((m) => index[m.fileName]?.versionId && !skip.has(m.fileName)).map((m) => [index[m.fileName].versionId!, m]))
+  const present = new Set(enabled.flatMap((m) => [index[m.fileName]?.projectId, index[m.fileName]?.modrinthId]).filter(Boolean))
+  // Mods venus de CurseForge : leurs dépendances sont lues par curseforgeNeeds
+  const byVersion = new Map(
+    enabled
+      .filter((m) => index[m.fileName]?.versionId && !index[m.fileName].projectId?.startsWith('cf:') && !skip.has(m.fileName))
+      .map((m) => [index[m.fileName].versionId!, m])
+  )
   if (byVersion.size === 0) return needs
   try {
     const ids = [...byVersion.keys()]
@@ -330,6 +345,39 @@ async function modrinthNeeds(
     }
   } catch {
     // Modrinth injoignable : seuls les jars comptent
+  }
+  return needs
+}
+
+/** Dépendances obligatoires déclarées sur CurseForge par les mods installés depuis CurseForge, absentes des mods activés */
+async function curseforgeNeeds(
+  enabled: { fileName: string; meta: JarMeta }[],
+  skip: Set<string>,
+  index: Record<string, Indexed>,
+  titleOf: (m: { fileName: string; meta: JarMeta }) => string
+): Promise<Map<string, { fileName: string; title: string }[]>> {
+  const needs = new Map<string, { fileName: string; title: string }[]>()
+  const present = new Set(enabled.map((m) => index[m.fileName]?.projectId).filter(Boolean))
+  const byFile = new Map(
+    enabled
+      .filter((m) => index[m.fileName]?.projectId?.startsWith('cf:') && index[m.fileName].versionId && !skip.has(m.fileName))
+      .map((m) => [Number(index[m.fileName].versionId), m])
+  )
+  if (byFile.size === 0) return needs
+  try {
+    for (const file of await cfFiles([...byFile.keys()])) {
+      const mod = byFile.get(file.id)
+      if (!mod) continue
+      for (const dep of file.dependencies ?? []) {
+        const id = `cf:${dep.modId}`
+        if (dep.relationType !== 3 || present.has(id)) continue
+        const list = needs.get(id) ?? []
+        list.push({ fileName: mod.fileName, title: titleOf(mod) })
+        needs.set(id, list)
+      }
+    }
+  } catch {
+    // CurseForge injoignable : seuls les jars comptent
   }
   return needs
 }

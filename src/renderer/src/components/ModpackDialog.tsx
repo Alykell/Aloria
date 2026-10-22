@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
-import type { ContentType, ModpackPreview, ModpackProgress, ModpackSource, ModpackVersion, Profile } from '../../../shared/types'
+import { useEffect, useRef, useState } from 'react'
+import type { ContentType, ModpackPreview, ModpackSource, ModpackVersion, Profile } from '../../../shared/types'
+import { PROGRESS_STEPS, clearModpackTask, describeProgress, minimizeModpackTask, startModpackTask, useModpackTask } from '../hooks/useModpackTask'
 import type { MessageKey } from '../../../shared/i18n'
 import Select from './Select'
 import { t } from '../i18n'
@@ -32,11 +33,20 @@ export default function ModpackDialog({ target, onClose, onInstalled, update, pr
   const [versionId, setVersionId] = useState<string | null>(null)
   const [preview, setPreview] = useState<ModpackPreview | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [progress, setProgress] = useState<ModpackProgress | null>(null)
-  const [installing, setInstalling] = useState(false)
-  const [done, setDone] = useState<Profile | null>(null)
+  // Installation suivie hors de la fenêtre (elle continue si on la réduit) ; « mine » : lancée depuis cette fenêtre
+  const task = useModpackTask()
+  const mine = useRef(false)
+  const own = mine.current ? task : null
+  const installing = !!own?.running
+  const done = own?.result ?? null
+  const progress = own?.progress ?? null
+  // Une autre installation tourne déjà (lancée ailleurs, puis réduite)
+  const busyElsewhere = !!task?.running && !mine.current
   // « Vérifier mes téléchargements » : l'aperçu relit le dossier Téléchargements
   const [recheck, setRecheck] = useState(0)
+  // Nouveau profil pour jouer, ou serveur (page Serveurs) avec la même version et le même chargeur
+  const [asServer, setAsServer] = useState(false)
+  const [eula, setEula] = useState(false)
 
   // Projet Modrinth : ses versions, la plus récente installable (finale de préférence) choisie d'office
   useEffect(() => {
@@ -71,43 +81,38 @@ export default function ModpackDialog({ target, onClose, onInstalled, update, pr
     }
   }, [source?.kind === 'file' ? source.path : versionId, recheck])
 
-  useEffect(() => window.aloria.modpacks.onProgress(setProgress), [])
-
-  const install = async () => {
+  const install = () => {
     if (!source) return
-    setInstalling(true)
     setError(null)
-    setProgress(null)
-    const res = update ? await window.aloria.modpacks.update(update.id, source) : await window.aloria.modpacks.install(source)
-    setInstalling(false)
-    if (!res.ok) return setError(res.error)
-    setDone(res.value)
-    onInstalled(res.value)
+    mine.current = true
+    startModpackTask(
+      { title, iconUrl, update: !!update, server: asServer && !update },
+      () =>
+        update
+          ? window.aloria.modpacks.update(update.id, source)
+          : asServer
+            ? window.aloria.modpacks.installServer(source)
+            : window.aloria.modpacks.install(source),
+      onInstalled
+    )
+  }
+
+  // Fermer la fenêtre pendant l'installation la réduit ; sinon, l'installation terminée est oubliée
+  const close = () => {
+    if (installing) minimizeModpackTask()
+    else if (mine.current) clearModpackTask()
+    onClose()
   }
 
   const title = preview?.name ?? ('title' in target ? target.title : '…')
   // Mise à jour vers la version déjà installée : rien à faire
   const sameVersion = !!update && 'projectId' in target && versionId === update.modpack?.versionId
   const iconUrl = 'iconUrl' in target ? target.iconUrl : null
-  // Étape en cours : numéro, texte et pourcentage (barre animée tant qu'on ne connaît pas la quantité)
-  const STEPS = ['pack', 'files', 'overrides'] as const
-  const stepIndex = progress ? STEPS.indexOf(progress.step as (typeof STEPS)[number]) : -1
-  const percent = progress && progress.total > 0 ? Math.min(100, Math.floor((progress.done / progress.total) * 100)) : null
-  const mb = (bytes: number) => (bytes / 1e6).toFixed(bytes < 1e7 ? 1 : 0)
-  const stepLabel = !progress
-    ? t(update ? 'modpack.stepUpdate' : 'modpack.installing')
-    : progress.step === 'pack'
-      ? t('modpack.stepPack', { done: mb(progress.done), total: mb(progress.total) })
-      : progress.step === 'files'
-        ? t('modpack.stepFiles', { done: progress.doneFiles ?? 0, total: progress.totalFiles ?? 0 })
-        : progress.step === 'overrides'
-          ? t('modpack.stepOverrides', { done: progress.done, total: progress.total })
-          : progress.step === 'finish'
-            ? t('modpack.stepFinish')
-            : t('modpack.installing')
+  const { stepIndex, percent, label: stepLabel } = describeProgress(progress, !!update)
+  const shownError = error ?? own?.error ?? null
 
   return (
-    <div className="overlay" onClick={installing ? undefined : onClose}>
+    <div className="overlay" onClick={close}>
       <div className="dialog modpack" onClick={(e) => e.stopPropagation()}>
         <div className="modpack__head">
           {iconUrl ? <img src={iconUrl} alt="" /> : <div className="result__noicon">📦</div>}
@@ -138,6 +143,32 @@ export default function ModpackDialog({ target, onClose, onInstalled, update, pr
         )}
 
         {preview?.summary && <p className="muted">{preview.summary}</p>}
+        {!update && !done && (
+          <div className="modpack__target">
+            <div className="segmented small">
+              <button className={asServer ? '' : 'active'} disabled={installing} onClick={() => setAsServer(false)}>
+                🎮 {t('modpack.asProfile')}
+              </button>
+              <button className={asServer ? 'active' : ''} disabled={installing} onClick={() => setAsServer(true)}>
+                🖥️ {t('modpack.asServer')}
+              </button>
+            </div>
+            {asServer && (
+              <>
+                <p className="muted">{t('modpack.serverHint')}</p>
+                <label className="toggle-line">
+                  <input type="checkbox" checked={eula} disabled={installing} onChange={(e) => setEula(e.target.checked)} />
+                  <span>
+                    {t('server.eula')}{' '}
+                    <a href="https://aka.ms/MinecraftEULA" target="_blank" rel="noreferrer">
+                      {t('server.eulaLink')}
+                    </a>
+                  </span>
+                </label>
+              </>
+            )}
+          </div>
+        )}
         {preview?.unsupported && <p className="modpack__warning">⚠️ {preview.unsupported}</p>}
         {update && preview && !preview.unsupported && !sameVersion && (
           <>
@@ -147,9 +178,10 @@ export default function ModpackDialog({ target, onClose, onInstalled, update, pr
             )}
           </>
         )}
-        {error && <p className="modpack__warning">⚠️ {error}</p>}
+        {shownError && <p className="modpack__warning">⚠️ {shownError}</p>}
+        {busyElsewhere && <p className="muted">{t('modpack.busy')}</p>}
 
-        {!preview && !error && <p className="muted center">{t('common.loading')}</p>}
+        {!preview && !shownError && <p className="muted center">{t('common.loading')}</p>}
 
         {preview && preview.manual.length > 0 && (
           <div className="modpack__manual">
@@ -206,7 +238,7 @@ export default function ModpackDialog({ target, onClose, onInstalled, update, pr
           <div className="progress">
             <div className="progress__label">
               <span>
-                {stepIndex >= 0 && <strong>{t('modpack.step', { n: stepIndex + 1, total: STEPS.length })} · </strong>}
+                {stepIndex >= 0 && <strong>{t('modpack.step', { n: stepIndex + 1, total: PROGRESS_STEPS.length })} · </strong>}
                 {stepLabel}
               </span>
               <span>{percent !== null ? `${percent} %` : ''}</span>
@@ -219,23 +251,30 @@ export default function ModpackDialog({ target, onClose, onInstalled, update, pr
 
         {done && (
           <p className="modpack__done">
-            ✓ {update ? t('modpack.updated', { name: done.name, version: done.modpack?.versionNumber ?? '' }) : t('modpack.done', { name: done.name })}
+            ✓{' '}
+            {own?.server
+              ? t('modpack.serverDone', { name: done.name })
+              : update
+                ? t('modpack.updated', { name: done.name, version: ('modpack' in done && done.modpack?.versionNumber) || '' })
+                : t('modpack.done', { name: done.name })}
           </p>
         )}
 
         <div className="dialog__actions">
-          <button className="secondary" disabled={installing} onClick={onClose}>
-            {t(done ? 'common.close' : 'common.cancel')}
+          <button className="secondary" onClick={close}>
+            {t(installing ? 'modpack.minimize' : done ? 'common.close' : 'common.cancel')}
           </button>
           {!done && (
-            <button className="primary" disabled={!preview || !!preview.unsupported || installing || sameVersion} onClick={install}>
+            <button className="primary" disabled={!preview || !!preview.unsupported || installing || busyElsewhere || sameVersion || (asServer && !eula)}
+              onClick={install}
+            >
               {installing
                 ? t('library.installing')
                 : preview?.manual.some((m) => !m.found)
                   ? t('modpack.manualMissing')
                   : preview?.unsupported
                     ? t('modpack.notInstallable')
-                  : t(update ? 'modpack.update' : 'modpack.install')}
+                  : t(update ? 'modpack.update' : asServer ? 'modpack.installServer' : 'modpack.install')}
             </button>
           )}
         </div>

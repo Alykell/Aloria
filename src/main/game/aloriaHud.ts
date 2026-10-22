@@ -71,7 +71,7 @@ export async function syncAloriaHud(profile: Profile, gameVersion: string, gameD
   // Le mod 1.8.9 (Legacy Fabric ou Forge) n'a pas besoin de Fabric API
   if (forge || isLegacyFabric(gameVersion)) return null
   const installed = await listInstalled(profile.id)
-  if (!installed.some((i) => i.projectId === FABRIC_API)) await installContent(profile.id, FABRIC_API, 'mod')
+  if (!installed.some((i) => i.projectId === FABRIC_API || i.modrinthId === FABRIC_API)) await installContent(profile.id, FABRIC_API, 'mod')
   return null
 }
 

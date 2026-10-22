@@ -10,10 +10,13 @@ import { forgeLoaders } from '../game/forge'
 import { createProfile, deleteProfile, gameDirOf, getProfile, updateProfile } from '../profiles'
 import { forgeSupported, neoforgeSupported } from '../../shared/loaders'
 import { getProject, getProjects, getVersion, listVersions, versionsByHash } from './api'
-import type { ContentType, ModpackEntry, ModpackPreview, ModpackProgress, ModpackSource, ModpackVersion, Profile } from '../../shared/types'
+import type { ContentType, ModpackEntry, ModpackPreview, ModpackProgress, ModpackSource, ModpackVersion, Profile, ServerInfo, ServerType } from '../../shared/types'
 import { tm } from '../i18n'
 import { cfModpackVersions, cfPackFile, isCurseforgeId, modpackSummary, resolveFiles, resolveManifest, type CfManifest, type CfPackFile } from '../curseforge'
 import { backupWorlds } from '../worldBackups'
+import { createServer, deleteServer, freePort, serverDirOf } from '../server/store'
+import { e4mcSupported } from '../../shared/aloriaHud'
+import { totalmem } from 'node:os'
 
 /** Format .mrpack de Modrinth : un zip avec modrinth.index.json et les dossiers overrides/ et client-overrides/ */
 interface MrpackIndex {
@@ -463,9 +466,9 @@ function downloadUrls(files: MrpackIndex['files'], local: Map<string, string>): 
 }
 
 /** Configs, réglages, packs fournis tels quels, par chemin dans le profil ; client-overrides passe après (propre au jeu) */
-function providedFiles(zip: AdmZip): Map<string, AdmZip.IZipEntry> {
+function providedFiles(zip: AdmZip, prefixes = OVERRIDES): Map<string, AdmZip.IZipEntry> {
   const out = new Map<string, AdmZip.IZipEntry>()
-  for (const prefix of OVERRIDES) {
+  for (const prefix of prefixes) {
     for (const entry of zip.getEntries()) {
       if (!entry.isDirectory && entry.entryName.startsWith(prefix)) out.set(entry.entryName.slice(prefix.length), entry)
     }
@@ -732,4 +735,91 @@ export async function updateModpack(profileId: string, source: ModpackSource, re
     loaderVersion: pack.loaderVersion,
     modpack: pack.modpack
   })
+}
+
+// Serveur : overrides puis server-overrides (propres au serveur) ; packs de textures, shaders et réglages du jeu n'y servent pas
+const SERVER_OVERRIDES = ['overrides/', 'server-overrides/']
+const CLIENT_ONLY = /^(resourcepacks|shaderpacks|screenshots|saves)\/|^options\.txt$|^servers\.dat$/
+
+/** Fichiers (par SHA-1) dont le projet Modrinth dit qu'ils ne marchent pas sur un serveur (mods d'affichage, de menus…) */
+async function clientOnlyHashes(hashes: string[]): Promise<Set<string>> {
+  const out = new Set<string>()
+  if (hashes.length === 0) return out
+  try {
+    const versions = await versionsByHash(hashes)
+    const ids = [...new Set(Object.values(versions).map((v) => v.project_id))]
+    const serverless = new Set<string>()
+    for (let i = 0; i < ids.length; i += 100) {
+      for (const p of await getProjects(ids.slice(i, i + 100))) {
+        if ((p as { server_side?: string }).server_side === 'unsupported') serverless.add(p.id)
+      }
+    }
+    for (const [sha1, v] of Object.entries(versions)) if (serverless.has(v.project_id)) out.add(sha1)
+  } catch {
+    // Modrinth injoignable : tout est gardé (un mod client seul fait au pire planter le serveur, on le verra dans sa console)
+  }
+  return out
+}
+
+/**
+ * Crée un serveur à partir d'un modpack : même version du jeu et même chargeur (installés au premier démarrage), mods
+ * qui marchent côté serveur (le .mrpack le dit ; sinon, pour CurseForge, Modrinth), configs fournies. Le joueur a accepté
+ * le CLUF dans la fenêtre du modpack. En cas d'échec, le serveur à moitié créé est supprimé.
+ */
+export async function installModpackServer(source: ModpackSource, report: (p: ModpackProgress) => void): Promise<ServerInfo> {
+  const onProgress = throttled(report)
+  const pack = await openInstallable(source, onProgress)
+  const type = pack.loader as ServerType
+  const server = await createServer({
+    name: pack.index.name,
+    icon: '📦',
+    type,
+    gameVersion: pack.gameVersion,
+    loaderVersion: pack.loaderVersion,
+    // Les modpacks demandent de la mémoire : 6 Go si le PC en a assez (modifiable ensuite)
+    ramMb: Math.max(2048, Math.min(6144, Math.floor(totalmem() / 1024 / 1024 / 2 / 512) * 512)),
+    port: freePort(),
+    tunnel: e4mcSupported(type, pack.gameVersion) ? 'e4mc' : 'none'
+  })
+  const dir = serverDirOf(server.id)
+  try {
+    const provided = [...providedFiles(pack.zip, SERVER_OVERRIDES)].filter(([path]) => !CLIENT_ONLY.test(path) && !isCheckerJar(path))
+    const candidates = pack.files.filter((f) => f.env?.server !== 'unsupported' && !isCheckerJar(f.path) && ['mod', 'other'].includes(typeOf(f.path)))
+    // Sans indication de côté (modpacks CurseForge, jars fournis) : Modrinth tranche
+    const providedJars = provided.filter(([path]) => /^mods\/[^/]+\.jar$/i.test(path)).map(([path, entry]) => [path, sha1Of(entry.getData())] as const)
+    const clientOnly = await clientOnlyHashes([
+      ...candidates.filter((f) => !f.env && f.hashes.sha1).map((f) => f.hashes.sha1),
+      ...providedJars.map(([, sha1]) => sha1)
+    ])
+    const files = candidates.filter((f) => !clientOnly.has(f.hashes.sha1))
+    await downloadFiles(dir, pack, files, onProgress)
+
+    const skipped = new Set(providedJars.filter(([, sha1]) => clientOnly.has(sha1)).map(([path]) => path))
+    const kept = provided.filter(([path]) => !skipped.has(path))
+    let copied = 0
+    onProgress({ step: 'overrides', done: 0, total: kept.length })
+    for (const [path, entry] of kept) {
+      const dest = safeJoin(dir, path)
+      await mkdir(dirname(dest), { recursive: true })
+      await writeFile(dest, entry.getData())
+      onProgress({ step: 'overrides', done: ++copied, total: kept.length })
+    }
+    onProgress({ step: 'finish', done: 0, total: 0 })
+
+    // Liste des mods de la page Serveurs : nom et icône des mods du modpack
+    const known = await lookup(pack.index)
+    const contentIndex: Record<string, { projectId: string; title: string; iconUrl: string | null }> = {}
+    for (const f of files) {
+      const info = known.get(f.hashes.sha1)
+      if (info && f.path.startsWith('mods/') && f.path.split('/').length === 2) {
+        contentIndex[fileName(f.path)] = { projectId: info.projectId, title: info.title, iconUrl: info.iconUrl }
+      }
+    }
+    await mkdir(join(dir, 'mods'), { recursive: true })
+    await writeFile(join(dir, 'mods', 'aloria-content.json'), JSON.stringify(contentIndex, null, 2))
+  } catch (err) {
+    await deleteServer(server.id).catch(() => {})
+    throw err
+  }
+  return server
 }

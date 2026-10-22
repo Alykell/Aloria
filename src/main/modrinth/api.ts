@@ -47,7 +47,7 @@ async function get<T>(path: string, params: Record<string, unknown> = {}, body?:
 /**
  * Recherche Modrinth. Modpacks : toutes versions du jeu (ils créent leur propre profil), Fabric ou Forge seulement
  */
-export async function search(q: SearchQuery, gameVersion: string, loaders: string[]): Promise<{ hits: SearchHit[]; total: number }> {
+export async function search(q: SearchQuery, gameVersion: string, loaders: string[], limit = 20): Promise<{ hits: SearchHit[]; total: number }> {
   const facets: string[][] = [[`project_type:${q.type}`]]
   if (q.type !== 'modpack') facets.push([`versions:${gameVersion}`])
   if (q.type !== 'resourcepack') facets.push(loaders.map((l) => `categories:${l}`))
@@ -64,7 +64,7 @@ export async function search(q: SearchQuery, gameVersion: string, loaders: strin
       icon_url: string | null
       display_categories: string[]
     }[]
-  }>('/search', { query: q.query || undefined, facets, index: q.sort, limit: 20, offset: q.offset })
+  }>('/search', { query: q.query || undefined, facets, index: q.sort, limit, offset: q.offset })
 
   return {
     total: res.total_hits,

@@ -5,11 +5,11 @@ import { basename, join } from 'node:path'
 import { downloadAll } from '../game/download'
 import { resolveVersionId } from '../game/versions'
 import { gameDirOf, getProfile } from '../profiles'
-import { getProject, getVersion, listVersions, search, type ModrinthVersion } from './api'
+import { getProject, getVersion, listVersions, search, versionsByHash, type ModrinthVersion } from './api'
 import type { ContentType, ImportResult, InstalledContent, Loader, Profile, SearchHit, SearchQuery } from '../../shared/types'
 import { tm } from '../i18n'
 import { isCurseforgePack, isInstanceZip } from '../instances'
-import { searchModpacks } from '../curseforge'
+import { cfBestFile, cfMods, cfSearch, cfSha1, isCurseforgeId, modIdOf } from '../curseforge'
 
 /** Les datapacks sont propres à chaque monde : ceux du profil sont copiés dans tous ses mondes au lancement (game/datapacks.ts) */
 const FOLDERS: Record<ContentType, string> = { mod: 'mods', resourcepack: 'resourcepacks', shader: 'shaderpacks', datapack: 'datapacks' }
@@ -87,11 +87,34 @@ function requireModLoader(ctx: Context, type: ContentType): void {
   )
 }
 
-export async function searchContent(q: SearchQuery): Promise<{ hits: SearchHit[]; total: number; gameVersion: string }> {
+const looseTitle = (title: string) => title.toLowerCase().replace(/[^a-z0-9]/g, '')
+
+/**
+ * Recherche sur Modrinth, CurseForge, ou les deux (« all », par défaut) : 10 résultats de chacun par page, alternés (ou triés
+ * par téléchargements), un projet publié sur les deux sites n'apparaît qu'une fois (sa fiche Modrinth). Un site qui ne répond
+ * pas n'empêche pas l'autre. next : décalage de la page suivante.
+ */
+export async function searchContent(q: SearchQuery): Promise<{ hits: SearchHit[]; total: number; gameVersion: string; next: number }> {
   const { gameVersion, profile } = await context(q.profileId)
-  if (q.type === 'modpack' && q.source === 'curseforge') return { ...(await searchModpacks(q)), gameVersion }
   const loaders = q.type === 'modpack' ? ['fabric', 'neoforge', 'forge'] : modrinthLoaders(q.type, profile.loader)
-  return { ...(await search(q, gameVersion, loaders)), gameVersion }
+  if (q.source === 'curseforge') return { ...(await cfSearch(q, gameVersion, profile.loader)), gameVersion, next: q.offset + 20 }
+  if (q.source === 'modrinth') return { ...(await search(q, gameVersion, loaders)), gameVersion, next: q.offset + 20 }
+
+  const [mr, cf] = await Promise.allSettled([search(q, gameVersion, loaders, 10), cfSearch(q, gameVersion, profile.loader, 10)])
+  if (mr.status === 'rejected' && cf.status === 'rejected') throw mr.reason
+  const a = mr.status === 'fulfilled' ? mr.value : { hits: [], total: 0 }
+  const b = cf.status === 'fulfilled' ? cf.value : { hits: [], total: 0 }
+  let hits: SearchHit[] = []
+  for (let i = 0; i < Math.max(a.hits.length, b.hits.length); i++) hits.push(...[a.hits[i], b.hits[i]].filter((h): h is SearchHit => !!h))
+  const seen = new Set<string>()
+  hits = hits.filter((h) => {
+    const key = looseTitle(h.title)
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+  if (q.sort === 'downloads') hits.sort((x, y) => y.downloads - x.downloads)
+  return { hits, total: a.total + b.total, gameVersion, next: q.offset + 10 }
 }
 
 export async function listInstalled(profileId: string): Promise<InstalledContent[]> {
@@ -139,8 +162,10 @@ async function installOne(
 ): Promise<void> {
   if (visited.has(projectId)) return
   visited.add(projectId)
+  if (isCurseforgeId(projectId)) return installCurseforge(ctx, index, projectId, type, auto, visited)
 
-  const findExisting = (id: string) => Object.entries(index).find(([, e]) => e.projectId === id)
+  // Même mod installé depuis CurseForge : il porte aussi son projet Modrinth
+  const findExisting = (id: string) => Object.entries(index).find(([, e]) => e.projectId === id || e.modrinthId === id)
   // Une dépendance déjà présente suffit, inutile de la remplacer
   if (auto && findExisting(projectId)) return
 
@@ -183,6 +208,52 @@ async function installOne(
     if (dep.dependency_type !== 'required') continue
     const depProject = dep.project_id ?? (dep.version_id ? (await getVersion(dep.version_id)).project_id : null)
     if (depProject) await installOne(ctx, index, depProject, 'mod', true, dep.version_id, visited)
+  }
+}
+
+/**
+ * Installe un projet CurseForge (« cf:<id> ») : fichier adapté au profil, dépendances obligatoires CurseForge. Un fichier que
+ * CurseForge ne laisse pas télécharger est pris sur Modrinth (même SHA-1), sinon le joueur doit passer par le site.
+ */
+async function installCurseforge(ctx: Context, index: Index, projectId: string, type: ContentType, auto: boolean, visited: Set<string>): Promise<void> {
+  const findExisting = (id: string) => Object.entries(index).find(([, e]) => e.projectId === id || (!!e.modrinthId && e.modrinthId === id))
+  if (auto && findExisting(projectId)) return
+  const [mod] = await cfMods([modIdOf(projectId)])
+  if (!mod) throw new Error(tm('err.contentUnavailable', { title: projectId, version: ctx.gameVersion }))
+  // Dépendance déjà ajoutée à la main (identifiant du mod souvent égal au nom court du projet)
+  if (auto && ctx.localIds?.has(mod.slug)) return
+  const file = await cfBestFile(mod.id, type, ctx.gameVersion, ctx.profile.loader)
+  if (!file) throw new Error(tm('err.contentUnavailable', { title: mod.name, version: ctx.gameVersion }))
+
+  // Projet Modrinth du même fichier : évite les doublons entre les deux sites, et sert d'adresse si CurseForge refuse
+  const sha1 = cfSha1(file)
+  const onModrinth = sha1 ? (await versionsByHash([sha1]).catch(() => ({}) as Awaited<ReturnType<typeof versionsByHash>>))[sha1] : undefined
+  if (auto && onModrinth && findExisting(onModrinth.project_id)) return
+  const url = file.downloadUrl ?? onModrinth?.files.find((f) => f.hashes.sha1 === sha1)?.url
+  if (!url) throw new Error(tm('err.curseforgeBlocked', { title: mod.name }))
+
+  const existing = findExisting(projectId) ?? (onModrinth ? findExisting(onModrinth.project_id) : undefined)
+  const dir = join(ctx.gameDir, FOLDERS[type])
+  await downloadAll([{ url, path: join(dir, file.fileName), sha1: sha1 || undefined, size: file.fileLength }], () => {})
+  if (existing && existing[0] !== file.fileName) {
+    await rm(join(dir, existing[0]), { force: true })
+    await rm(join(dir, existing[0] + DISABLED), { force: true })
+    delete index[existing[0]]
+  }
+  index[file.fileName] = {
+    type,
+    projectId,
+    versionId: String(file.id),
+    versionNumber: file.displayName,
+    title: mod.name,
+    iconUrl: mod.logo?.thumbnailUrl ?? null,
+    ...(onModrinth ? { modrinthId: onModrinth.project_id } : {}),
+    auto: existing ? existing[1].auto && auto : auto
+  }
+
+  if (type === 'datapack') return
+  for (const dep of file.dependencies ?? []) {
+    if (dep.relationType === 3) await installOne(ctx, index, `cf:${dep.modId}`, 'mod', true, null, visited)
   }
 }
 

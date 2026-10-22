@@ -27,6 +27,9 @@ const SEARCH_PLACEHOLDERS: Record<ContentType | 'modpack', MessageKey> = {
   modpack: 'library.searchModpacks'
 }
 
+/** Titre réduit à ses lettres et chiffres : même projet publié sur Modrinth et CurseForge */
+const looseTitle = (title: string) => title.toLowerCase().replace(/[^a-z0-9]/g, '')
+
 /** Les datapacks existent depuis la 1.13 (« latest-release », snapshots et 26.x : récents) */
 const hasDatapacks = (versionId: string) => {
   const m = /^1\.(\d+)/.exec(versionId)
@@ -53,8 +56,10 @@ export default function LibraryPage({ profiles, showModpacks, onError, onOpenPro
   const [tab, setTab] = useState<Tab>('mod')
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<SearchSort>('relevance')
-  // Modpacks : Modrinth ou CurseForge
-  const [source, setSource] = useState<NonNullable<SearchQuery['source']>>('modrinth')
+  // Site où chercher : Modrinth ou CurseForge
+  const [source, setSource] = useState<NonNullable<SearchQuery['source']>>('all')
+  // Décalage de la page suivante (« Tout » prend 10 résultats de chaque site par page)
+  const [next, setNext] = useState(0)
   const [hits, setHits] = useState<SearchHit[]>([])
   const [total, setTotal] = useState(0)
   const [gameVersion, setGameVersion] = useState('')
@@ -110,7 +115,7 @@ export default function LibraryPage({ profiles, showModpacks, onError, onOpenPro
         query,
         sort,
         offset,
-        ...(tab === 'modpack' ? { source } : {})
+        source
       })
       // On ignore les réponses d'une recherche déjà remplacée par une plus récente
       if (id !== requestId.current) return
@@ -118,7 +123,13 @@ export default function LibraryPage({ profiles, showModpacks, onError, onOpenPro
       if (!res.ok) return onError(res.error)
       setGameVersion(res.value.gameVersion)
       setTotal(res.value.total)
-      setHits((prev) => (offset === 0 ? res.value.hits : [...prev, ...res.value.hits]))
+      setNext(res.value.next)
+      // Un projet déjà affiché (même page vue deux fois sur un site, ou présent sur les deux) n'est pas répété
+      setHits((prev) => {
+        if (offset === 0) return res.value.hits
+        const seen = new Set(prev.flatMap((p) => [p.projectId, looseTitle(p.title)]))
+        return [...prev, ...res.value.hits.filter((h) => !seen.has(h.projectId) && !seen.has(looseTitle(h.title)))]
+      })
     },
     [profile?.id, tab, query, sort, source, onError]
   )
@@ -198,7 +209,7 @@ export default function LibraryPage({ profiles, showModpacks, onError, onOpenPro
     }
   }
 
-  const installedIds = new Set(installed.map((i) => i.projectId).filter(Boolean))
+  const installedIds = new Set(installed.flatMap((i) => [i.projectId, i.modrinthId]).filter(Boolean))
 
   if (!profile) return null
 
@@ -285,17 +296,16 @@ export default function LibraryPage({ profiles, showModpacks, onError, onOpenPro
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
-            {tab === 'modpack' && (
-              <Select
-                name="modpack-source"
-                value={source}
-                onChange={setSource}
-                options={[
-                  { value: 'modrinth', label: 'Modrinth' },
-                  { value: 'curseforge', label: 'CurseForge' }
-                ]}
-              />
-            )}
+            <Select
+              name="content-source"
+              value={source}
+              onChange={setSource}
+              options={[
+                { value: 'all', label: t('library.sourceAll') },
+                { value: 'modrinth', label: 'Modrinth' },
+                { value: 'curseforge', label: 'CurseForge' }
+              ]}
+            />
             <Select value={sort} onChange={setSort} options={SORTS.map((s) => ({ value: s.id, label: t(s.label) }))} />
           </div>
           {gameVersion && (
@@ -325,6 +335,7 @@ export default function LibraryPage({ profiles, showModpacks, onError, onOpenPro
                     <p>{hit.description}</p>
                     <div className="result__meta">
                       <span>⬇ {compactNumber(hit.downloads)}</span>
+                      {source === 'all' && <span className="chip source">{hit.projectId.startsWith('cf:') ? 'CurseForge' : 'Modrinth'}</span>}
                       {hit.categories.slice(0, 3).map((c) => (
                         <span key={c} className="chip">
                           {c}
@@ -353,7 +364,7 @@ export default function LibraryPage({ profiles, showModpacks, onError, onOpenPro
           {loading && <p className="muted center">{t('common.loading')}</p>}
           {!loading && hits.length === 0 && <p className="muted center">{t('library.noResults')}</p>}
           {!loading && hits.length < total && (
-            <button className="secondary more" onClick={() => runSearch(hits.length)}>
+            <button className="secondary more" onClick={() => runSearch(next)}>
               {t('library.more')}
             </button>
           )}

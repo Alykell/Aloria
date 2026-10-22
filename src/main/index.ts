@@ -15,7 +15,7 @@ import { neoforgeLoaders } from './game/neoforge'
 import { addOptiFine, importFiles, installContent, listInstalled, openContentFolder, removeContent, searchContent, setContentEnabled } from './modrinth/content'
 import { exportProfile, importInstance, isCurseforgePack } from './instances'
 import AdmZip from 'adm-zip'
-import { installModpack, modpackUpdate, modpackVersions, previewModpack, updateModpack } from './modrinth/modpack'
+import { installModpack, installModpackServer, modpackUpdate, modpackVersions, previewModpack, updateModpack } from './modrinth/modpack'
 import { createPreset, deletePreset, getPreset, listPresets, MAIN_PRESET, renamePreset, updatePresetOptions } from './shared/presets'
 import { gameLangOf, translate, type Lang, type MessageKey } from '../shared/i18n'
 import { createProfile, deleteProfile, gameDirOf, getProfile, listProfiles, migrateProfileDirs, openProfileFolder, selectProfile, updateProfile } from './profiles'
@@ -305,6 +305,10 @@ ipcMain.handle('modpacks:versions', (_e, projectId: string) => wrap(() => modpac
 ipcMain.handle('modpacks:preview', (_e, source: ModpackSource, profileId?: string) => wrap(() => previewModpack(source, profileId)))
 ipcMain.handle('modpacks:install', (e, source: ModpackSource) =>
   wrap(() => installModpack(source, (p) => !e.sender.isDestroyed() && e.sender.send('modpacks:progress', p)))
+)
+// Modpack installé comme serveur (page Serveurs) plutôt que comme profil
+ipcMain.handle('modpacks:installServer', (e, source: ModpackSource) =>
+  wrap(() => installModpackServer(source, (p) => !e.sender.isDestroyed() && e.sender.send('modpacks:progress', p)))
 )
 // Mise à jour du modpack d'un profil : nouvelle version Modrinth, ou fichier .mrpack choisi par le joueur
 ipcMain.handle('modpacks:checkUpdate', (_e, profileId: string) => wrap(() => modpackUpdate(profileId)))

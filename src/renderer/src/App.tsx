@@ -12,6 +12,7 @@ import { useAccounts } from './hooks/useAccounts'
 import { useSettings } from './hooks/useSettings'
 import { useGame } from './hooks/useGame'
 import { useProfiles } from './hooks/useProfiles'
+import ModpackTaskBar from './components/ModpackTaskBar'
 import { DISCORD_INVITE } from '../../shared/links'
 import CreationsPage from './components/CreationsPage'
 import ServersPage from './components/ServersPage'
@@ -127,6 +128,7 @@ export default function App() {
           onClose={game.closeModCheck}
         />
       )}
+      <ModpackTaskBar onFinished={profiles.refresh} />
       {game.crash && <CrashDialog exit={game.crash} profileId={game.crash.profileId} onClose={game.clearCrash} />}
       {settings.settings && !lang && <LanguagePicker onChoose={(language) => settings.update({ language })} />}
     </div>

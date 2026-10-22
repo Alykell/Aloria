@@ -113,7 +113,7 @@ const api = {
     update: (id: string, patch: Record<string, string | null>): Promise<SettingsPreset> => ipcRenderer.invoke('presets:update', id, patch)
   },
   library: {
-    search: (q: SearchQuery): Promise<Result<{ hits: SearchHit[]; total: number; gameVersion: string }>> =>
+    search: (q: SearchQuery): Promise<Result<{ hits: SearchHit[]; total: number; gameVersion: string; next: number }>> =>
       ipcRenderer.invoke('library:search', q),
     installed: (profileId: string): Promise<Result<InstalledContent[]>> => ipcRenderer.invoke('library:installed', profileId),
     install: (profileId: string, projectId: string, type: ContentType): Promise<Result<void>> =>
@@ -134,6 +134,8 @@ const api = {
     preview: (source: ModpackSource, profileId?: string): Promise<Result<ModpackPreview>> =>
       ipcRenderer.invoke('modpacks:preview', source, profileId),
     install: (source: ModpackSource): Promise<Result<Profile>> => ipcRenderer.invoke('modpacks:install', source),
+    /** Crée un serveur (page Serveurs) avec la version, le chargeur, les mods côté serveur et les configs du modpack */
+    installServer: (source: ModpackSource): Promise<Result<ServerInfo>> => ipcRenderer.invoke('modpacks:installServer', source),
     /** Nouvelle version du modpack d'un profil (null : à jour, ou modpack venu d'un fichier) */
     checkUpdate: (profileId: string): Promise<Result<ModpackVersion | null>> => ipcRenderer.invoke('modpacks:checkUpdate', profileId),
     /** Fichier .mrpack choisi par le joueur, null si annulé */

@@ -2,13 +2,17 @@ import { app } from 'electron'
 import { readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import type { ModpackVersion, SearchHit, SearchQuery } from '../shared/types'
+import type { ContentType, Loader, ModpackVersion, SearchHit, SearchQuery } from '../shared/types'
 import { forgeSupported, neoforgeSupported } from '../shared/loaders'
 import { tm } from './i18n'
 
 const API = 'https://api.curseforge.com/v1'
 const MINECRAFT = 432
 const CLASS_MODPACK = 4471
+/** Catégorie CurseForge de chaque onglet de la Bibliothèque */
+const CLASSES: Record<ContentType | 'modpack', number> = { mod: 6, resourcepack: 12, shader: 6552, datapack: 6945, modpack: CLASS_MODPACK }
+// Chargeur des mods (modLoaderType de l'API) ; les autres contenus n'en ont pas
+const LOADER_TYPES: Record<Loader, number> = { vanilla: 4, fabric: 4, forge: 1, neoforge: 6 }
 // Dossier du profil selon la catégorie CurseForge du fichier (mods par défaut)
 const CLASS_FOLDERS: Record<number, string> = { 6: 'mods', 12: 'resourcepacks', 6552: 'shaderpacks', 6945: 'datapacks' }
 
@@ -45,7 +49,7 @@ async function get<T>(path: string, body?: unknown): Promise<T> {
   return ((await res.json()) as { data: T }).data
 }
 
-interface CfMod {
+export interface CfMod {
   id: number
   name: string
   slug: string
@@ -58,7 +62,7 @@ interface CfMod {
   links: { websiteUrl: string | null }
 }
 
-interface CfFile {
+export interface CfFile {
   id: number
   modId: number
   displayName: string
@@ -69,6 +73,8 @@ interface CfFile {
   hashes: { value: string; algo: 1 | 2 }[]
   gameVersions: string[]
   isServerPack?: boolean
+  /** relationType 3 : dépendance obligatoire */
+  dependencies?: { modId: number; relationType: number }[]
 }
 
 /** Modpack CurseForge : manifest.json à la racine du zip, dossier overrides/ */
@@ -82,20 +88,23 @@ export interface CfManifest {
 
 /** Projets CurseForge rangés dans profile.modpack.projectId sous la forme « cf:<id> » (Modrinth : id tel quel) */
 export const isCurseforgeId = (projectId: string) => projectId.startsWith('cf:')
-const modIdOf = (projectId: string) => Number(projectId.slice(3))
+export const modIdOf = (projectId: string) => Number(projectId.slice(3))
 
 const SORT_FIELDS: Record<SearchQuery['sort'], number> = { relevance: 1, downloads: 6, newest: 11, updated: 3 }
 
-export async function searchModpacks(q: SearchQuery): Promise<{ hits: SearchHit[]; total: number }> {
+/** Recherche CurseForge d'un onglet de la Bibliothèque ; hors modpacks, limitée à la version du jeu (et au chargeur pour les mods) */
+export async function cfSearch(q: SearchQuery, gameVersion: string, loader: Loader, limit = 20): Promise<{ hits: SearchHit[]; total: number }> {
   const params = new URLSearchParams({
     gameId: String(MINECRAFT),
-    classId: String(CLASS_MODPACK),
+    classId: String(CLASSES[q.type]),
     sortField: String(SORT_FIELDS[q.sort]),
     sortOrder: 'desc',
     index: String(q.offset),
-    pageSize: '20'
+    pageSize: String(limit)
   })
   if (q.query) params.set('searchFilter', q.query)
+  if (q.type !== 'modpack') params.set('gameVersion', gameVersion)
+  if (q.type === 'mod') params.set('modLoaderType', String(LOADER_TYPES[loader]))
   const res = await fetch(`${API}/mods/search?${params}`, { headers: { 'x-api-key': apiKey(), Accept: 'application/json' } })
   if (!res.ok) throw new Error(tm('err.curseforge', { status: res.status }))
   const { data, pagination } = (await res.json()) as { data: CfMod[]; pagination: { totalCount: number } }
@@ -111,10 +120,42 @@ export async function searchModpacks(q: SearchQuery): Promise<{ hits: SearchHit[
       downloads: m.downloadCount,
       iconUrl: m.logo?.thumbnailUrl ?? null,
       categories: m.categories.map((c) => c.name),
-      url: m.links.websiteUrl ?? `https://www.curseforge.com/minecraft/modpacks/${m.slug}`
+      url: m.links.websiteUrl ?? `https://www.curseforge.com/projects/${m.id}`
     }))
   }
 }
+
+/** Projets CurseForge par leur numéro */
+export async function cfMods(modIds: number[]): Promise<CfMod[]> {
+  const out: CfMod[] = []
+  for (let i = 0; i < modIds.length; i += 200) out.push(...(await get<CfMod[]>('/mods', { modIds: modIds.slice(i, i + 200), filterPcOnly: true })))
+  return out
+}
+
+/** Fichiers CurseForge par leur numéro (avec leurs dépendances) */
+export async function cfFiles(fileIds: number[]): Promise<CfFile[]> {
+  const out: CfFile[] = []
+  for (let i = 0; i < fileIds.length; i += 200) out.push(...(await get<CfFile[]>('/mods/files', { fileIds: fileIds.slice(i, i + 200) })))
+  return out
+}
+
+/**
+ * Meilleur fichier d'un projet pour un profil : version du jeu (et chargeur pour un mod), finale de préférence.
+ * Resource packs et shaders marchent souvent sur des versions non déclarées : à défaut, le plus récent. null : aucun.
+ */
+export async function cfBestFile(modId: number, type: ContentType, gameVersion: string, loader: Loader): Promise<CfFile | null> {
+  const list = async (filter: boolean) => {
+    const params = new URLSearchParams({ pageSize: '50' })
+    if (filter) params.set('gameVersion', gameVersion)
+    if (filter && type === 'mod') params.set('modLoaderType', String(LOADER_TYPES[loader]))
+    return (await get<CfFile[]>(`/mods/${modId}/files?${params}`)).filter((f) => !f.isServerPack)
+  }
+  let files = await list(true)
+  if (files.length === 0 && (type === 'resourcepack' || type === 'shader')) files = await list(false)
+  return files.find((f) => f.releaseType === 1) ?? files[0] ?? null
+}
+
+export const cfSha1 = (f: CfFile) => f.hashes.find((h) => h.algo === 1)?.value ?? ''
 
 export const modpackSummary = async (projectId: string) => (await get<CfMod>(`/mods/${modIdOf(projectId)}`)).summary
 
@@ -152,13 +193,12 @@ export async function cfModpackVersions(projectId: string): Promise<ModpackVersi
     })
 }
 
-const sha1Of = (f: CfFile) => f.hashes.find((h) => h.algo === 1)?.value ?? ''
 
 /** Fichier .zip d'une version de modpack (adresse, taille, SHA-1) ; refusé si son auteur interdit les autres launchers */
 export async function cfPackFile(projectId: string, fileId: string): Promise<{ url: string; size: number; sha1: string }> {
   const file = await get<CfFile>(`/mods/${modIdOf(projectId)}/files/${fileId}`)
   if (!file.downloadUrl) throw new Error(tm('err.curseforgeNoDownload'))
-  return { url: file.downloadUrl, size: file.fileLength, sha1: sha1Of(file) }
+  return { url: file.downloadUrl, size: file.fileLength, sha1: cfSha1(file) }
 }
 
 /** Fichier d'un modpack CurseForge ; sans adresse (url null), son auteur n'autorise que le site de CurseForge */
@@ -207,7 +247,7 @@ export async function resolveFiles(fileIds: number[], folder?: string): Promise<
     return {
       path: `${folder ?? CLASS_FOLDERS[mod?.classId ?? 6] ?? 'mods'}/${f.fileName}`,
       fileName: f.fileName,
-      sha1: sha1Of(f),
+      sha1: cfSha1(f),
       size: f.fileLength,
       url: f.downloadUrl,
       title: mod?.name ?? f.fileName,
