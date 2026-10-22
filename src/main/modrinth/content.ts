@@ -90,17 +90,22 @@ function requireModLoader(ctx: Context, type: ContentType): void {
 const looseTitle = (title: string) => title.toLowerCase().replace(/[^a-z0-9]/g, '')
 
 /**
- * Recherche sur Modrinth, CurseForge, ou les deux (« all », par défaut) : 10 résultats de chacun par page, alternés (ou triés
- * par téléchargements), un projet publié sur les deux sites n'apparaît qu'une fois (sa fiche Modrinth). Un site qui ne répond
- * pas n'empêche pas l'autre. next : décalage de la page suivante.
+ * Recherche sur Modrinth, CurseForge, ou les deux (« all », par défaut). offset : premier résultat de la page (page × limit).
+ * Les deux sites : moitié de la page chacun, alternés (ou triés par téléchargements) ; un projet publié sur les deux sites
+ * n'apparaît qu'une fois (sa fiche Modrinth). Un site qui ne répond pas n'empêche pas l'autre.
  */
-export async function searchContent(q: SearchQuery): Promise<{ hits: SearchHit[]; total: number; gameVersion: string; next: number }> {
+export async function searchContent(q: SearchQuery): Promise<{ hits: SearchHit[]; total: number; gameVersion: string }> {
   const { gameVersion, profile } = await context(q.profileId)
   const loaders = q.type === 'modpack' ? ['fabric', 'neoforge', 'forge'] : modrinthLoaders(q.type, profile.loader)
-  if (q.source === 'curseforge') return { ...(await cfSearch(q, gameVersion, profile.loader)), gameVersion, next: q.offset + 20 }
-  if (q.source === 'modrinth') return { ...(await search(q, gameVersion, loaders)), gameVersion, next: q.offset + 20 }
+  const limit = Math.min(Math.max(q.limit ?? 20, 2), 50)
+  if (q.source === 'curseforge') return { ...(await cfSearch(q, gameVersion, profile.loader, limit)), gameVersion }
+  if (q.source === 'modrinth') return { ...(await search(q, gameVersion, loaders, limit)), gameVersion }
 
-  const [mr, cf] = await Promise.allSettled([search(q, gameVersion, loaders, 10), cfSearch(q, gameVersion, profile.loader, 10)])
+  const half = { ...q, offset: Math.floor(q.offset / 2) }
+  const [mr, cf] = await Promise.allSettled([
+    search(half, gameVersion, loaders, Math.ceil(limit / 2)),
+    cfSearch(half, gameVersion, profile.loader, Math.floor(limit / 2))
+  ])
   if (mr.status === 'rejected' && cf.status === 'rejected') throw mr.reason
   const a = mr.status === 'fulfilled' ? mr.value : { hits: [], total: 0 }
   const b = cf.status === 'fulfilled' ? cf.value : { hits: [], total: 0 }
@@ -114,7 +119,7 @@ export async function searchContent(q: SearchQuery): Promise<{ hits: SearchHit[]
     return true
   })
   if (q.sort === 'downloads') hits.sort((x, y) => y.downloads - x.downloads)
-  return { hits, total: a.total + b.total, gameVersion, next: q.offset + 10 }
+  return { hits, total: a.total + b.total, gameVersion }
 }
 
 export async function listInstalled(profileId: string): Promise<InstalledContent[]> {

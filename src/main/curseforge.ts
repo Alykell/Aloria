@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import type { ContentType, Loader, ModpackVersion, SearchHit, SearchQuery } from '../shared/types'
 import { forgeSupported, neoforgeSupported } from '../shared/loaders'
 import { tm } from './i18n'
+import { CATEGORIES } from '../shared/categories'
 
 const API = 'https://api.curseforge.com/v1'
 const MINECRAFT = 432
@@ -103,6 +104,9 @@ export async function cfSearch(q: SearchQuery, gameVersion: string, loader: Load
     pageSize: String(limit)
   })
   if (q.query) params.set('searchFilter', q.query)
+  // Catégories cumulées (categoryIds : le projet doit les avoir toutes)
+  const ids = (q.categories ?? []).map((key) => CATEGORIES[q.type].find((c) => c.key === key)?.curseforge).filter((id): id is number => !!id)
+  if (ids.length > 0) params.set('categoryIds', JSON.stringify(ids))
   if (q.type !== 'modpack') params.set('gameVersion', gameVersion)
   if (q.type === 'mod') params.set('modLoaderType', String(LOADER_TYPES[loader]))
   const res = await fetch(`${API}/mods/search?${params}`, { headers: { 'x-api-key': apiKey(), Accept: 'application/json' } })

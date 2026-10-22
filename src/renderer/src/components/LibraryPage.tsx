@@ -7,6 +7,7 @@ import type { ContentType, InstalledContent, Profile, SearchHit, SearchQuery, Se
 import Select from './Select'
 import { compactNumber, t } from '../i18n'
 import type { MessageKey } from '../../../shared/i18n'
+import { CATEGORIES, PAGE_SIZES } from '../../../shared/categories'
 
 type Tab = ContentType | 'modpack' | 'installed'
 
@@ -25,6 +26,31 @@ const SEARCH_PLACEHOLDERS: Record<ContentType | 'modpack', MessageKey> = {
   shader: 'library.searchShaders',
   datapack: 'library.searchDatapacks',
   modpack: 'library.searchModpacks'
+}
+
+// Nombre de résultats par page, retenu d'une fois sur l'autre
+const PER_PAGE_KEY = 'aloria.library.perPage'
+function savedPerPage(): number {
+  try {
+    const n = Number(localStorage.getItem(PER_PAGE_KEY))
+    return (PAGE_SIZES as readonly number[]).includes(n) ? n : 20
+  } catch {
+    return 20
+  }
+}
+
+/** Numéros de page à montrer : la première, la dernière et celles autour de la page en cours (null : « … ») */
+function pageList(current: number, count: number): (number | null)[] {
+  const pages = new Set([0, count - 1, current - 1, current, current + 1].filter((p) => p >= 0 && p < count))
+  const sorted = [...pages].sort((a, b) => a - b)
+  const out: (number | null)[] = []
+  for (const p of sorted) {
+    const last = out[out.length - 1]
+    if (typeof last === 'number' && p - last === 2) out.push(last + 1)
+    else if (typeof last === 'number' && p - last > 2) out.push(null)
+    out.push(p)
+  }
+  return out
 }
 
 /** Titre réduit à ses lettres et chiffres : même projet publié sur Modrinth et CurseForge */
@@ -58,8 +84,11 @@ export default function LibraryPage({ profiles, showModpacks, onError, onOpenPro
   const [sort, setSort] = useState<SearchSort>('relevance')
   // Site où chercher : Modrinth ou CurseForge
   const [source, setSource] = useState<NonNullable<SearchQuery['source']>>('all')
-  // Décalage de la page suivante (« Tout » prend 10 résultats de chaque site par page)
-  const [next, setNext] = useState(0)
+  // Page en cours (à partir de 0), résultats par page et catégories choisies (cumulées)
+  const [page, setPage] = useState(0)
+  const [perPage, setPerPage] = useState(savedPerPage)
+  const [categories, setCategories] = useState<string[]>([])
+  const resultsTop = useRef<HTMLDivElement>(null)
   const [hits, setHits] = useState<SearchHit[]>([])
   const [total, setTotal] = useState(0)
   const [gameVersion, setGameVersion] = useState('')
@@ -105,17 +134,20 @@ export default function LibraryPage({ profiles, showModpacks, onError, onOpenPro
   }, [refreshInstalled])
 
   const runSearch = useCallback(
-    async (offset: number) => {
+    async (target: number) => {
       if (!profile || tab === 'installed') return
       const id = ++requestId.current
       setLoading(true)
+      setPage(target)
       const res = await window.aloria.library.search({
         profileId: profile.id,
         type: tab,
         query,
         sort,
-        offset,
-        source
+        offset: target * perPage,
+        limit: perPage,
+        source,
+        categories
       })
       // On ignore les réponses d'une recherche déjà remplacée par une plus récente
       if (id !== requestId.current) return
@@ -123,16 +155,28 @@ export default function LibraryPage({ profiles, showModpacks, onError, onOpenPro
       if (!res.ok) return onError(res.error)
       setGameVersion(res.value.gameVersion)
       setTotal(res.value.total)
-      setNext(res.value.next)
-      // Un projet déjà affiché (même page vue deux fois sur un site, ou présent sur les deux) n'est pas répété
-      setHits((prev) => {
-        if (offset === 0) return res.value.hits
-        const seen = new Set(prev.flatMap((p) => [p.projectId, looseTitle(p.title)]))
-        return [...prev, ...res.value.hits.filter((h) => !seen.has(h.projectId) && !seen.has(looseTitle(h.title)))]
-      })
+      setHits(res.value.hits)
     },
-    [profile?.id, tab, query, sort, source, onError]
+    [profile?.id, tab, query, sort, source, perPage, categories.join(','), onError]
   )
+
+  // Les catégories ne sont pas les mêmes d'un onglet à l'autre
+  useEffect(() => setCategories([]), [tab])
+
+  const pageCount = Math.max(1, Math.ceil(total / perPage))
+  const goTo = (target: number) => {
+    runSearch(target)
+    resultsTop.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  }
+  const choosePerPage = (n: number) => {
+    setPerPage(n)
+    try {
+      localStorage.setItem(PER_PAGE_KEY, String(n))
+    } catch {
+      // Stockage indisponible : le choix vaut pour cette fois
+    }
+  }
+  const toggleCategory = (key: string) => setCategories((list) => (list.includes(key) ? list.filter((k) => k !== key) : [...list, key]))
 
   // Recherche avec un petit délai pendant la frappe
   useEffect(() => {
@@ -308,6 +352,18 @@ export default function LibraryPage({ profiles, showModpacks, onError, onOpenPro
             />
             <Select value={sort} onChange={setSort} options={SORTS.map((s) => ({ value: s.id, label: t(s.label) }))} />
           </div>
+          {CATEGORIES[tab].length > 0 && (
+            <div className="category-chips">
+              <button className={categories.length === 0 ? 'active' : ''} onClick={() => setCategories([])}>
+                {t('library.categoriesAll')}
+              </button>
+              {CATEGORIES[tab].map((c) => (
+                <button key={c.key} className={categories.includes(c.key) ? 'active' : ''} onClick={() => toggleCategory(c.key)}>
+                  {t(`category.${c.key}` as MessageKey)}
+                </button>
+              ))}
+            </div>
+          )}
           {gameVersion && (
             <small className="muted">
               {tab === 'modpack'
@@ -318,7 +374,7 @@ export default function LibraryPage({ profiles, showModpacks, onError, onOpenPro
             </small>
           )}
 
-          <div className="results">
+          <div className="results" ref={resultsTop}>
             {hits.map((hit) => {
               const isInstalled = tab !== 'modpack' && installedIds.has(hit.projectId)
               const busy = installing.has(hit.projectId)
@@ -363,10 +419,37 @@ export default function LibraryPage({ profiles, showModpacks, onError, onOpenPro
 
           {loading && <p className="muted center">{t('common.loading')}</p>}
           {!loading && hits.length === 0 && <p className="muted center">{t('library.noResults')}</p>}
-          {!loading && hits.length < total && (
-            <button className="secondary more" onClick={() => runSearch(next)}>
-              {t('library.more')}
-            </button>
+          {total > 0 && (
+            <div className="pager">
+              <button className="secondary" disabled={loading || page === 0} aria-label={t('library.prevPage')} onClick={() => goTo(page - 1)}>
+                ‹
+              </button>
+              {pageList(page, pageCount).map((p, i) =>
+                p === null ? (
+                  <span key={`gap${i}`} className="muted">
+                    …
+                  </span>
+                ) : (
+                  <button key={p} className={p === page ? 'primary' : 'secondary'} disabled={loading} onClick={() => goTo(p)}>
+                    {p + 1}
+                  </button>
+                )
+              )}
+              <button
+                className="secondary"
+                disabled={loading || page >= pageCount - 1}
+                aria-label={t('library.nextPage')}
+                onClick={() => goTo(page + 1)}
+              >
+                ›
+              </button>
+              <Select
+                name="per-page"
+                value={String(perPage)}
+                onChange={(v) => choosePerPage(Number(v))}
+                options={PAGE_SIZES.map((n) => ({ value: String(n), label: t('library.perPage', { n }) }))}
+              />
+            </div>
           )}
         </>
       )}

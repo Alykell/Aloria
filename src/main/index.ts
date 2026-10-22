@@ -33,7 +33,7 @@ import * as quickplay from './quickplay'
 import { createServerProfile, exportServerPack, writeServerPack } from './server/profile'
 import { deleteBackup, listBackups, openBackupFolder, restoreBackup } from './server/backups'
 import { editPlayersOffline, listPlayers, playerCommand, readProperties, writeProperties } from './server/manage'
-import { installServerContent, listServerContent, missingDependencies, removeServerContent, searchServerContent } from './server/content'
+import { installServerContent, listServerContent, missingDependencies, removeServerContent, searchServerContent, setServerContentEnabled } from './server/content'
 import { createEntry, deleteEntries, downloadFile, listFiles, quickFiles, readTextFile, renameEntry, unzipEntry, uploadFiles, writeTextFile, zipEntries } from './server/files'
 import { backupServer, connectTunnel, anyServerRunning, isServerAlive, killServer, restartServer, sendCommand, serverLog, serverStatuses, setServerTarget, startServer, stopAllServers, stopServer } from './server/runner'
 import type {
@@ -424,7 +424,10 @@ ipcMain.handle('servers:whitelist', (_e, id: string, on: boolean) =>
     } else await writeProperties(id, { 'white-list': String(on) })
   })
 )
-ipcMain.handle('servers:contentSearch', (_e, id: string, query: string) => wrap(() => searchServerContent(id, query)))
+ipcMain.handle('servers:contentSearch', (_e, id: string, query: string, source?: 'all' | 'modrinth' | 'curseforge') =>
+  wrap(() => searchServerContent(id, query, source))
+)
+ipcMain.handle('servers:contentToggle', (_e, id: string, fileName: string, enabled: boolean) => wrap(() => setServerContentEnabled(id, fileName, enabled)))
 ipcMain.handle('servers:content', (_e, id: string) => wrap(() => listServerContent(id)))
 ipcMain.handle('servers:contentInstall', (_e, id: string, projectId: string, withDeps: boolean) =>
   wrap(() => installServerContent(id, projectId, withDeps))

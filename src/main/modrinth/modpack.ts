@@ -765,12 +765,12 @@ async function clientOnlyHashes(hashes: string[]): Promise<Set<string>> {
 /**
  * Derniers réglages des mods d'un serveur, d'après leurs jars : un mod Fabric déclaré « client » (environment) est retiré ;
  * les fichiers de langue vides (ex. FTB Quests Freeze Fix), que le jeu ignore mais qui font planter le serveur au démarrage
- * (NullPointerException dans Language), sont retirés de la copie du serveur. Renvoie les jars retirés.
+ * (NullPointerException dans Language), sont retirés de la copie du serveur. only : ces jars seulement. Renvoie les jars retirés.
  */
-export async function prepareServerMods(modsDir: string): Promise<string[]> {
+export async function prepareServerMods(modsDir: string, only?: string[]): Promise<string[]> {
   const removed: string[] = []
   if (!existsSync(modsDir)) return removed
-  for (const name of await readdir(modsDir)) {
+  for (const name of only ?? (await readdir(modsDir))) {
     if (!name.endsWith('.jar')) continue
     const path = join(modsDir, name)
     try {

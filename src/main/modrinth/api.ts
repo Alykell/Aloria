@@ -1,6 +1,7 @@
 import { app } from 'electron'
 import type { ContentType, SearchHit, SearchQuery } from '../../shared/types'
 import { tm } from '../i18n'
+import { CATEGORIES } from '../../shared/categories'
 
 const API = 'https://api.modrinth.com/v2'
 
@@ -51,6 +52,11 @@ export async function search(q: SearchQuery, gameVersion: string, loaders: strin
   const facets: string[][] = [[`project_type:${q.type}`]]
   if (q.type !== 'modpack') facets.push([`versions:${gameVersion}`])
   if (q.type !== 'resourcepack') facets.push(loaders.map((l) => `categories:${l}`))
+  // Catégories cumulées : un groupe par catégorie (l'un de ses noms Modrinth suffit)
+  for (const key of q.categories ?? []) {
+    const category = CATEGORIES[q.type].find((c) => c.key === key)
+    if (category) facets.push(category.modrinth.map((c) => `categories:${c}`))
+  }
 
   const res = await get<{
     total_hits: number

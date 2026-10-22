@@ -296,6 +296,8 @@ export function SettingsTab({ server, alive, onError, onRestart }: TabProps & { 
 export function ContentTab({ server, alive, onError, onRestart }: TabProps & { onRestart: () => void }) {
   const [installed, setInstalled] = useState<ServerContent[]>([])
   const [query, setQuery] = useState('')
+  // Site où chercher les mods (les plugins Paper ne viennent que de Modrinth)
+  const [source, setSource] = useState<'all' | 'modrinth' | 'curseforge'>('all')
   const [hits, setHits] = useState<ServerContentHit[] | null>(null)
   const [installing, setInstalling] = useState<string | null>(null)
   const [changedWhileOn, setChangedWhileOn] = useState(false)
@@ -316,7 +318,7 @@ export function ContentTab({ server, alive, onError, onRestart }: TabProps & { o
   useEffect(() => {
     let current = true
     const timer = setTimeout(async () => {
-      const res = await window.aloria.servers.contentSearch(server.id, query)
+      const res = await window.aloria.servers.contentSearch(server.id, query, source)
       if (!current) return
       if (res.ok) setHits(res.value)
       else onError(res.error)
@@ -325,7 +327,7 @@ export function ContentTab({ server, alive, onError, onRestart }: TabProps & { o
       current = false
       clearTimeout(timer)
     }
-  }, [server.id, query])
+  }, [server.id, query, source])
 
   if (server.type === 'vanilla') return <div className="manage-tab card muted">{t('server.content.vanilla')}</div>
   // Avant le premier démarrage, le serveur n'a pas encore créé ses dossiers ni ses fichiers de réglages
@@ -359,6 +361,12 @@ export function ContentTab({ server, alive, onError, onRestart }: TabProps & { o
     if (res.value.length > 0) setDeps({ hit, list: res.value })
     else install(hit)
   }
+  const toggle = async (c: ServerContent, enabled: boolean) => {
+    const res = await window.aloria.servers.contentToggle(server.id, c.fileName, enabled)
+    if (!res.ok) onError(res.error)
+    else if (alive) setChangedWhileOn(true)
+    refresh()
+  }
   const remove = async (c: ServerContent) => {
     const res = await window.aloria.servers.contentRemove(server.id, c.fileName)
     if (!res.ok) onError(res.error)
@@ -385,11 +393,15 @@ export function ContentTab({ server, alive, onError, onRestart }: TabProps & { o
           <small className="muted">{t('server.content.none')}</small>
         ) : (
           installed.map((c) => (
-            <div key={c.fileName} className="manage-row">
+            <div key={c.fileName} className={'manage-row' + (c.enabled ? '' : ' disabled')}>
               <span className="manage-content">
                 {c.iconUrl ? <img src={c.iconUrl} alt="" /> : <span className="manage-content__blank">🧩</span>}
                 {c.title}
               </span>
+              <label className="switch" title={c.enabled ? t('library.disable') : t('library.enable')}>
+                <input type="checkbox" checked={c.enabled} onChange={(e) => toggle(c, e.target.checked)} />
+                <span />
+              </label>
               <button className="secondary danger-text" onClick={() => remove(c)}>
                 {t('server.content.remove')}
               </button>
@@ -400,12 +412,26 @@ export function ContentTab({ server, alive, onError, onRestart }: TabProps & { o
 
       <div className="card manage-list">
         <strong>{t(plugins ? 'server.content.addPlugins' : 'server.content.addMods')}</strong>
-        <input
-          className="manage-search"
-          value={query}
-          placeholder={t(plugins ? 'server.content.searchPlugins' : 'server.content.searchMods')}
-          onChange={(e) => setQuery(e.target.value)}
-        />
+        <div className="manage-search-row">
+          <input
+            className="manage-search"
+            value={query}
+            placeholder={t(plugins ? 'server.content.searchPlugins' : 'server.content.searchMods')}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          {!plugins && (
+            <Select
+              name="server-content-source"
+              value={source}
+              onChange={setSource}
+              options={[
+                { value: 'all', label: t('library.sourceAll') },
+                { value: 'modrinth', label: 'Modrinth' },
+                { value: 'curseforge', label: 'CurseForge' }
+              ]}
+            />
+          )}
+        </div>
         {hits === null ? (
           <small className="muted">{t('common.loading')}</small>
         ) : hits.length === 0 ? (
@@ -417,6 +443,7 @@ export function ContentTab({ server, alive, onError, onRestart }: TabProps & { o
                 {h.iconUrl ? <img src={h.iconUrl} alt="" /> : <span className="manage-content__blank">🧩</span>}
                 <span>
                   <strong>{h.title}</strong> <small className="muted">· {compactNumber(h.downloads)} ⬇</small>
+                  {!plugins && source === 'all' && <span className="chip">{h.projectId.startsWith('cf:') ? 'CurseForge' : 'Modrinth'}</span>}
                   <small className="muted manage-content__desc">{h.description}</small>
                   {h.clientRequired && <small className="warning">{t('server.content.clientRequired')}</small>}
                 </span>

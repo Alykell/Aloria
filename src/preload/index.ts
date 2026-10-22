@@ -113,7 +113,7 @@ const api = {
     update: (id: string, patch: Record<string, string | null>): Promise<SettingsPreset> => ipcRenderer.invoke('presets:update', id, patch)
   },
   library: {
-    search: (q: SearchQuery): Promise<Result<{ hits: SearchHit[]; total: number; gameVersion: string; next: number }>> =>
+    search: (q: SearchQuery): Promise<Result<{ hits: SearchHit[]; total: number; gameVersion: string }>> =>
       ipcRenderer.invoke('library:search', q),
     installed: (profileId: string): Promise<Result<InstalledContent[]>> => ipcRenderer.invoke('library:installed', profileId),
     install: (profileId: string, projectId: string, type: ContentType): Promise<Result<void>> =>
@@ -208,7 +208,10 @@ const api = {
     player: (id: string, action: ServerPlayerAction, name: string): Promise<Result<void>> =>
       ipcRenderer.invoke('servers:player', id, action, name),
     whitelist: (id: string, on: boolean): Promise<Result<void>> => ipcRenderer.invoke('servers:whitelist', id, on),
-    contentSearch: (id: string, query: string): Promise<Result<ServerContentHit[]>> => ipcRenderer.invoke('servers:contentSearch', id, query),
+    contentSearch: (id: string, query: string, source?: 'all' | 'modrinth' | 'curseforge'): Promise<Result<ServerContentHit[]>> =>
+      ipcRenderer.invoke('servers:contentSearch', id, query, source),
+    contentToggle: (id: string, fileName: string, enabled: boolean): Promise<Result<void>> =>
+      ipcRenderer.invoke('servers:contentToggle', id, fileName, enabled),
     content: (id: string): Promise<Result<ServerContent[]>> => ipcRenderer.invoke('servers:content', id),
     contentInstall: (id: string, projectId: string, withDeps = true): Promise<Result<void>> =>
       ipcRenderer.invoke('servers:contentInstall', id, projectId, withDeps),

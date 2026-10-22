@@ -48,7 +48,8 @@ async function clientMods(server: ServerInfo): Promise<Map<string, string>> {
   } catch {
     // Pas de liste : aucun mod installé depuis Modrinth
   }
-  const ids = [...new Set(Object.values(index).map((e) => e.projectId))]
+  // Projets Modrinth seulement (les mods CurseForge, « cf:<id> », n'ont pas d'indication de côté)
+  const ids = [...new Set(Object.values(index).map((e) => e.projectId))].filter((id) => id && !id.startsWith('cf:'))
   const serverOnly = new Set(
     ids.length
       ? (await getProjects(ids).catch(() => []))

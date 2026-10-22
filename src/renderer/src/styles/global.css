@@ -514,9 +514,15 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .chip { background: rgba(26, 155, 199, 0.12); color: var(--sea-deep); border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 600; margin-left: 6px; }
 .result__meta .chip { margin-left: 0; }
 .result > button { min-width: 120px; }
+.category-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.category-chips button { padding: 5px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; background: var(--card); color: var(--text); border: 1px solid var(--line); }
+.category-chips button:hover { border-color: var(--sea); }
+.category-chips button.active { background: var(--sea-deep); border-color: var(--sea-deep); color: #fff; }
+.pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; margin: 8px 0 16px; }
+.pager > button { min-width: 38px; padding: 7px 10px; }
+.pager .select { margin-left: 12px; }
 .secondary.installed { color: var(--success); background: rgba(31, 138, 91, 0.1); cursor: default; }
 .center { text-align: center; padding: 12px; }
-.more { align-self: center; }
 .notice { background: var(--card); border-radius: var(--radius); padding: 24px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 .notice strong { font-family: 'Quicksand', sans-serif; font-size: 18px; color: var(--sea-deep); }
 .notice p { color: var(--text-soft); margin-bottom: 6px; }
@@ -1262,3 +1268,10 @@ kbd { display: inline-block; padding: 2px 7px; border-radius: 6px; background: v
 /* Fenêtres ouvertes depuis l'accueil : texte aligné à gauche (l'accueil est centré) */
 .hero .dialog { text-align: left; }
 .hero .dialog h3 { text-align: center; }
+
+/* Mods d'un serveur : recherche (et site), mods désactivés */
+.manage-search-row { display: flex; gap: 8px; align-items: center; }
+.manage-search-row .manage-search { flex: 1; }
+.manage-row.disabled .manage-content { opacity: 0.5; }
+.manage-row .switch { margin-left: auto; }
+.manage-content .chip { align-self: flex-start; }

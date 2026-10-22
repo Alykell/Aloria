@@ -345,6 +345,10 @@ export interface SearchQuery {
   offset: number
   /** Site où chercher : Modrinth, CurseForge, ou les deux (absent = les deux) */
   source?: 'all' | 'modrinth' | 'curseforge'
+  /** Résultats par page (absent = 20) */
+  limit?: number
+  /** Catégories choisies (clés de shared/categories.ts), cumulées */
+  categories?: string[]
 }
 
 export interface SearchHit {
@@ -568,8 +572,11 @@ export interface ServerFile {
 
 /** Mod ou plugin présent dans le dossier du serveur */
 export interface ServerContent {
+  /** Nom du fichier sans « .disabled » */
   fileName: string
-  /** Projet Modrinth (null pour un fichier mis à la main) */
+  /** Chargé par le serveur (sinon « .disabled ») */
+  enabled: boolean
+  /** Projet Modrinth, ou « cf:<id> » pour CurseForge (null pour un fichier mis à la main) */
   projectId: string | null
   title: string
   iconUrl: string | null
