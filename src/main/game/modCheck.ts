@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { readdir, readFile, stat } from 'node:fs/promises'
+import { readdir, readFile, rm, stat } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 import { gameDirOf, getProfile } from '../profiles'
@@ -165,6 +165,31 @@ const loose = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, '')
 const FABRIC_API = 'P7dR8mSH'
 /** Modules de Fabric API (« fabric-networking-api-v1 »…) : embarqués dans Fabric API, pas publiés à part */
 const isFabricApiModule = (id: string) => id === 'fabric' || /^fabric-.+-v\d+$/.test(id) || id.startsWith('fabric-api-')
+
+/**
+ * Serveur Fabric créé depuis un modpack : les mods « côté joueur » en ont été retirés, et ceux qui en dépendent (ex. un écran
+ * de configuration qui demande Mod Menu) empêcheraient le serveur de démarrer. Ils sont retirés à leur tour, en cascade.
+ */
+export async function dropOrphanMods(modsDir: string): Promise<string[]> {
+  const removed: string[] = []
+  const mods: { name: string; meta: JarMeta }[] = []
+  for (const name of await readdir(modsDir)) {
+    if (!name.endsWith('.jar')) continue
+    const meta = await jarMeta(join(modsDir, name), 'fabric')
+    if (meta) mods.push({ name, meta })
+  }
+  for (;;) {
+    const provided = new Set([...BUILT_IN.fabric, ...mods.flatMap((m) => m.meta.ids)])
+    const fabricApi = mods.some((m) => m.meta.ids.includes('fabric-api'))
+    const orphans = mods.filter((m) => m.meta.needs.some((id) => !provided.has(id) && !(fabricApi && isFabricApiModule(id))))
+    if (orphans.length === 0) return removed
+    for (const m of orphans) {
+      await rm(join(modsDir, m.name), { force: true })
+      removed.push(m.name)
+      mods.splice(mods.indexOf(m), 1)
+    }
+  }
+}
 
 /** Projet Modrinth qui fournit vraiment cet identifiant pour cette version du jeu (sa fiche est vérifiée) */
 async function findOnModrinth(

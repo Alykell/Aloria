@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { copyFile, mkdir, readdir, rm, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, readdir, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join, relative } from 'node:path'
 import { downloadAll, fetchJson, filterMissing, type DownloadProgress, type DownloadTask } from '../game/download'
 import { prepareJava } from '../game/java'
@@ -97,6 +97,21 @@ async function forgeLaunch(dir: string, type: 'forge' | 'neoforge', full: string
   return jar ? ['-jar', jar, 'nogui'] : null
 }
 
+/**
+ * Mods qui modifient, comme e4mc, le chiffrement de la connexion (Krypton, optimisation réseau de nombreux modpacks) : le
+ * serveur ne démarre pas avec les deux. Ils sont mis de côté tant qu'e4mc est utilisé, puis remis.
+ */
+const E4MC_CONFLICTS = /^krypton[^/]*\.jar$/i
+const PARKED = '.aloria-e4mc-off'
+
+async function parkConflicts(mods: string, park: boolean): Promise<void> {
+  if (!existsSync(mods)) return
+  for (const f of await readdir(mods)) {
+    if (park && E4MC_CONFLICTS.test(f)) await rename(join(mods, f), join(mods, f + PARKED))
+    else if (!park && f.endsWith(PARKED)) await rename(join(mods, f), join(mods, f.slice(0, -PARKED.length)))
+  }
+}
+
 /** Met e4mc (et Fabric API sous Fabric) dans les mods du serveur, ou l'en retire */
 async function syncE4mc(server: ServerInfo, dir: string, onStep: InstallStep): Promise<void> {
   const mods = join(dir, 'mods')
@@ -104,8 +119,10 @@ async function syncE4mc(server: ServerInfo, dir: string, onStep: InstallStep): P
   const modded = server.type === 'fabric' || server.type === 'forge' || server.type === 'neoforge'
   if (!modded || server.tunnel !== 'e4mc') {
     for (const f of existing) await rm(join(mods, f), { force: true })
+    await parkConflicts(mods, false)
     return
   }
+  await parkConflicts(mods, true)
   if (!e4mcSupported(server.type, server.gameVersion)) throw new Error(tm('err.serverE4mcMissing', { version: server.gameVersion }))
   onStep(tm('server.step.e4mc'))
   const projects = server.type === 'fabric' ? [E4MC, FABRIC_API] : [E4MC]

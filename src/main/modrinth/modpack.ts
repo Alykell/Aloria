@@ -1,6 +1,6 @@
 import { app } from 'electron'
 import { existsSync } from 'node:fs'
-import { copyFile, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import AdmZip from 'adm-zip'
 import { inflateRawSync } from 'node:zlib'
@@ -16,6 +16,7 @@ import { cfModpackVersions, cfPackFile, isCurseforgeId, modpackSummary, resolveF
 import { backupWorlds } from '../worldBackups'
 import { createServer, deleteServer, freePort, serverDirOf } from '../server/store'
 import { e4mcSupported } from '../../shared/aloriaHud'
+import { dropOrphanMods } from '../game/modCheck'
 import { totalmem } from 'node:os'
 
 /** Format .mrpack de Modrinth : un zip avec modrinth.index.json et les dossiers overrides/ et client-overrides/ */
@@ -762,8 +763,41 @@ async function clientOnlyHashes(hashes: string[]): Promise<Set<string>> {
 }
 
 /**
+ * Derniers réglages des mods d'un serveur, d'après leurs jars : un mod Fabric déclaré « client » (environment) est retiré ;
+ * les fichiers de langue vides (ex. FTB Quests Freeze Fix), que le jeu ignore mais qui font planter le serveur au démarrage
+ * (NullPointerException dans Language), sont retirés de la copie du serveur. Renvoie les jars retirés.
+ */
+export async function prepareServerMods(modsDir: string): Promise<string[]> {
+  const removed: string[] = []
+  if (!existsSync(modsDir)) return removed
+  for (const name of await readdir(modsDir)) {
+    if (!name.endsWith('.jar')) continue
+    const path = join(modsDir, name)
+    try {
+      const zip = new AdmZip(path)
+      const fabric = zip.getEntry('fabric.mod.json')?.getData().toString('utf8')
+      if (fabric && (JSON.parse(fabric) as { environment?: string }).environment === 'client') {
+        await rm(path, { force: true })
+        removed.push(name)
+        continue
+      }
+      const empty = zip
+        .getEntries()
+        .filter((e) => /^assets\/[^/]+\/lang\/[^/]+\.json$/i.test(e.entryName) && e.getData().toString('utf8').trim() === '')
+      if (empty.length === 0) continue
+      for (const e of empty) zip.deleteFile(e.entryName)
+      await writeFile(`${path}.part`, zip.toBuffer())
+      await rename(`${path}.part`, path)
+    } catch {
+      // Jar illisible : le serveur le dira
+    }
+  }
+  return removed
+}
+
+/**
  * Crée un serveur à partir d'un modpack : même version du jeu et même chargeur (installés au premier démarrage), mods
- * qui marchent côté serveur (le .mrpack le dit ; sinon, pour CurseForge, Modrinth), configs fournies. Le joueur a accepté
+ * qui marchent côté serveur (d'après le modpack, Modrinth et le jar lui-même), configs fournies. Le joueur a accepté
  * le CLUF dans la fenêtre du modpack. En cas d'échec, le serveur à moitié créé est supprimé.
  */
 export async function installModpackServer(source: ModpackSource, report: (p: ModpackProgress) => void): Promise<ServerInfo> {
@@ -785,10 +819,10 @@ export async function installModpackServer(source: ModpackSource, report: (p: Mo
   try {
     const provided = [...providedFiles(pack.zip, SERVER_OVERRIDES)].filter(([path]) => !CLIENT_ONLY.test(path) && !isCheckerJar(path))
     const candidates = pack.files.filter((f) => f.env?.server !== 'unsupported' && !isCheckerJar(f.path) && ['mod', 'other'].includes(typeOf(f.path)))
-    // Sans indication de côté (modpacks CurseForge, jars fournis) : Modrinth tranche
+    // Modrinth tranche aussi pour les fichiers que le modpack dit compatibles serveur (les auteurs se trompent souvent)
     const providedJars = provided.filter(([path]) => /^mods\/[^/]+\.jar$/i.test(path)).map(([path, entry]) => [path, sha1Of(entry.getData())] as const)
     const clientOnly = await clientOnlyHashes([
-      ...candidates.filter((f) => !f.env && f.hashes.sha1).map((f) => f.hashes.sha1),
+      ...candidates.filter((f) => f.hashes.sha1).map((f) => f.hashes.sha1),
       ...providedJars.map(([, sha1]) => sha1)
     ])
     const files = candidates.filter((f) => !clientOnly.has(f.hashes.sha1))
@@ -805,13 +839,15 @@ export async function installModpackServer(source: ModpackSource, report: (p: Mo
       onProgress({ step: 'overrides', done: ++copied, total: kept.length })
     }
     onProgress({ step: 'finish', done: 0, total: 0 })
+    const removed = new Set(await prepareServerMods(join(dir, 'mods')))
+    if (type === 'fabric') for (const name of await dropOrphanMods(join(dir, 'mods'))) removed.add(name)
 
     // Liste des mods de la page Serveurs : nom et icône des mods du modpack
     const known = await lookup(pack.index)
     const contentIndex: Record<string, { projectId: string; title: string; iconUrl: string | null }> = {}
     for (const f of files) {
       const info = known.get(f.hashes.sha1)
-      if (info && f.path.startsWith('mods/') && f.path.split('/').length === 2) {
+      if (info && f.path.startsWith('mods/') && f.path.split('/').length === 2 && !removed.has(fileName(f.path))) {
         contentIndex[fileName(f.path)] = { projectId: info.projectId, title: info.title, iconUrl: info.iconUrl }
       }
     }
