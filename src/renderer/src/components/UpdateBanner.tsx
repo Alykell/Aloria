@@ -30,5 +30,14 @@ export default function UpdateBanner() {
     )
   }
 
+  if (status.state === 'manual') {
+    return (
+      <a className="update ready" href={status.url} target="_blank" rel="noreferrer">
+        <strong>{t('update.manual', { version: status.version })}</strong>
+        <span>{t('update.manualHint')}</span>
+      </a>
+    )
+  }
+
   return null
 }

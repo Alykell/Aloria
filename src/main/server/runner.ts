@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { WebContents } from 'electron'
+import { crashHint } from './crashHints'
 import { installServer } from './install'
 import { parseMspt, TICK_QUERY_LINE, tickQuerySupported, watchProcess } from './stats'
 import { acquireAgent, ensureTunnel, releaseAgent } from './playit'
@@ -270,7 +271,13 @@ export async function startServer(id: string): Promise<void> {
       r.fatal = undefined
       const crashed = (!r.stopping && code !== 0) || !!fatal
       addLine(id, r, `> ${tm('server.console.stopped', { code: String(code ?? '?') })}`)
-      setStatus(r, { ...idle(id), error: fatal ? tm('err.serverStartFailed', { reason: fatal }) : crashed ? tm('err.serverCrashed', { code: String(code ?? '?') }) : undefined })
+      // Crash connu (mod côté joueur, dépendance absente…) : expliqué simplement, aussi en bas de la console
+      const hint = crashed ? crashHint(r.lines, server.port) : null
+      if (hint) addLine(id, r, `> 💡 ${hint}`)
+      setStatus(r, {
+        ...idle(id),
+        error: hint ?? (fatal ? tm('err.serverStartFailed', { reason: fatal }) : crashed ? tm('err.serverCrashed', { code: String(code ?? '?') }) : undefined)
+      })
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)

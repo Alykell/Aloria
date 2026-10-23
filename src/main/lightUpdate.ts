@@ -1,7 +1,7 @@
 import { app } from 'electron'
 import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 /**
@@ -27,6 +27,11 @@ interface LightManifest {
 }
 
 const stagingRoot = () => join(app.getPath('userData'), 'light-update')
+/** Écrit par le script de mise en place quand il échoue : { version, error } */
+const failureFile = () => join(app.getPath('userData'), 'light-update-failed.json')
+
+/** Page de téléchargement de l'installeur complet d'une version */
+export const installerUrl = (version: string) => `${RELEASES}/download/v${version}/Aloria-Setup-${version}.exe`
 
 /**
  * Electron prend les fichiers .asar pour des dossiers : un aloria-app.asar téléchargé ne pouvait plus être supprimé
@@ -92,8 +97,41 @@ export async function downloadLightUpdate(onProgress: (version: string, percent:
 }
 
 /**
+ * Le launcher peut-il remplacer ses propres fichiers ? Non s'il est installé dans un dossier protégé
+ * (C:\Program Files…) : la mise à jour légère échouerait après la fermeture, sans relance.
+ */
+export function canWriteInstall(): boolean {
+  const test = join(process.resourcesPath, 'mods', '.aloria-write-test')
+  try {
+    withoutAsar(() => {
+      writeFileSync(test, '')
+      rmSync(test, { force: true })
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** Erreur de la dernière mise en place de cette version, si elle a échoué ; oubliée une fois la version installée */
+export function lightUpdateFailure(version: string): string | null {
+  try {
+    const failure = JSON.parse(readFileSync(failureFile(), 'utf8')) as { version: string; error: string }
+    if (!isNewer(failure.version, app.getVersion())) {
+      rmSync(failureFile(), { force: true })
+      return null
+    }
+    return failure.version === version ? failure.error : null
+  } catch {
+    return null
+  }
+}
+
+/**
  * Script lancé par Aloria.exe en mode Node (ELECTRON_RUN_AS_NODE) : un programme déjà autorisé par Windows.
  * Il attend la fermeture du launcher, copie les fichiers à leur place, retire les anciens jars, puis relance si demandé.
+ * En cas d'échec (dossier protégé, fichier bloqué), il le note dans light-update-failed.json et relance quand même :
+ * le launcher propose alors l'installeur complet au lieu de recommencer.
  */
 const APPLY_SCRIPT = String.raw`
 process.noAsar = true
@@ -102,6 +140,7 @@ const path = require('path')
 const { spawn } = require('child_process')
 const [, , pid, resources, staging, relaunch, exe] = process.argv
 const logFile = path.join(staging, '..', 'apply.log')
+const failureFile = path.join(staging, '..', '..', 'light-update-failed.json')
 const log = (m) => fs.appendFileSync(logFile, new Date().toISOString() + ' ' + m + '\n')
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const alive = (p) => { try { process.kill(Number(p), 0); return true } catch (e) { return e.code === 'EPERM' } }
@@ -122,12 +161,19 @@ const alive = (p) => { try { process.kill(Number(p), 0); return true } catch (e)
   for (const jar of fs.readdirSync(mods)) if (jar.endsWith('.jar') && !kept.has(jar)) fs.rmSync(path.join(mods, jar), { force: true })
   fs.rmSync(staging, { recursive: true, force: true })
   log('mise à jour ' + manifest.version + ' installée')
-  if (relaunch === '1') {
+})()
+  .catch((e) => {
+    log('échec : ' + (e && e.stack))
+    try {
+      fs.writeFileSync(failureFile, JSON.stringify({ version: path.basename(staging), error: String((e && e.message) || e) }))
+    } catch {}
+  })
+  .then(() => {
+    if (relaunch !== '1') return
     const env = { ...process.env }
     delete env.ELECTRON_RUN_AS_NODE
     spawn(exe, [], { detached: true, stdio: 'ignore', env }).unref()
-  }
-})().catch((e) => log('échec : ' + (e && e.stack)))
+  })
 `
 
 let applying = false

@@ -1,6 +1,6 @@
 import { app, type BrowserWindow } from 'electron'
 import electronUpdater from 'electron-updater'
-import { applyLightUpdate, downloadLightUpdate } from './lightUpdate'
+import { applyLightUpdate, canWriteInstall, downloadLightUpdate, installerUrl, lightUpdateFailure } from './lightUpdate'
 import type { UpdateStatus } from '../shared/types'
 
 const { autoUpdater } = electronUpdater
@@ -42,6 +42,12 @@ async function checkForUpdates(): Promise<void> {
   }
   if (result === 'none') return setStatus({ state: 'idle' })
   if (result !== 'full') {
+    // Dossier d'installation protégé, ou mise en place déjà ratée : la proposer ferait fermer le launcher pour rien
+    const failure = lightUpdateFailure(result)
+    if (failure !== null || !canWriteInstall()) {
+      console.warn('[mise à jour légère] impossible à mettre en place', failure ?? 'dossier protégé')
+      return setStatus({ state: 'manual', version: result, url: installerUrl(result) })
+    }
     lightReady = result
     setStatus({ state: 'ready', version: result })
     return

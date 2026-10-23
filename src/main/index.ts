@@ -234,16 +234,19 @@ ipcMain.handle('profiles:import', (e, path: string | null) =>
       if (res.canceled || res.filePaths.length === 0) return null
       path = res.filePaths[0]
     }
-    // Modpack Modrinth ou CurseForge : le renderer l'affiche (aperçu) avant de l'installer dans un nouveau profil
-    if (path.toLowerCase().endsWith('.mrpack')) return { modpack: path }
-    try {
-      if (isCurseforgePack(new AdmZip(path))) return { modpack: path }
-    } catch {
-      // Zip illisible : importInstance le dira
-    }
-    return importInstance(path)
+    return importProfileFile(path)
   })
 )
+/** Modpack Modrinth ou CurseForge : le renderer l'affiche (aperçu) avant de l'installer dans un nouveau profil ; sinon profil exporté */
+async function importProfileFile(path: string): Promise<Profile | { modpack: string }> {
+  if (path.toLowerCase().endsWith('.mrpack')) return { modpack: path }
+  try {
+    if (isCurseforgePack(new AdmZip(path))) return { modpack: path }
+  } catch {
+    // Zip illisible : importInstance le dira
+  }
+  return importInstance(path)
+}
 ipcMain.handle('profiles:showFile', (_e, path: string) => shell.showItemInFolder(path))
 ipcMain.handle('fabric:loaders', (_e, gameVersion: string): Promise<Result<LoaderVersion[]>> => wrap(() => fabricLoaders(gameVersion)))
 ipcMain.handle('neoforge:loaders', (_e, gameVersion: string): Promise<Result<LoaderVersion[]>> => wrap(() => neoforgeLoaders(gameVersion)))
@@ -514,6 +517,32 @@ app.whenReady().then(() => {
       } catch (err) {
         console.log('[game] erreur', err)
       }
+    })
+  }
+  // Test de l'import de profils (avec ALORIA_ROOT=<.aloria de test>) : ALORIA_TEST_IMPORT=<dossier> importe chaque fichier
+  // comme le bouton « Importer » (modpacks : aperçu puis installation), affiche le profil créé puis le supprime (journal [import-test])
+  if (!app.isPackaged && process.env.ALORIA_TEST_IMPORT && process.env.ALORIA_ROOT) {
+    win.webContents.once('did-finish-load', async () => {
+      const log = (...args: unknown[]) => console.log('[import-test]', ...args)
+      const { readdir } = await import('node:fs/promises')
+      const dir = process.env.ALORIA_TEST_IMPORT!
+      for (const name of await readdir(dir)) {
+        try {
+          const first = await importProfileFile(join(dir, name))
+          let profile: Profile
+          if (!('id' in first)) {
+            const preview = await previewModpack({ kind: 'file', path: first.modpack })
+            log(name, ': aperçu', preview.name, preview.gameVersion, preview.loader, preview.unsupported ?? '', preview.files.length, 'fichiers')
+            profile = await installModpack({ kind: 'file', path: first.modpack }, () => {})
+          } else profile = first
+          const files = await readdir(gameDirOf(profile.id), { recursive: true })
+          log(name, ': OK', JSON.stringify({ name: profile.name, version: profile.versionId, loader: profile.loader, loaderVersion: profile.loaderVersion }), files.length, 'fichiers')
+          await deleteProfile(profile.id, true)
+        } catch (err) {
+          log(name, ': ERREUR', err instanceof Error ? err.message : err)
+        }
+      }
+      app.quit()
     })
   }
   // Test des dossiers de profils (avec ALORIA_ROOT=<.aloria de test>) : ALORIA_TEST_DIRS=1 affiche les dossiers après le
@@ -911,6 +940,45 @@ app.whenReady().then(() => {
           }
         }
         if (!process.env.ALORIA_TEST_SERVER_KEEP) await deleteServer(server.id)
+      }
+      app.quit()
+    })
+  }
+  // Test d'un serveur créé depuis un modpack : ALORIA_TEST_SERVER_MODPACK=<projet> (Modrinth, ou « cf:<id> ») prend sa dernière
+  // version, crée le serveur, le démarre et attend qu'il soit en ligne (journal [server-modpack-test]). Les mods à télécharger
+  // à la main sont cherchés dans ALORIA_TEST_DOWNLOADS (à la place de Téléchargements) ; sans eux, leur liste est affichée
+  if (!app.isPackaged && process.env.ALORIA_TEST_SERVER_MODPACK) {
+    if (process.env.ALORIA_TEST_DOWNLOADS) app.setPath('downloads', process.env.ALORIA_TEST_DOWNLOADS)
+    win.webContents.once('did-finish-load', async () => {
+      const log = (...args: unknown[]) => console.log('[server-modpack-test]', ...args)
+      const projectId = process.env.ALORIA_TEST_SERVER_MODPACK!
+      try {
+        const [latest] = (await modpackVersions(projectId)).filter((v) => v.supported)
+        const source: ModpackSource = { kind: 'modrinth', projectId, versionId: latest.id }
+        const preview = await previewModpack(source)
+        log(preview.name, latest.versionNumber, preview.gameVersion, preview.loader, preview.loaderVersion, preview.files.length, 'fichiers')
+        const missing = preview.manual.filter((m) => !m.found)
+        if (missing.length > 0) {
+          log('à télécharger à la main :', JSON.stringify(missing.map((m) => ({ fileName: m.fileName, url: m.url }))))
+          return app.quit()
+        }
+        const server = await installModpackServer(source, () => {})
+        const { readdir } = await import('node:fs/promises')
+        log('serveur créé :', (await readdir(join(serverDirOf(server.id), 'mods'))).filter((f) => f.endsWith('.jar')).length, 'mods')
+        const started = Date.now()
+        await startServer(server.id)
+        let status = serverStatuses().find((s) => s.id === server.id)
+        while (Date.now() - started < 900_000 && status?.state !== 'running' && status?.state !== 'stopped') {
+          await new Promise((r) => setTimeout(r, 1000))
+          status = serverStatuses().find((s) => s.id === server.id)
+        }
+        log(`${status?.state} en ${Math.round((Date.now() - started) / 1000)} s`, status?.error ?? '')
+        if (status?.state !== 'running') log(`ÉCHEC\n${serverLog(server.id).slice(-40).join('\n')}`)
+        await stopServer(server.id)
+        if (!process.env.ALORIA_TEST_SERVER_KEEP) await deleteServer(server.id)
+        else log('serveur gardé :', serverDirOf(server.id))
+      } catch (err) {
+        log('erreur', err)
       }
       app.quit()
     })

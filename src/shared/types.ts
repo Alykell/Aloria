@@ -455,6 +455,8 @@ export type UpdateStatus =
   | { state: 'checking' }
   | { state: 'downloading'; version: string; percent: number }
   | { state: 'ready'; version: string }
+  /** Mise à jour impossible à installer seule (dossier protégé, échec) : installeur complet à télécharger */
+  | { state: 'manual'; version: string; url: string }
 
 // ---------------------------------------------------------------- serveurs (page Serveurs)
 

@@ -765,7 +765,9 @@ async function clientOnlyHashes(hashes: string[]): Promise<Set<string>> {
 /**
  * Derniers réglages des mods d'un serveur, d'après leurs jars : un mod Fabric déclaré « client » (environment) est retiré ;
  * les fichiers de langue vides (ex. FTB Quests Freeze Fix), que le jeu ignore mais qui font planter le serveur au démarrage
- * (NullPointerException dans Language), sont retirés de la copie du serveur. only : ces jars seulement. Renvoie les jars retirés.
+ * (NullPointerException dans Language), sont retirés de la copie du serveur. Les mods qui embarquent LibLoader (TickProfiler,
+ * fourni par RLCraft) sont retirés : il télécharge ses bibliothèques sur jcenter, fermé depuis 2021, et le serveur ne démarre pas.
+ * only : ces jars seulement. Renvoie les jars retirés.
  */
 export async function prepareServerMods(modsDir: string, only?: string[]): Promise<string[]> {
   const removed: string[] = []
@@ -776,7 +778,8 @@ export async function prepareServerMods(modsDir: string, only?: string[]): Promi
     try {
       const zip = new AdmZip(path)
       const fabric = zip.getEntry('fabric.mod.json')?.getData().toString('utf8')
-      if (fabric && (JSON.parse(fabric) as { environment?: string }).environment === 'client') {
+      const libLoader = zip.getEntries().some((e) => e.entryName === 'LibLoader.jar' || e.entryName.startsWith('org/minimallycorrect/libloader/'))
+      if (libLoader || (fabric && (JSON.parse(fabric) as { environment?: string }).environment === 'client')) {
         await rm(path, { force: true })
         removed.push(name)
         continue

@@ -76,6 +76,8 @@ toujours via `gameDirOf(id)` ; profils de test : `instances/<id>`. En développe
 - Sauvegardes des mondes solo : `src/main/worldBackups.ts`, zips dans `<profil>/aloria-backups/<monde>` (hors export) ; après chaque
   partie (mondes modifiés, 5 automatiques gardées), avant une mise à jour de modpack qui change la version du jeu, ou à la main.
   Test : `ALORIA_ROOT=<test> ALORIA_TEST_WORLDS=1` (journal `[worlds-test]`).
+- Import de profils (bouton « Importer » : .mrpack, .zip CurseForge, zip Prism/MultiMC/Aloria) : `importProfileFile` de `src/main/index.ts`.
+  Test : `ALORIA_ROOT=<test> ALORIA_TEST_IMPORT=<dossier de fichiers>` (journal `[import-test]`, profils supprimés ensuite).
 
 ## Serveurs (page « Serveurs »)
 - `src/main/server/` : `store` (servers.json, `%APPDATA%\.aloria\servers\<id>`), `install` (Vanilla, Fabric, Paper via fill.papermc.io,
@@ -86,6 +88,9 @@ toujours via `gameDirOf(id)` ; profils de test : `instances/<id>`. En développe
 - Tests : `ALORIA_TEST_SERVER="fabric:26.3,paper:1.21.11"` (+ `_COMMAND`, `_BACKUP=1`, `_EARLYSTOP=1`, `_BREAK=1`, `_PROFILE=1`, `_JOIN=selftest` avec `ALORIA_TEST_DEMO=1`,
   `_KEEP=1`) ; captures : `ALORIA_CAPTURE_SERVERS=<dossier>` (+ `ALORIA_CAPTURE_SERVERS_TYPE="paper:1.21.11:playit"`).
   Ne pas toucher aux serveurs de l'utilisateur (« Survie entre pote », « dfvdfv »).
+- Serveur depuis un modpack : `ALORIA_TEST_SERVER_MODPACK=<projet ou cf:<id>>` (dernière version, jusqu'au démarrage ; mods à télécharger
+  à la main cherchés dans `ALORIA_TEST_DOWNLOADS`). RLCraft (`cf:285109`) testé le 2026-10-23 : TickProfiler (LibLoader → jcenter fermé) retiré.
+- Crashs connus expliqués simplement (carte d'erreur + console) : `src/main/server/crashHints.ts`.
 
 ## Créations (packs de textures, page « Créations »)
 - Packs dans `%APPDATA%\.aloria\packs\<id>` (pack.json + PNG au format commun : viseur 15×15, hotbar 182×22, sélection

@@ -64,6 +64,8 @@ export const fr = {
   'update.downloading': 'Mise à jour {version}…',
   'update.ready': 'Version {version} prête',
   'update.restart': "Redémarrer pour l'installer",
+  'update.manual': 'Version {version} disponible',
+  'update.manualHint': 'Aloria ne peut pas l’installer tout seul ici. Clique pour télécharger l’installeur : tes profils sont gardés.',
 
   // Plantage
   'crash.title': "Le jeu s'est arrêté de façon inattendue",
@@ -747,6 +749,14 @@ export const fr = {
   'err.serverFabricOld': 'Les serveurs Fabric commencent à la 1.14 : choisis une version plus récente, ou Forge.',
   'err.serverForgeLaunch': 'L\'installation du serveur s\'est terminée, mais son fichier de démarrage est introuvable.',
   'err.serverE4mcMissing': 'e4mc n\'existe pas pour Minecraft {version} : choisis « Réseau local seulement » dans les réglages du serveur.',
+  'hint.jcenter': 'Un mod (souvent TickProfiler) essaie de télécharger des fichiers sur jcenter, un site fermé depuis 2021. Retire-le du dossier mods, avec « # LibLoader.jar », puis relance.',
+  'hint.clientMod': '« {mod} » ne marche que côté joueur (affichage, menus…) : retire-le des mods du serveur, il peut rester dans ton profil.',
+  'hint.clientModUnknown': 'Un mod qui ne marche que côté joueur (affichage, menus…) est dans les mods du serveur. Son nom est dans la console, juste au-dessus de « net/minecraft/client ».',
+  'hint.missingMods': 'Il manque des mods dont d’autres ont besoin : {mods}. Ajoute-les dans l’onglet Mods, ou retire les mods qui les demandent.',
+  'hint.javaVersion': 'Un mod est fait pour une version plus récente de Minecraft : vérifie que chaque mod correspond à la version du serveur.',
+  'hint.memory': 'Le serveur n’a pas assez de mémoire : augmente sa RAM dans ses réglages (les gros modpacks demandent 6 Go ou plus).',
+  'hint.port': 'Le port {port} est déjà utilisé, sans doute par un autre serveur ouvert. Arrête-le, ou change le port dans les réglages.',
+  'hint.mixin': 'Le mod « {mod} » ne s’entend pas avec un autre mod ou avec cette version du jeu. Mets-le à jour ou retire-le, puis relance.',
   'err.serverCrashed': 'Le serveur s\'est arrêté tout seul (code {code}). Regarde la fin de la console pour savoir pourquoi.',
   'server.console.killed': 'Arrêt forcé du serveur (le monde n\'est pas sauvegardé).',
   'server.restart': 'Redémarrer',

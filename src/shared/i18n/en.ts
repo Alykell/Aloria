@@ -66,6 +66,8 @@ export const en: Record<keyof typeof fr, string> = {
   'update.downloading': 'Updating to {version}…',
   'update.ready': 'Version {version} ready',
   'update.restart': 'Restart to install it',
+  'update.manual': 'Version {version} available',
+  'update.manualHint': 'Aloria can’t install it by itself here. Click to download the installer: your profiles are kept.',
 
   // Crash
   'crash.title': 'The game stopped unexpectedly',
@@ -749,6 +751,14 @@ export const en: Record<keyof typeof fr, string> = {
   'err.serverFabricOld': 'Fabric servers start at 1.14: pick a newer version, or Forge.',
   'err.serverForgeLaunch': 'The server install finished, but its start file can\'t be found.',
   'err.serverE4mcMissing': 'e4mc doesn\'t exist for Minecraft {version}: pick “Local network only” in the server settings.',
+  'hint.jcenter': 'A mod (often TickProfiler) tries to download files from jcenter, a site closed since 2021. Remove it from the mods folder, along with “# LibLoader.jar”, then restart.',
+  'hint.clientMod': '“{mod}” only works for players (display, menus…): remove it from the server’s mods, it can stay in your profile.',
+  'hint.clientModUnknown': 'A mod that only works for players (display, menus…) is in the server’s mods. Its name is in the console, just above “net/minecraft/client”.',
+  'hint.missingMods': 'Some mods needed by others are missing: {mods}. Add them in the Mods tab, or remove the mods that need them.',
+  'hint.javaVersion': 'A mod is made for a newer version of Minecraft: check that every mod matches the server’s version.',
+  'hint.memory': 'The server is out of memory: give it more RAM in its settings (big modpacks need 6 GB or more).',
+  'hint.port': 'Port {port} is already in use, probably by another open server. Stop it, or change the port in the settings.',
+  'hint.mixin': 'The mod “{mod}” doesn’t get along with another mod or with this game version. Update or remove it, then restart.',
   'err.serverCrashed': 'The server stopped by itself (code {code}). Check the end of the console to see why.',
   'server.console.killed': 'Server force-stopped (the world isn\'t saved).',
   'server.restart': 'Restart',
