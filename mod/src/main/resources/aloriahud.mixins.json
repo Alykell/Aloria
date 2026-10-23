@@ -3,6 +3,7 @@
 	"package": "fr.alykell.aloria.hud.mixin",
 	"compatibilityLevel": "JAVA_${java}",
 	"client": [
+		"CapeMixin",
 		"CreeperAccessor",
 		"FogMixin",
 		"GameModeAccessor",

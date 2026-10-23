@@ -2,6 +2,7 @@ package fr.alykell.aloria.hud;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import fr.alykell.aloria.hud.config.HudConfig;
+import fr.alykell.aloria.hud.cosmetics.CosmeticsLayers;
 import fr.alykell.aloria.hud.module.HudModule;
 import fr.alykell.aloria.hud.module.Modules;
 import fr.alykell.aloria.hud.screen.HudMenuScreen;
@@ -77,6 +78,7 @@ public class AloriaHud implements ClientModInitializer {
 
 		if (SelfTest.enabled()) SelfTest.init();
 		AutoLogin.init();
+		CosmeticsLayers.register();
 
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> {
 			Stats.tick(mc);

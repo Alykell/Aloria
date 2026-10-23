@@ -99,6 +99,12 @@ toujours via `gameDirOf(id)` ; profils de test : `instances/<id>`. En développe
   Déploiement : `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` (lignes 1 et 2 de `%USERPROFILE%\.aloria-cloudflare-token\token.txt`), `npx wrangler@4.40.0 deploy` dans `worker/`.
 - Connexion (`src/main/cosmetics.ts`) : certificat de joueur Mojang + message signé, vérifiés par le Worker (clés `worker/src/mojangKeys.ts`) ;
   Mojang refuse `hasJoined` depuis Cloudflare (403). Test : `ALORIA_TEST_COSMETICS=1` (compte actif, journal `[cosmetics-test]`, sans `ALORIA_USER_DATA`).
+- Textures : `node scripts/cosmetics-textures.mjs` (pixel art en code) → launcher, `mod/` et `mod-legacy/` (capes au format Mojang, élytres comprises ;
+  chapeaux en « box UV » 64×32). Page : `CosmeticsPage.tsx` + `renderer/src/cosmetics.ts` (cubes des chapeaux, mêmes que le mod).
+- En jeu : `cosmetics/Cosmetics` (demande `/players?uuids=` au Worker, gardé 1 min ; ids inconnus ignorés), `HatLayer` (mod/) ou `HatFeature`
+  (mod-legacy, `//#if FORGE` pour les méthodes redéfinies), `CapeMixin` + `PlayerRendererMixin` (1.8.9, dans mod-legacy et mod-forge).
+  Un nouveau cosmétique : `CATALOG` du Worker + texture + `CAPES`/`HATS` (et cubes du chapeau dans les deux mods et le launcher).
+  Auto-test : `-Daloriahud.selftest.cosmetics=1` en plus de `-Daloriahud.selftest=<dossier>` (captures 30/31 de face et de dos).
 
 ## Créations (packs de textures, page « Créations »)
 - Packs dans `%APPDATA%\.aloria\packs\<id>` (pack.json + PNG au format commun : viseur 15×15, hotbar 182×22, sélection

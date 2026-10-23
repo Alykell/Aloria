@@ -1,5 +1,5 @@
 // Textures des cosmétiques (pixel art), au format des modèles Minecraft : node scripts/cosmetics-textures.mjs
-// Écrites pour le launcher (aperçu 3D) et pour Aloria HUD (dessin en jeu) : une seule source.
+// Écrites pour le launcher (aperçu 3D) et pour Aloria HUD (dessin en jeu, mod/ et mod-legacy/, repris par mod-forge) : une seule source.
 //  - aloria_cape.png : cape 64×32 (face extérieure en (1,1), 10×16)
 //  - pumpkin_hat.png : cubes en « box UV » — citrouille 10×6×10 en (0,0), tige 2×3×2 en (0,16)
 import { mkdirSync, writeFileSync } from 'node:fs'
@@ -8,7 +8,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const OUT = [join(root, 'src/renderer/src/assets/cosmetics'), join(root, 'mod/src/main/resources/assets/aloriahud/textures/cosmetics')]
+const OUT = ['src/renderer/src/assets/cosmetics', 'mod/src/main/resources/assets/aloriahud/textures/cosmetics', 'mod-legacy/src/main/resources/assets/aloriahud/textures/cosmetics'].map((d) => join(root, d))
 
 function image(w, h) {
   const px = new Uint8Array(w * h * 4)
@@ -69,6 +69,23 @@ function cape() {
   }
   wave(9, '#5cc8e0')
   wave(12, '#e8f6fb')
+  // Face intérieure (12,1) : le même motif vu à travers (en miroir), comme un tissu teint dans la masse ; tranches dorées
+  for (let y = 1; y < 17; y++) {
+    for (let x = 0; x < 10; x++) {
+      const i = (y * 64 + 1 + x) * 4
+      const j = (y * 64 + 12 + 9 - x) * 4
+      img.px.copyWithin(j, i, i + 4)
+    }
+  }
+  img.rect(0, 1, 1, 16, gold)
+  img.rect(11, 1, 1, 16, gold)
+  img.rect(1, 0, 20, 1, gold)
+  // Élytres (aile 10×20×2 en (22,0), comme les capes Mojang) : mêmes couleurs, bord doré, une vague
+  img.rect(22, 0, 24, 22, deep)
+  for (const u of [24, 36]) {
+    img.rect(u, 2, 10, 20, (x, y) => (x === 0 || x === 9 || y === 19 ? gold : sea[Math.min(7, Math.floor(y / 2.5))]))
+    for (let x = 1; x < 9; x++) img.set(u + x, 2 + 12 + (x % 4 < 2 ? 0 : 1), '#5cc8e0')
+  }
   return img
 }
 

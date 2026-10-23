@@ -113,10 +113,38 @@ public final class SelfTest {
 		STEPS.add(new Step(name, delay, action));
 	}
 
+	/** Mode cosmétiques : le joueur porte la cape et le chapeau d'Aloria, vus de face puis de dos (vue à la troisième personne) */
+	private static void addCosmeticsSteps(final MinecraftClient mc) {
+		add("porter les cosmétiques", 20, () -> {
+			mc.setScreen(null);
+			fr.alykell.aloria.hud.cosmetics.Cosmetics.wear(mc.player.getUuid(), "aloria_cape", "pumpkin_hat");
+			mc.player.pitch = 10f;
+			mc.options.perspective = 2;
+			return true;
+		});
+		add("capture de face", 40, () -> screenshot(mc, "30-cosmetiques-face"));
+		add("vue de dos", 2, () -> {
+			// Demi-tour : la caméra passe du côté dégagé (celui de la vue de face)
+			mc.player.yaw += 180f;
+			mc.options.perspective = 1;
+			return true;
+		});
+		add("capture de dos", 20, () -> screenshot(mc, "31-cosmetiques-dos"));
+		add("fin", 5, () -> {
+			log("TERMINÉ : cosmétiques");
+			mc.scheduleStop();
+			return true;
+		});
+	}
+
 	public static void init() {
 		output = new File(System.getProperty("aloriahud.selftest"));
 		output.mkdirs();
 		final MinecraftClient mc = MinecraftClient.getInstance();
+		if (System.getProperty("aloriahud.selftest.cosmetics") != null) {
+			addCosmeticsSteps(mc);
+			return;
+		}
 
 		add("premier lancement : seul FPS actif", 0, () -> {
 			mc.setScreen(null);

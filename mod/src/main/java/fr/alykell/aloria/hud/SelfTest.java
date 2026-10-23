@@ -238,6 +238,10 @@ public final class SelfTest {
 			addMenuSteps(mc);
 			return;
 		}
+		if (System.getProperty("aloriahud.selftest.cosmetics") != null) {
+			addCosmeticsSteps(mc);
+			return;
+		}
 		add("premier lancement : seul FPS actif", 0, () -> {
 			mc.gui.setScreen(null);
 			boolean onlyFps = AloriaHud.modules().stream().allMatch(m -> AloriaHud.config().get(m).enabled == m.id().equals("fps"));
@@ -767,6 +771,30 @@ public final class SelfTest {
 
 	private static void add(String name, int delay, BooleanSupplier action) {
 		STEPS.add(new Step(name, delay, action));
+	}
+
+	/** Mode cosmétiques : le joueur porte la cape et le chapeau d'Aloria, vus de face puis de dos (vue à la troisième personne) */
+	private static void addCosmeticsSteps(Minecraft mc) {
+		add("porter les cosmétiques", 20, () -> {
+			mc.gui.setScreen(null);
+			fr.alykell.aloria.hud.cosmetics.Cosmetics.wear(mc.player.getUUID(), "aloria_cape", "pumpkin_hat");
+			mc.player.setXRot(10f);
+			mc.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_FRONT);
+			return true;
+		});
+		add("capture de face", 40, () -> screenshot(mc, "30-cosmetiques-face"));
+		add("vue de dos", 2, () -> {
+			// Demi-tour : la caméra passe du côté dégagé (celui de la vue de face)
+			mc.player.setYRot(mc.player.getYRot() + 180f);
+			mc.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_BACK);
+			return true;
+		});
+		add("capture de dos", 20, () -> screenshot(mc, "31-cosmetiques-dos"));
+		add("fin", 5, () -> {
+			log("TERMINÉ : cosmétiques");
+			mc.stop();
+			return true;
+		});
 	}
 
 	/** Mode « menu seul » : teste le menu depuis l'écran titre, sans partie (ex. autre version du jeu) */
