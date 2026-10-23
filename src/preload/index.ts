@@ -24,6 +24,8 @@ import type {
   Profile,
   ProfileInput,
   CapeInfo,
+  CosmeticSlot,
+  CosmeticsState,
   PackElement,
   PackInfo,
   PackVanilla,
@@ -151,6 +153,11 @@ const api = {
     setCape: (capeId: string | null): Promise<Result<PlayerSkin | null>> => ipcRenderer.invoke('skins:setCape', capeId),
     saved: (): Promise<Result<SavedSkin[]>> => ipcRenderer.invoke('skins:saved'),
     removeSaved: (id: string): Promise<Result<void>> => ipcRenderer.invoke('skins:removeSaved', id)
+  },
+  cosmetics: {
+    state: (): Promise<Result<CosmeticsState>> => ipcRenderer.invoke('cosmetics:state'),
+    claim: (id: string): Promise<Result<CosmeticsState>> => ipcRenderer.invoke('cosmetics:claim', id),
+    equip: (slot: CosmeticSlot, id: string | null): Promise<Result<CosmeticsState>> => ipcRenderer.invoke('cosmetics:equip', slot, id)
   },
   packs: {
     list: (): Promise<Result<PackInfo[]>> => ipcRenderer.invoke('packs:list'),

@@ -329,8 +329,32 @@ export interface Profile extends ProfileInput {
   id: string
   createdAt: number
   lastPlayed: number | null
+  /** Temps passé en jeu avec ce profil, en millisecondes (absent = jamais joué depuis l'arrivée du compteur) */
+  playTimeMs?: number
   /** Dossier dans instances/, au nom du profil (absent : dossier à l'id, profils d'avant ce changement) */
   dir?: string
+}
+
+export type CosmeticSlot = 'cape' | 'hat'
+
+/** Cosmétique du catalogue d'Aloria (Worker worker/), avec ce qu'en a le joueur */
+export interface Cosmetic {
+  id: string
+  slot: CosmeticSlot
+  name: { fr: string; en: string }
+  /** Événement (récupérable entre ces dates) ou temps de jeu compté par le Worker */
+  unlock: { type: 'event'; from: string; to: string } | { type: 'playtime'; minutes: number }
+  owned: boolean
+  claimable: boolean
+}
+
+export interface CosmeticsState {
+  uuid: string
+  name: string
+  /** Temps de jeu compté par le Worker (pas celui des profils, modifiable sur le PC) */
+  playMinutes: number
+  equipped: Record<CosmeticSlot, string | null>
+  cosmetics: Cosmetic[]
 }
 
 export type ContentType = 'mod' | 'resourcepack' | 'shader' | 'datapack'

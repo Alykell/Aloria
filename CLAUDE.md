@@ -92,6 +92,14 @@ toujours via `gameDirOf(id)` ; profils de test : `instances/<id>`. En développe
   à la main cherchés dans `ALORIA_TEST_DOWNLOADS`). RLCraft (`cf:285109`) testé le 2026-10-23 : TickProfiler (LibLoader → jcenter fermé) retiré.
 - Crashs connus expliqués simplement (carte d'erreur + console) : `src/main/server/crashHints.ts`.
 
+## Cosmétiques et temps de jeu
+- Temps de jeu des profils (`Profile.playTimeMs`, affiché sur les cartes) : compté chaque minute par `controller.ts`, modifiable sur le PC → affichage seulement.
+- Worker Cloudflare `worker/` (https://aloria-cosmetics.aloria-client.workers.dev, base D1 `aloria-cosmetics`, `schema.sql`) : catalogue
+  (`CATALOG`), cosmétiques possédés/équipés, temps de jeu qui débloque (battement `/heartbeat` chaque minute pendant une partie, 60 s au plus).
+  Déploiement : `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` (lignes 1 et 2 de `%USERPROFILE%\.aloria-cloudflare-token\token.txt`), `npx wrangler@4.40.0 deploy` dans `worker/`.
+- Connexion (`src/main/cosmetics.ts`) : certificat de joueur Mojang + message signé, vérifiés par le Worker (clés `worker/src/mojangKeys.ts`) ;
+  Mojang refuse `hasJoined` depuis Cloudflare (403). Test : `ALORIA_TEST_COSMETICS=1` (compte actif, journal `[cosmetics-test]`, sans `ALORIA_USER_DATA`).
+
 ## Créations (packs de textures, page « Créations »)
 - Packs dans `%APPDATA%\.aloria\packs\<id>` (pack.json + PNG au format commun : viseur 15×15, hotbar 182×22, sélection
   24×24, totem 16×16). `src/main/packs.ts` (stockage, jar du jeu, zip, activation dans options.txt) ;

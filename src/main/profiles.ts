@@ -163,6 +163,16 @@ export function markPlayed(id: string): void {
   }
 }
 
+/** Ajoute du temps de jeu au profil (compté pendant la partie, minute par minute) */
+export function addPlayTime(id: string, ms: number): void {
+  const store = load()
+  const profile = store.profiles.find((p) => p.id === id)
+  if (profile && ms > 0) {
+    profile.playTimeMs = (profile.playTimeMs ?? 0) + ms
+    save(store)
+  }
+}
+
 /** Supprime le profil ; son dossier (mondes, mods…) part dans la corbeille si demandé. */
 export async function deleteProfile(id: string, deleteFiles: boolean): Promise<void> {
   if (load().profiles.length <= 1) throw new Error(tm('err.lastProfile'))

@@ -5,7 +5,8 @@ import { setDiscordIdle, setDiscordPlaying, setDiscordServer } from '../discord'
 import { watchGameLog } from './logWatcher'
 import { addPending, removePending } from '../shared/pending'
 import { getValidSession, listAccounts } from '../auth/accounts'
-import { gameDirOf, getProfile, markPlayed } from '../profiles'
+import { addPlayTime, gameDirOf, getProfile, markPlayed } from '../profiles'
+import { cosmeticsHeartbeat } from '../cosmetics'
 import { getSettings } from '../settings'
 import { HUD_MIN_FABRIC_LOADER, hudEnabled, hudJvmArgs, olderThan, syncAloriaHud } from './aloriaHud'
 import { syncFriends } from './friends'
@@ -35,6 +36,17 @@ interface Running {
   /** « Arrêter » cliqué : pas de fenêtre de plantage à la fermeture, et un second clic force l'arrêt */
   stopping: boolean
   retry?: NodeJS.Timeout
+  /** Temps de jeu : enregistré chaque minute (rien de perdu si le launcher est coupé), le reste à la fermeture */
+  playClock?: NodeJS.Timeout
+  countedUntil?: number
+}
+
+/** Enregistre le temps de jeu écoulé depuis le dernier passage */
+function countPlayTime(game: Running): void {
+  if (game.countedUntil === undefined) return
+  const now = Date.now()
+  addPlayTime(game.profileId, now - game.countedUntil)
+  game.countedUntil = now
 }
 
 /** Un seul lancement à la fois (mêmes bibliothèques, même Java), mais autant de parties ouvertes que de profils */
@@ -233,6 +245,12 @@ export async function play(sender: WebContents, profileId: string, join?: JoinTa
     child.once('spawn', () => {
       launch = null
       running.set(profile.id, game)
+      game.countedUntil = Date.now()
+      game.playClock = setInterval(() => {
+        countPlayTime(game)
+        // Temps de jeu des cosmétiques, compté par le Worker (comptes connectés seulement)
+        if (active) cosmeticsHeartbeat(active)
+      }, 60_000)
       sendStatus()
       // Réglages à récupérer à la fermeture du jeu, même si le launcher est fermé entre-temps
       if (child.pid) addPending({ pid: child.pid, gameVersion, gameDir, session: sync })
@@ -259,6 +277,8 @@ export async function play(sender: WebContents, profileId: string, join?: JoinTa
     })
     child.once('exit', async (code) => {
       clearInterval(game.retry)
+      clearInterval(game.playClock)
+      countPlayTime(game)
       running.delete(profile.id)
       sendStatus()
       stopWatching()

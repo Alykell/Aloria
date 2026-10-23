@@ -1,0 +1,9 @@
+// Worker des cosmétiques : CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID depuis %USERPROFILE%\.aloria-cloudflare-token\token.txt,
+// puis npx wrangler deploy (secret SESSION_SECRET déjà en place : wrangler secret put SESSION_SECRET)
+{
+  "name": "aloria-cosmetics",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "d1_databases": [{ "binding": "DB", "database_name": "aloria-cosmetics", "database_id": "4dac7558-3ddd-4b22-bb80-ac99e6adb6f9" }]
+}

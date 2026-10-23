@@ -15,6 +15,13 @@ function lastPlayed(ts: number | null): string {
   return t('profiles.playedDaysAgo', { n: days })
 }
 
+/** Temps de jeu lisible : « 45 min », « 12 h 05 » */
+function formatPlayTime(ms: number): string {
+  const minutes = Math.floor(ms / 60_000)
+  if (minutes < 60) return t('profiles.playTimeMin', { m: minutes })
+  return t('profiles.playTimeHours', { h: Math.floor(minutes / 60), m: String(minutes % 60).padStart(2, '0') })
+}
+
 interface Props {
   profiles: ProfilesState
   settings: SettingsState
@@ -135,7 +142,10 @@ export default function ProfilesPage({ profiles, settings, onPlay, onError }: Pr
             )}
             <strong>{p.name}</strong>
             <span className="profile-card__version">{describeProfile(p)}</span>
-            <small>{lastPlayed(p.lastPlayed)}</small>
+            <small>
+              {lastPlayed(p.lastPlayed)}
+              {(p.playTimeMs ?? 0) >= 60_000 && ` · ${formatPlayTime(p.playTimeMs!)}`}
+            </small>
             <div className="profile-card__actions">
               <button
                 className="primary"

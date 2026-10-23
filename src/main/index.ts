@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { join } from 'node:path'
 import { addAccount, listAccounts, removeAccount, selectAccount } from './auth/accounts'
 import { toAuthError } from './auth/errors'
+import { claimCosmetic, cosmeticsState, equipCosmetic } from './cosmetics'
 import { getSkin, listCapes, listSavedSkins, removeSavedSkin, resetSkin, setCape, uploadSkin } from './auth/skin'
 import { createDatapack, deleteDatapack, exportDatapack, installDatapack, listDatapacks, saveDatapack, zipName } from './datapackCreations'
 import { gameData } from './gameData'
@@ -37,6 +38,7 @@ import { installServerContent, listServerContent, missingDependencies, removeSer
 import { createEntry, deleteEntries, downloadFile, listFiles, quickFiles, readTextFile, renameEntry, unzipEntry, uploadFiles, writeTextFile, zipEntries } from './server/files'
 import { backupServer, connectTunnel, anyServerRunning, isServerAlive, killServer, restartServer, sendCommand, serverLog, serverStatuses, setServerTarget, startServer, stopAllServers, stopServer } from './server/runner'
 import type {
+  CosmeticSlot,
   ExportOptions,
   JoinTarget,
   ServerEdit,
@@ -348,6 +350,14 @@ ipcMain.handle('skins:capes', () => wrap(() => listCapes(activeUuid())))
 ipcMain.handle('skins:setCape', (_e, capeId: string | null) => wrap(() => setCape(activeUuid(), capeId)))
 ipcMain.handle('skins:saved', () => wrap(() => listSavedSkins()))
 ipcMain.handle('skins:removeSaved', (_e, id: string) => wrap(() => removeSavedSkin(id)))
+const cosmeticsUuid = () => {
+  const uuid = listAccounts().active
+  if (!uuid) throw new Error(tm('err.loginForCosmetics'))
+  return uuid
+}
+ipcMain.handle('cosmetics:state', () => wrap(() => cosmeticsState(cosmeticsUuid())))
+ipcMain.handle('cosmetics:claim', (_e, id: string) => wrap(() => claimCosmetic(cosmeticsUuid(), id)))
+ipcMain.handle('cosmetics:equip', (_e, slot: CosmeticSlot, id: string | null) => wrap(() => equipCosmetic(cosmeticsUuid(), slot, id)))
 
 // Créations : packs de ressources faits dans Aloria
 ipcMain.handle('packs:list', () => wrap(() => listPacks()))
@@ -517,6 +527,17 @@ app.whenReady().then(() => {
       } catch (err) {
         console.log('[game] erreur', err)
       }
+    })
+  }
+  // Test des cosmétiques avec le compte actif : ALORIA_TEST_COSMETICS=1 se connecte au Worker et affiche l'état (journal [cosmetics-test])
+  if (!app.isPackaged && process.env.ALORIA_TEST_COSMETICS) {
+    win.webContents.once('did-finish-load', async () => {
+      try {
+        console.log('[cosmetics-test]', JSON.stringify(await cosmeticsState(cosmeticsUuid())))
+      } catch (err) {
+        console.log('[cosmetics-test] erreur', err instanceof Error ? err.message : err)
+      }
+      app.quit()
     })
   }
   // Test de l'import de profils (avec ALORIA_ROOT=<.aloria de test>) : ALORIA_TEST_IMPORT=<dossier> importe chaque fichier

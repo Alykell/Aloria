@@ -50,9 +50,9 @@ export default function App() {
     window.aloria.getVersion().then(setVersion)
   }, [])
 
-  // « Dernière partie » se met à jour quand un jeu démarre
+  // « Dernière partie » et temps de jeu se mettent à jour quand un jeu démarre ou se ferme
   useEffect(() => {
-    if (game.status.running.length > 0) profiles.refresh()
+    profiles.refresh()
   }, [game.status.running.length, profiles.refresh])
 
   const error = accounts.error ?? game.error ?? pageError
