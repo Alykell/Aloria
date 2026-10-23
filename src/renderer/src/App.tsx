@@ -15,6 +15,7 @@ import { useProfiles } from './hooks/useProfiles'
 import ModpackTaskBar from './components/ModpackTaskBar'
 import { DISCORD_INVITE } from '../../shared/links'
 import CreationsPage from './components/CreationsPage'
+import CosmeticsPage from './components/CosmeticsPage'
 import ServersPage from './components/ServersPage'
 import SkinDialog from './components/SkinDialog'
 import { useTheme } from './hooks/useTheme'
@@ -101,6 +102,7 @@ export default function App() {
           )}
           {page === 'gamesettings' && <GameSettingsPage onError={setPageError} />}
           {page === 'creations' && <CreationsPage key={navTick} profiles={profiles} onError={setPageError} onFocus={setFocused} />}
+          {page === 'cosmetics' && <CosmeticsPage accounts={accounts} onError={setPageError} />}
           {page === 'servers' && <ServersPage key={navTick} settings={settings} onError={setPageError} onFocus={setFocused} />}
           {page === 'settings' && <SettingsPage state={settings} />}
           {page === 'library' && (

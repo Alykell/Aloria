@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { IdleAnimation, SkinViewer as Viewer } from 'skinview3d'
 import type { PlayerSkin } from '../../../shared/types'
+import { buildHat } from '../cosmetics'
 
 interface Props {
   /** Skin du compte (profil Mojang) : rechargé quand il change (événement « aloria:skin-changed ») */
@@ -10,6 +11,10 @@ interface Props {
   width?: number
   height?: number
   onClick?: () => void
+  /** Cape d'Aloria à montrer à la place de celle du compte (texture ; null = aucune ; absent = cape Mojang) */
+  cape?: string | null
+  /** Chapeau d'Aloria sur la tête (id du cosmétique) */
+  hat?: string | null
 }
 
 /** Prévient les vues 3D qu'un skin vient de changer (sans attendre le profil public de Mojang, qui met un moment) */
@@ -38,12 +43,28 @@ async function drawFlatHead(canvas: HTMLCanvasElement, texture: string): Promise
  * Rien ne s'affiche tant que le skin n'est pas chargé. Sans WebGL (pilote refusé par Chromium, machine
  * virtuelle…), la tête du skin à plat : sinon l'erreur emportait toute l'interface (écran blanc).
  */
-export default function SkinViewer({ uuid, skin, width = 240, height = 330, onClick }: Props) {
+export default function SkinViewer({ uuid, skin, width = 240, height = 330, onClick, cape, hat }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null)
   const viewer = useRef<Viewer | null>(null)
   const flatCanvas = useRef<HTMLCanvasElement>(null)
   const [flat, setFlat] = useState(false)
   const lastSkin = useRef<PlayerSkin | null>(null)
+  const cosmetics = useRef({ cape, hat })
+  cosmetics.current = { cape, hat }
+
+  /** Cape (celle d'Aloria choisie, sinon celle du compte) et chapeau */
+  const dress = async (v: Viewer) => {
+    const { cape: aloriaCape, hat: hatId } = cosmetics.current
+    const capeTexture = aloriaCape !== undefined ? aloriaCape : lastSkin.current?.cape
+    if (capeTexture) await v.loadCape(capeTexture)
+    else v.resetCape()
+    const head = v.playerObject.skin.head
+    head.getObjectByName('aloria-hat')?.removeFromParent()
+    const model = hatId ? buildHat(hatId) : null
+    if (model) head.add(model)
+    // Un chapeau dépasse de la tête : un peu plus de recul pour qu'il reste dans le cadre
+    v.zoom = model ? 0.72 : 0.85
+  }
 
   const show = async (s: PlayerSkin | null) => {
     lastSkin.current = s
@@ -51,8 +72,7 @@ export default function SkinViewer({ uuid, skin, width = 240, height = 330, onCl
     const v = viewer.current
     if (!v || !s) return
     await v.loadSkin(s.texture, { model: s.slim ? 'slim' : 'default' })
-    if (s.cape) await v.loadCape(s.cape)
-    else v.resetCape()
+    await dress(v)
     if (canvas.current) canvas.current.style.opacity = '1'
   }
 
@@ -101,6 +121,11 @@ export default function SkinViewer({ uuid, skin, width = 240, height = 330, onCl
   useEffect(() => {
     if (flat) show(lastSkin.current)
   }, [flat])
+
+  // Cosmétiques essayés ou équipés
+  useEffect(() => {
+    if (viewer.current && lastSkin.current) dress(viewer.current)
+  }, [cape, hat])
 
   // Skin donné directement
   useEffect(() => {

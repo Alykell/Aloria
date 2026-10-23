@@ -1275,3 +1275,28 @@ kbd { display: inline-block; padding: 2px 7px; border-radius: 6px; background: v
 .manage-row.disabled .manage-content { opacity: 0.5; }
 .manage-row .switch { margin-left: auto; }
 .manage-content .chip { align-self: flex-start; }
+
+/* Cosmétiques : aperçu du skin à gauche, cartes à droite */
+.cosmetics__layout { display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap; margin-top: 12px; }
+.cosmetics__preview { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px; border-radius: var(--radius); background: var(--card); }
+.cosmetics__list { flex: 1; min-width: 300px; display: flex; flex-direction: column; gap: 10px; }
+.cosmetics__hint { margin: 0 0 2px; }
+.cosmetics__note { font-size: 0.85em; margin-top: 6px; }
+.cosmetic-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  background: var(--card);
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.cosmetic-card:hover { border-color: var(--line); }
+.cosmetic-card.trying { border-color: var(--lagoon); }
+.cosmetic-card.equipped { border-color: var(--sea); }
+.cosmetic-card__icon { font-size: 2em; width: 44px; text-align: center; }
+.cosmetic-card__text { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.cosmetic-card__progress { height: 8px; max-width: 260px; }
+.cosmetic-card__actions button { padding: 8px 16px; border-radius: 10px; white-space: nowrap; }
