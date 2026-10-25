@@ -17,7 +17,7 @@ import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 
 /**
- * Écran Visuel : mains, bouclier, totem, autres (luminosité, citrouille, pack redstone) et brouillard.
+ * Écran Visuel : mains, bouclier, totem, autres (luminosité, citrouille, packs Modrinth) et brouillard.
  * Petit panneau en haut de l'écran, sans assombrir le jeu, pour voir chaque réglage en direct.
  */
 public class VisualScreen extends AloriaScreen {
@@ -50,7 +50,7 @@ public class VisualScreen extends AloriaScreen {
 			case "hands" -> 6;
 			case "shield" -> 6;
 			case "totem" -> 3;
-			case "light" -> 8;
+			case "light" -> 10;
 			default -> 6;
 		};
 	}
@@ -164,7 +164,7 @@ public class VisualScreen extends AloriaScreen {
 		buttonWithId("totem:reset", g, mouseX, mouseY, x + PAD + w(preview) + 22, y, w(reset) + 16, 13, reset, false, () -> v().totemScale = 1f);
 	}
 
-	/** Onglet Autres : luminosité, citrouille, packs redstone et icônes d'enchantements */
+	/** Onglet Autres : luminosité, citrouille, packs redstone, icônes d'enchantements et blocs sans rotation */
 	private void drawLight(GuiGraphicsExtractor g, int x, int y, int w) {
 		text(g, Tr.tr("visual.fullbright"), x + PAD, y + 2, Theme.FOAM, false);
 		toggle("fullbright", g, x + w - PAD - 24, y + 1, v().fullbright, () -> v().fullbright = !v().fullbright);
@@ -179,6 +179,8 @@ public class VisualScreen extends AloriaScreen {
 		packRow(g, x, y, w, ModrinthPack.REDSTONE, "redstonePack", "visual.redstone", "visual.redstoneHint");
 		y += ROW_H * 2;
 		packRow(g, x, y, w, ModrinthPack.ENCHANT_ICONS, "enchantIconsPack", "visual.enchantIcons", "visual.enchantIconsHint");
+		y += ROW_H * 2;
+		packRow(g, x, y, w, ModrinthPack.NO_ROTATION, "noRotationPack", "visual.noRotation", "visual.noRotationHint");
 	}
 
 	/** Pack Modrinth en un clic : nom et interrupteur, puis l'explication ou l'état du téléchargement */

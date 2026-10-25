@@ -35,6 +35,8 @@ public final class ModrinthPack {
 	public static final ModrinthPack REDSTONE = new ModrinthPack("redstone-tweaks", "Redstone Tweaks ");
 	/** Enchant Icons : icône et couleur devant chaque enchantement (texte des objets), dans toutes les langues */
 	public static final ModrinthPack ENCHANT_ICONS = new ModrinthPack("enchant-icons-countxd", "Enchant Icons ");
+	/** NoBlockRotations : herbe, terre, sable, pierre… toujours dans le même sens (rotation aléatoire des textures retirée) */
+	public static final ModrinthPack NO_ROTATION = new ModrinthPack("noblockrotations", "NoBlockRotations ");
 
 	public enum Status { IDLE, DOWNLOADING, FAILED, UNAVAILABLE }
 

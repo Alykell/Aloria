@@ -717,6 +717,16 @@ public final class SelfTest {
 		add("capture Enchant Icons", 40, () -> screenshot(mc, "17f-enchant-icons"));
 		add("pack Enchant Icons retiré", 2, () -> !ModrinthPack.ENCHANT_ICONS.active() || click(mc, "enchantIconsPack"));
 		add("pack Enchant Icons désactivé", 40, () -> check("l'interrupteur retire Enchant Icons", !ModrinthPack.ENCHANT_ICONS.active()));
+		add("pack NoBlockRotations activé", 2, () -> click(mc, "noRotationPack"));
+		add("pack NoBlockRotations téléchargé", 200, () -> {
+			ModrinthPack.Status status = ModrinthPack.NO_ROTATION.status();
+			if (status == ModrinthPack.Status.DOWNLOADING) return false;
+			if (status == ModrinthPack.Status.UNAVAILABLE) return check("NoBlockRotations absent pour cette version : signalé", !ModrinthPack.NO_ROTATION.active());
+			return check("le pack NoBlockRotations est téléchargé et activé (" + status + ")", ModrinthPack.NO_ROTATION.active());
+		});
+		add("capture NoBlockRotations", 40, () -> screenshot(mc, "17g-no-rotation"));
+		add("pack NoBlockRotations retiré", 2, () -> !ModrinthPack.NO_ROTATION.active() || click(mc, "noRotationPack"));
+		add("pack NoBlockRotations désactivé", 40, () -> check("l'interrupteur retire NoBlockRotations", !ModrinthPack.NO_ROTATION.active()));
 		add("de l'eau sur la tête", 2, () -> {
 			visual().fullbright = false;
 			command(mc, "time set noon");
