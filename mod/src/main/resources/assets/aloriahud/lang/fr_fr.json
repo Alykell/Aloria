@@ -82,7 +82,7 @@
 	"aloriahud.visual.totemHint": "Taille de l'animation quand un totem te sauve.",
 	"aloriahud.visual.preview": "Voir l'animation",
 	"aloriahud.visual.fullbright": "Luminosité max (comme avec Vision nocturne)",
-	"aloriahud.visual.fullbrightHint": "Tout est éclairé, même les grottes et la nuit. Sans l'effet de potion.",
+	"aloriahud.visual.fullbrightHint": "Tout est éclairé, grottes et nuit comprises, sans potion.",
 	"aloriahud.visual.hidePumpkin": "Cacher le contour de la citrouille",
 	"aloriahud.visual.hidePumpkinHint": "Une citrouille sur la tête ne cache plus l'écran.",
 	"aloriahud.visual.redstone": "Pack redstone (Redstone Tweaks)",

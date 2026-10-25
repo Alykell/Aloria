@@ -2,6 +2,7 @@ package fr.alykell.aloria.hud.screen;
 
 import fr.alykell.aloria.hud.AloriaHud;
 import fr.alykell.aloria.hud.G;
+import fr.alykell.aloria.hud.ModrinthPack;
 import fr.alykell.aloria.hud.Theme;
 import fr.alykell.aloria.hud.Tr;
 import fr.alykell.aloria.hud.Visual;
@@ -12,7 +13,7 @@ import net.minecraft.client.gui.screen.Screen;
 import java.util.Locale;
 
 /**
- * Écran Visuel de la 1.8.9 : main tenue, luminosité et brouillard (mêmes réglages que le mod moderne, sans seconde
+ * Écran Visuel de la 1.8.9 : main tenue, luminosité, blocs sans rotation et brouillard (mêmes réglages que le mod moderne, sans seconde
  * main, bouclier, totem ni neige poudreuse, absents de cette version).
  * Petit panneau en haut de l'écran, sans assombrir le jeu, pour voir chaque réglage en direct.
  */
@@ -44,7 +45,7 @@ public class VisualScreen extends AloriaScreen {
 
 	private int rows() {
 		if (tab.equals("hands")) return 5;
-		if (tab.equals("light")) return 4;
+		if (tab.equals("light")) return 6;
 		return 5;
 	}
 
@@ -136,6 +137,23 @@ public class VisualScreen extends AloriaScreen {
 		toggle("hidePumpkin", g, x + w - PAD - 24, y + 1, v().hidePumpkin, () -> v().hidePumpkin = !v().hidePumpkin);
 		y += ROW_H;
 		text(g, Tr.tr("visual.hidePumpkinHint"), x + PAD, y + 2, Theme.TEXT_SOFT, false);
+		y += ROW_H;
+		packRow(g, x, y, w, ModrinthPack.NO_ROTATION, "noRotationPack", "visual.noRotation", "visual.noRotationHint");
+	}
+
+	/** Pack Modrinth en un clic : nom et interrupteur, puis l'explication ou l'état du téléchargement */
+	private void packRow(G g, int x, int y, int w, ModrinthPack pack, String id, String label, String hintKey) {
+		text(g, Tr.tr(label), x + PAD, y + 2, Theme.FOAM, false);
+		toggle(id, g, x + w - PAD - 24, y + 1, pack.active(), pack::toggle);
+		y += ROW_H;
+		String hint;
+		switch (pack.status()) {
+			case DOWNLOADING: hint = Tr.tr("visual.redstone.downloading"); break;
+			case FAILED: hint = Tr.tr("visual.redstone.failed"); break;
+			case UNAVAILABLE: hint = Tr.tr("visual.redstone.unavailable"); break;
+			default: hint = Tr.tr(hintKey);
+		}
+		text(g, hint, x + PAD, y + 2, pack.status() == ModrinthPack.Status.FAILED ? Theme.CORAL : Theme.TEXT_SOFT, false);
 	}
 
 	private void drawFog(G g, int mouseX, int mouseY, int x, int y, int w) {

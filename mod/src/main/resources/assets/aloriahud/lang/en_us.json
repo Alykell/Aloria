@@ -82,7 +82,7 @@
 	"aloriahud.visual.totemHint": "Size of the animation when a totem saves you.",
 	"aloriahud.visual.preview": "Play animation",
 	"aloriahud.visual.fullbright": "Max brightness (like Night Vision)",
-	"aloriahud.visual.fullbrightHint": "Everything is lit, even caves and at night. Without the potion effect.",
+	"aloriahud.visual.fullbrightHint": "Everything is lit, caves and nights too, no potion needed.",
 	"aloriahud.visual.hidePumpkin": "Hide the pumpkin overlay",
 	"aloriahud.visual.hidePumpkinHint": "A pumpkin on your head no longer blocks the screen.",
 	"aloriahud.visual.redstone": "Redstone pack (Redstone Tweaks)",

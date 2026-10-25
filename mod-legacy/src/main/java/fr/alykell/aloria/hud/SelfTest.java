@@ -382,6 +382,15 @@ public final class SelfTest {
 			server(mc, (world, player) -> player.inventory.armor[3] = new ItemStack(Items.IRON_HELMET));
 			return true;
 		});
+		add("pack NoBlockRotations activé", 2, () -> click(mc, "noRotationPack"));
+		add("pack NoBlockRotations téléchargé", 400, () -> {
+			ModrinthPack.Status status = ModrinthPack.NO_ROTATION.status();
+			if (status == ModrinthPack.Status.DOWNLOADING) return false;
+			return check("le pack NoBlockRotations est téléchargé et activé (" + status + ")", ModrinthPack.NO_ROTATION.active());
+		});
+		add("capture NoBlockRotations", 40, () -> screenshot(mc, "11d-sans-rotation"));
+		add("pack NoBlockRotations retiré", 2, () -> !ModrinthPack.NO_ROTATION.active() || click(mc, "noRotationPack"));
+		add("pack NoBlockRotations désactivé", 40, () -> check("l'interrupteur retire NoBlockRotations", !ModrinthPack.NO_ROTATION.active()));
 		add("brouillard coupé", 2, () -> {
 			Visual.settings().fullbright = false;
 			((VisualScreen) mc.currentScreen).openTab("fog");
