@@ -159,6 +159,34 @@ export async function cfBestFile(modId: number, type: ContentType, gameVersion: 
   return files.find((f) => f.releaseType === 1) ?? files[0] ?? null
 }
 
+/** Empreinte CurseForge d'un fichier : MurmurHash2 (graine 1) des octets, espaces et retours à la ligne retirés */
+export function cfFingerprint(data: Buffer): number {
+  const b = data.filter((x) => x !== 9 && x !== 10 && x !== 13 && x !== 32)
+  const m = 0x5bd1e995
+  let len = b.length
+  let h = (1 ^ len) >>> 0
+  let i = 0
+  for (; len >= 4; i += 4, len -= 4) {
+    let k = b[i] | (b[i + 1] << 8) | (b[i + 2] << 16) | (b[i + 3] << 24)
+    k = Math.imul(k, m)
+    k ^= k >>> 24
+    h = Math.imul(h, m) ^ Math.imul(k, m)
+  }
+  if (len === 3) h ^= b[i + 2] << 16
+  if (len >= 2) h ^= b[i + 1] << 8
+  if (len >= 1) h = Math.imul(h ^ b[i], m)
+  h ^= h >>> 13
+  h = Math.imul(h, m)
+  return (h ^ (h >>> 15)) >>> 0
+}
+
+/** Projets CurseForge (modId) des fichiers reconnus à leur empreinte */
+export async function cfModIdsByFingerprint(fingerprints: number[]): Promise<number[]> {
+  if (fingerprints.length === 0) return []
+  const res = await get<{ exactMatches: { file: { modId: number } }[] }>('/fingerprints/432', { fingerprints })
+  return res.exactMatches.map((m) => m.file.modId)
+}
+
 export const cfSha1 = (f: CfFile) => f.hashes.find((h) => h.algo === 1)?.value ?? ''
 
 export const modpackSummary = async (projectId: string) => (await get<CfMod>(`/mods/${modIdOf(projectId)}`)).summary

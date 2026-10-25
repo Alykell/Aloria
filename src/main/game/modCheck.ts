@@ -6,7 +6,7 @@ import { gameDirOf, getProfile } from '../profiles'
 import { resolveVersionId } from './versions'
 import { installContent, modrinthLoaders, setContentEnabled } from '../modrinth/content'
 import { getProject, getProjects, getVersions, listVersions, search, versionsByHash } from '../modrinth/api'
-import { cfFiles, cfMods, modIdOf } from '../curseforge'
+import { cfFiles, cfFingerprint, cfModIdsByFingerprint, cfMods, modIdOf } from '../curseforge'
 import { bufferSource, fileSource, urlSource, zipEntries, zipRead, type ZipSource } from '../shared/zipPeek'
 import type { Loader, MissingMod, ModCheck } from '../../shared/types'
 
@@ -270,7 +270,7 @@ export async function checkMods(profileId: string): Promise<ModCheck | null> {
     if (profile.modpack) fromPack = new Set(enabled.map((m) => m.fileName))
   }
   const fromModrinth = await modrinthNeeds(enabled, fromPack, index, provided, loader === 'fabric' ? ['fabric', 'quilt'] : [loader], titleOf)
-  const fromCurseforge = await curseforgeNeeds(enabled, fromPack, index, titleOf)
+  const fromCurseforge = await curseforgeNeeds(dir, enabled, fromPack, index, titleOf)
   if (needed.size === 0 && fromModrinth.size === 0 && fromCurseforge.size === 0) return null
 
   const gameVersion = await resolveVersionId(profile.versionId)
@@ -376,6 +376,7 @@ async function modrinthNeeds(
 
 /** Dépendances obligatoires déclarées sur CurseForge par les mods installés depuis CurseForge, absentes des mods activés */
 async function curseforgeNeeds(
+  dir: string,
   enabled: { fileName: string; meta: JarMeta }[],
   skip: Set<string>,
   index: Record<string, Indexed>,
@@ -400,6 +401,13 @@ async function curseforgeNeeds(
         list.push({ fileName: mod.fileName, title: titleOf(mod) })
         needs.set(id, list)
       }
+    }
+    // Jars sans projet connu (ceux d'un modpack, ajoutés à la main) : reconnus par CurseForge à leur empreinte. Sinon,
+    // une bibliothèque fournie par le modpack passait pour absente et « Réparer » en installait une autre version
+    const unknown = enabled.filter((m) => !index[m.fileName]?.projectId)
+    if (needs.size > 0 && unknown.length > 0) {
+      const fingerprints = await Promise.all(unknown.map(async (m) => cfFingerprint(await readFile(join(dir, m.fileName)))))
+      for (const modId of await cfModIdsByFingerprint(fingerprints)) needs.delete(`cf:${modId}`)
     }
   } catch {
     // CurseForge injoignable : seuls les jars comptent
