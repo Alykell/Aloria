@@ -19,6 +19,7 @@ import AdmZip from 'adm-zip'
 import { installModpack, installModpackServer, modpackUpdate, modpackVersions, previewModpack, updateModpack } from './modrinth/modpack'
 import { createPreset, deletePreset, getPreset, listPresets, MAIN_PRESET, renamePreset, updatePresetOptions } from './shared/presets'
 import { gameLangOf, translate, type Lang, type MessageKey } from '../shared/i18n'
+import { readGameConsole } from './game/gameConsole'
 import { createProfile, deleteProfile, gameDirOf, getProfile, listProfiles, migrateProfileDirs, openProfileFolder, selectProfile, updateProfile } from './profiles'
 import { resolveVersionId } from './game/versions'
 import { paths } from './game/paths'
@@ -129,8 +130,9 @@ ipcMain.on('updater:install', () => installUpdate())
 ipcMain.on('keyboard:layout', (_e, layout: Record<string, string>) => saveKeyboardLayout(layout))
 
 ipcMain.handle('accounts:list', () => {
-  // Captures de développement : ALORIA_CAPTURE_ACCOUNT="pseudo:uuid" affiche un compte d'exemple (skin 3D de l'accueil)
-  const demo = !app.isPackaged && process.env.ALORIA_CAPTURE ? process.env.ALORIA_CAPTURE_ACCOUNT?.split(':') : undefined
+  // Développement : ALORIA_CAPTURE_ACCOUNT="pseudo:uuid" affiche un compte d'exemple (skin 3D de l'accueil, boutons de jeu ;
+  // avec ALORIA_TEST_DEMO=1, Jouer lance la démo)
+  const demo = !app.isPackaged ? process.env.ALORIA_CAPTURE_ACCOUNT?.split(':') : undefined
   if (demo?.length === 2) return { active: demo[1], accounts: [{ name: demo[0], uuid: demo[1] }] }
   return listAccounts()
 })
@@ -179,6 +181,8 @@ ipcMain.handle('worlds:restore', (_e, profileId: string, world: string, file: st
 )
 ipcMain.handle('worlds:deleteBackup', (_e, profileId: string, world: string, file: string) => wrap(() => deleteWorldBackup(profileId, world, file)))
 ipcMain.handle('worlds:openBackups', (_e, profileId: string, world: string) => openWorldBackups(profileId, world))
+// Console d'un profil : sortie du jeu (logs/aloria-launch.log), lue par morceaux à partir de `offset`
+ipcMain.handle('game:console', (_e, profileId: string, offset: number) => wrap(() => readGameConsole(profileId, offset)))
 ipcMain.handle('game:play', async (e, profileId: string, join?: JoinTarget): Promise<Result<null>> => {
   try {
     await play(e.sender, profileId, join)

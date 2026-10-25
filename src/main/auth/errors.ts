@@ -1,5 +1,6 @@
 export type AuthErrorCode =
   | 'cancelled'
+  | 'expired'
   | 'microsoft'
   | 'no_xbox'
   | 'child'

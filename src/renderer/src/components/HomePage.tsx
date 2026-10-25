@@ -6,6 +6,8 @@ import type { useGame } from '../hooks/useGame'
 import Select from './Select'
 import QuickPlay from './QuickPlay'
 import SkinViewer from './SkinViewer'
+import GameConsole from './GameConsole'
+import { useState } from 'react'
 import { t } from '../i18n'
 
 interface Props {
@@ -18,6 +20,7 @@ interface Props {
 export default function HomePage({ accounts, profiles, game, onSkin }: Props) {
   const canPlay = !!accounts.active
   const selected = profiles.selected
+  const [consoleOpen, setConsoleOpen] = useState(false)
 
   return (
     <section className="hero">
@@ -62,8 +65,18 @@ export default function HomePage({ accounts, profiles, game, onSkin }: Props) {
                   profile={selected}
                   disabled={!!game.status.launch || game.status.running.some((r) => r.profileId === selected.id)}
                   onPlay={(target) => game.play(selected.id, target)}
+                  onConsole={() => setConsoleOpen(true)}
                 />
               )}
+              {/* Pendant le lancement, seule la console reste (l'installation d'un loader s'y lit aussi) */}
+              {selected && game.status.launch?.profileId === selected.id && (
+                <div className="quick-play">
+                  <button className="quick-play__btn" onClick={() => setConsoleOpen(true)}>
+                    {t('console.open')}
+                  </button>
+                </div>
+              )}
+              {consoleOpen && selected && <GameConsole profile={selected} onClose={() => setConsoleOpen(false)} />}
               <RunningGames status={game.status} exceptId={selected?.id ?? null} onStop={game.stop} />
             </>
           ) : (

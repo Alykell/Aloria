@@ -91,6 +91,17 @@ export default function App() {
           {error && (
             <div className="toast" role="alert">
               <span>{error}</span>
+              {!accounts.error && game.error && game.errorCode === 'expired' && (
+                <button
+                  className="toast__action"
+                  onClick={() => {
+                    clearError()
+                    accounts.add()
+                  }}
+                >
+                  {t('auth.relogin')}
+                </button>
+              )}
               <button aria-label={t('common.close')} onClick={clearError}>
                 &#10005;
               </button>

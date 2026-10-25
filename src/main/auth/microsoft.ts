@@ -72,6 +72,10 @@ async function tokenRequest(body: Record<string, string>): Promise<MicrosoftToke
   })
   const json = (await res.json()) as Record<string, string>
   if (!res.ok) {
+    // Session Microsoft trop ancienne ou révoquée (AADSTS70000, mot de passe changé…) : il faut se reconnecter
+    if (body.grant_type === 'refresh_token' && ['invalid_grant', 'interaction_required'].includes(json.error)) {
+      throw new AuthError('expired', tm('auth.expired'))
+    }
     throw new AuthError('microsoft', json.error_description ?? tm('auth.microsoftError', { status: res.status }))
   }
   return { accessToken: json.access_token, refreshToken: json.refresh_token }

@@ -5,6 +5,7 @@ import { setDiscordIdle, setDiscordPlaying, setDiscordServer } from '../discord'
 import { watchGameLog } from './logWatcher'
 import { addPending, removePending } from '../shared/pending'
 import { getValidSession, listAccounts } from '../auth/accounts'
+import { readableLog } from './gameConsole'
 import { addPlayTime, gameDirOf, getProfile, markPlayed } from '../profiles'
 import { cosmeticsHeartbeat } from '../cosmetics'
 import { getSettings } from '../settings'
@@ -315,7 +316,12 @@ export async function play(sender: WebContents, profileId: string, join?: JoinTa
 /** Dernières lignes du journal du jeu, affichées en cas de crash */
 async function logTail(logFile: string): Promise<string> {
   try {
-    return (await readFile(logFile, 'utf8')).split(/\r?\n/).filter(Boolean).slice(-60).join('\n')
+    // Journal XML de log4j rendu lisible, comme dans la console
+    return readableLog(await readFile(logFile, 'utf8'))
+      .text.split(/\r?\n/)
+      .filter(Boolean)
+      .slice(-60)
+      .join('\n')
   } catch {
     return ''
   }

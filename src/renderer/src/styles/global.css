@@ -300,6 +300,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 }
 .toast button { opacity: 0.7; }
 .toast button:hover { opacity: 1; }
+.toast .toast__action { flex-shrink: 0; opacity: 1; padding: 6px 12px; border-radius: 999px; background: var(--toast-text); color: var(--toast-bg); font-weight: 600; }
 
 /* Lancement */
 .select.version-select { margin-top: 4px; padding: 9px 16px 9px 18px; border-radius: 999px; background: var(--card); font-weight: 600; }
@@ -1300,3 +1301,9 @@ kbd { display: inline-block; padding: 2px 7px; border-radius: 6px; background: v
 .cosmetic-card__text { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .cosmetic-card__progress { height: 8px; max-width: 260px; }
 .cosmetic-card__actions button { padding: 8px 16px; border-radius: 10px; white-space: nowrap; }
+
+/* Console d'un profil (accueil) */
+.dialog.game-console { width: min(1000px, 92vw); }
+.game-console__lines { height: min(60vh, 560px); border-radius: 10px; background: #0b1b26; }
+.game-console__warn { color: #f2c46d; }
+.game-console__error { color: #ff8a80; }

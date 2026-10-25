@@ -19,6 +19,7 @@ import type {
   SearchQuery,
   SettingsPreset,
   UpdateStatus,
+  GameConsoleChunk,
   GameStatus,
   LoaderVersion,
   Profile,
@@ -264,6 +265,8 @@ const api = {
     fabricLoaders: (gameVersion: string): Promise<Result<LoaderVersion[]>> => ipcRenderer.invoke('fabric:loaders', gameVersion),
     forgeLoaders: (gameVersion: string): Promise<Result<LoaderVersion[]>> => ipcRenderer.invoke('forge:loaders', gameVersion),
     neoforgeLoaders: (gameVersion: string): Promise<Result<LoaderVersion[]>> => ipcRenderer.invoke('neoforge:loaders', gameVersion),
+    /** Sortie du jeu d'un profil, à partir de `offset` (console en direct) */
+    console: (profileId: string, offset: number): Promise<Result<GameConsoleChunk>> => ipcRenderer.invoke('game:console', profileId, offset),
     onStatus: (cb: (s: GameStatus) => void) => subscribe('game:status', cb),
     onExit: (cb: (e: GameExit) => void) => subscribe('game:exit', cb)
   }

@@ -10,7 +10,17 @@ type Kind = 'solo' | 'multi'
 const quickPlayable = (p: Profile) => p.versionId.startsWith('latest') || supportsQuickPlay(p.versionId)
 
 /** Boutons Solo / Multijoueur sous le choix du profil : ouvrent la liste des mondes ou des serveurs du profil */
-export default function QuickPlay({ profile, disabled, onPlay }: { profile: Profile; disabled: boolean; onPlay: (target: JoinTarget) => void }) {
+export default function QuickPlay({
+  profile,
+  disabled,
+  onPlay,
+  onConsole
+}: {
+  profile: Profile
+  disabled: boolean
+  onPlay: (target: JoinTarget) => void
+  onConsole: () => void
+}) {
   const [open, setOpen] = useState<Kind | null>(null)
   const soloOk = quickPlayable(profile)
 
@@ -22,6 +32,10 @@ export default function QuickPlay({ profile, disabled, onPlay }: { profile: Prof
         </button>
         <button className="quick-play__btn" disabled={disabled} onClick={() => setOpen('multi')}>
           {t('quick.multi')}
+        </button>
+        {/* Toujours ouvrable, même pendant une partie : c'est là qu'on voit pourquoi un monde ne charge pas */}
+        <button className="quick-play__btn" onClick={onConsole}>
+          {t('console.open')}
         </button>
       </div>
       {open === 'solo' && (

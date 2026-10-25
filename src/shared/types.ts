@@ -151,6 +151,16 @@ export interface PlayerSkin {
   cape: string | null
 }
 
+/** Morceau de la console d'un profil (sortie du jeu) */
+export interface GameConsoleChunk {
+  text: string
+  offset: number
+  /** Nouveau lancement : la console repart de zéro */
+  reset: boolean
+  /** Le profil n'a encore jamais été lancé */
+  missing: boolean
+}
+
 export type Result<T> = { ok: true; value: T } | { ok: false; code: string; error: string }
 
 export interface Settings {
