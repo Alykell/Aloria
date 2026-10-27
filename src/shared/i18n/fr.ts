@@ -774,6 +774,7 @@ export const fr = {
   'server.custom.tunnel': 'Adresse playit.gg (marche aussi) :',
   'server.custom.playitOnly': 'Une adresse en .{domain} qui ne change jamais ? Choisis playit.gg dans ✏️ Modifier.',
   'err.loginForAddress': 'Connecte-toi avec ton compte Microsoft pour choisir une adresse.',
+  'server.selfHint': 'Sur ce PC, utilise « Rejoindre » : l’adresse IP sert aux autres joueurs.',
   'server.addressYou': 'Sur ce PC',
   'server.addressLan': 'Réseau local',
   'server.addressWhenStarted': 'Elle apparaîtra quand le serveur sera démarré.',

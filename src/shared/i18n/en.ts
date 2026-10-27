@@ -776,6 +776,7 @@ export const en: Record<keyof typeof fr, string> = {
   'server.custom.tunnel': 'playit.gg address (works too):',
   'server.custom.playitOnly': 'Want a .{domain} address that never changes? Pick playit.gg in ✏️ Edit.',
   'err.loginForAddress': 'Sign in with your Microsoft account to pick an address.',
+  'server.selfHint': 'On this PC, use “Join”: the IP address is for other players.',
   'server.addressYou': 'On this PC',
   'server.addressLan': 'Local network',
   'server.addressWhenStarted': 'It will show up once the server is started.',

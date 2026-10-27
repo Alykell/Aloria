@@ -714,6 +714,7 @@ export default function ServersPage({ settings, onError, onFocus }: Props) {
                   {st.tunnelError ?? (st.state === 'stopped' ? t('server.addressWhenStarted') : t('server.addressWaiting'))}
                 </small>
               )}
+              {open.tunnel !== 'none' && (st.publicAddress || open.customAddress) && <small className="muted">{t('server.selfHint')}</small>}
               <strong>{t('server.addressYou')}</strong>
               <Copyable value={local} />
               <JoinServer server={open} running={running} onError={onError} onChanged={refresh} />
