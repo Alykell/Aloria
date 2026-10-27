@@ -5,6 +5,9 @@ export const en: Record<keyof typeof fr, string> = {
   // Common
   'common.close': 'Close',
   'common.cancel': 'Cancel',
+  'common.confirm': 'Confirm',
+  'common.continue': 'Continue',
+  'common.remove': 'Remove',
   'common.save': 'Save',
   'common.create': 'Create',
   'common.delete': 'Delete',

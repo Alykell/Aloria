@@ -6,6 +6,7 @@ import type { ProfilesState } from '../hooks/useProfiles'
 import type { PackElement, PackInfo, PackVanilla } from '../../../shared/types'
 import type { MessageKey } from '../../../shared/i18n'
 import { t } from '../i18n'
+import { askConfirm } from '../confirm'
 
 interface Props {
   pack: PackInfo
@@ -104,7 +105,8 @@ export default function PackEditor({ pack, profiles, onBack, onChanged, onError 
   /** Nouvelle résolution : les images déjà faites sont redimensionnées (sans flou) */
   const changeScale = async (next: number) => {
     if (next === scale) return
-    if (next < scale && Object.keys(pack.images).length && !confirm(t('pe.confirmScale'))) return
+    if (next < scale && Object.keys(pack.images).length && !(await askConfirm(t('pe.confirmScale'), { confirmLabel: t('common.continue'), danger: false })))
+      return
     setRescaling(true)
     try {
       for (const [el, img] of Object.entries(latest.current.images) as [PackElement, string][]) {

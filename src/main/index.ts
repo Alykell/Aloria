@@ -1140,6 +1140,19 @@ app.whenReady().then(() => {
       app.quit()
     })
   }
+  // ALORIA_CAPTURE_CONFIRM=<image.png> : capture de la fenêtre de confirmation du launcher (askConfirm), puis fermeture
+  if (!app.isPackaged && process.env.ALORIA_CAPTURE_CONFIRM) {
+    win.webContents.once('did-finish-load', async () => {
+      const { writeFile } = await import('node:fs/promises')
+      await new Promise((r) => setTimeout(r, 2500))
+      const lang = getSettings().language ?? 'fr'
+      const message = translate(lang, 'quick.deleteConfirm', { name: 'Minecraft Server' })
+      win.webContents.executeJavaScript(`window.aloriaAskConfirm(${JSON.stringify(message)}, { confirmLabel: ${JSON.stringify(translate(lang, 'common.delete'))} })`)
+      await new Promise((r) => setTimeout(r, 800))
+      await writeFile(process.env.ALORIA_CAPTURE_CONFIRM!, (await win.webContents.capturePage()).toPNG())
+      app.quit()
+    })
+  }
   // Captures de la page Serveurs en développement : ALORIA_CAPTURE_SERVERS=<dossier> crée un serveur Fabric de test,
   // le démarre et photographie la liste, la fiche (console, adresse) et la fenêtre de création, puis le supprime
   if (!app.isPackaged && process.env.ALORIA_CAPTURE_SERVERS) {

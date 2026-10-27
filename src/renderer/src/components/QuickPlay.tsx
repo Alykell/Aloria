@@ -3,6 +3,7 @@ import type { JoinTarget, LocalWorld, Profile, SavedServer } from '../../../shar
 import { supportsQuickPlay } from '../../../shared/loaders'
 import { getLang, t } from '../i18n'
 import type { MessageKey } from '../../../shared/i18n'
+import { askConfirm } from '../confirm'
 
 type Kind = 'solo' | 'multi'
 
@@ -197,8 +198,8 @@ function ServerSettings({ profile, server, onClose, onSaved }: { profile: Profil
   const save = () =>
     run(() => window.aloria.quick.saveServer(profile.id, server?.index ?? null, server?.address ?? null, { name, address, autoLogin, password }))
 
-  const remove = () => {
-    if (!server || !confirm(t('quick.deleteConfirm', { name: server.name }))) return
+  const remove = async () => {
+    if (!server || !(await askConfirm(t('quick.deleteConfirm', { name: server.name }), { confirmLabel: t('common.delete') }))) return
     run(() => window.aloria.quick.deleteServer(profile.id, server.index, server.address))
   }
 

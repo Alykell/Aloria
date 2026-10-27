@@ -3,6 +3,7 @@ import SkinViewer, { announceSkin } from './SkinViewer'
 import { canvas, loadImage } from '../packImages'
 import type { CapeInfo, PlayerSkin, SavedSkin } from '../../../shared/types'
 import { t } from '../i18n'
+import { askConfirm } from '../confirm'
 
 interface Props {
   uuid: string
@@ -234,8 +235,8 @@ export default function SkinDialog({ uuid, onClose, onError }: Props) {
               <button
                 className="link-danger"
                 disabled={busy}
-                onClick={() => {
-                  if (confirm(t('skin.confirmReset'))) run(() => window.aloria.skins.reset(), t('skin.resetDone'))
+                onClick={async () => {
+                  if (await askConfirm(t('skin.confirmReset'), { confirmLabel: t('skin.default') })) run(() => window.aloria.skins.reset(), t('skin.resetDone'))
                 }}
               >
                 {t('skin.default')}

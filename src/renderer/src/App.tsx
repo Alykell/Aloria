@@ -20,6 +20,7 @@ import ServersPage from './components/ServersPage'
 import SkinDialog from './components/SkinDialog'
 import { useTheme } from './hooks/useTheme'
 import LanguagePicker from './components/LanguagePicker'
+import { ConfirmHost } from './confirm'
 import { setLang, t } from './i18n'
 
 export default function App() {
@@ -74,6 +75,7 @@ export default function App() {
     <div className="app" key={lang ?? 'none'}>
       <div className="backdrop" style={{ backgroundImage: `url(${backdrop})` }} />
       <TitleBar />
+      <ConfirmHost />
       <div className="app__body">
         {!focused && (
           <Sidebar

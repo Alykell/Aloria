@@ -6,6 +6,7 @@ import type { ProfilesState } from '../hooks/useProfiles'
 import type { DatapackCreation, GameData, Recipe, RecipeIngredient, RecipeKind } from '../../../shared/types'
 import type { MessageKey } from '../../../shared/i18n'
 import { t } from '../i18n'
+import { askConfirm } from '../confirm'
 
 interface Props {
   datapack: DatapackCreation
@@ -200,9 +201,9 @@ export default function RecipeEditor({ datapack, profiles, onBack, onChanged, on
     setSlot(next.kind === 'shaped' || next.kind === 'shapeless' ? 'g0' : 'in')
   }
 
-  const removeRecipe = (index: number) => {
+  const removeRecipe = async (index: number) => {
     const r = dp.recipes[index]
-    if (!confirm(t('rc.confirmDelete', { name: r.result ? nameOf(r.result) : t('rc.untitled') }))) return
+    if (!(await askConfirm(t('rc.confirmDelete', { name: r.result ? nameOf(r.result) : t('rc.untitled') }), { confirmLabel: t('common.remove') }))) return
     change({ ...dp, recipes: dp.recipes.filter((_, i) => i !== index) })
     setSelected((s) => (s === index ? -1 : s > index ? s - 1 : s))
   }
@@ -228,9 +229,9 @@ export default function RecipeEditor({ datapack, profiles, onBack, onChanged, on
   }
 
   /** Recette du jeu supprimée : elle n'existera plus (sa version modifiée, s'il y en avait une, part aussi) */
-  const removeVanilla = (r: Recipe) => {
+  const removeVanilla = async (r: Recipe) => {
     const index = dp.recipes.findIndex((x) => x.id === r.id)
-    if (index >= 0 && !confirm(t('rc.confirmRemoveGame', { name: nameOf(r.result) }))) return
+    if (index >= 0 && !(await askConfirm(t('rc.confirmRemoveGame', { name: nameOf(r.result) }), { confirmLabel: t('common.continue') }))) return
     change({ ...dp, removed: [...dp.removed.filter((id) => id !== r.id), r.id], recipes: dp.recipes.filter((x) => x.id !== r.id) })
     if (index >= 0) setSelected((s) => (s === index ? -1 : s > index ? s - 1 : s))
     setNotice(t('rc.removedGame', { name: nameOf(r.result) }))

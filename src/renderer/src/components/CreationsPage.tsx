@@ -7,6 +7,7 @@ import type { ProfilesState } from '../hooks/useProfiles'
 import type { DatapackCreation, PackInfo } from '../../../shared/types'
 import type { MessageKey } from '../../../shared/i18n'
 import { t } from '../i18n'
+import { askConfirm } from '../confirm'
 
 interface Props {
   profiles: ProfilesState
@@ -86,14 +87,14 @@ export default function CreationsPage({ profiles, onError, onFocus }: Props) {
   }
 
   const removePack = async (pack: PackInfo) => {
-    if (!confirm(t('creations.confirmDelete', { name: pack.name }))) return
+    if (!(await askConfirm(t('creations.confirmDelete', { name: pack.name }), { confirmLabel: t('common.delete') }))) return
     const res = await window.aloria.packs.remove(pack.id)
     if (!res.ok) onError(res.error)
     refresh()
   }
 
   const removeDatapack = async (dp: DatapackCreation) => {
-    if (!confirm(t('creations.confirmDeleteDatapack', { name: dp.name }))) return
+    if (!(await askConfirm(t('creations.confirmDeleteDatapack', { name: dp.name }), { confirmLabel: t('common.delete') }))) return
     const res = await window.aloria.datapacks.remove(dp.id)
     if (!res.ok) onError(res.error)
     refresh()

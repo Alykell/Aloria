@@ -3,6 +3,9 @@ export const fr = {
   // Commun
   'common.close': 'Fermer',
   'common.cancel': 'Annuler',
+  'common.confirm': 'Confirmer',
+  'common.continue': 'Continuer',
+  'common.remove': 'Retirer',
   'common.save': 'Enregistrer',
   'common.create': 'Créer',
   'common.delete': 'Supprimer',
