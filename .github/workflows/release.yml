@@ -171,7 +171,8 @@ jobs:
 
       # Annonce dans #annonces du Discord d'Aloria (webhook dans les secrets du dépôt ; étape ignorée sans lui).
       # Le texte vient du message du commit de version : les lignes « - … » de son corps (phrases écrites pour les
-      # joueurs), sinon son titre « vX.Y.Z : nouveautés, séparées par des virgules » (hors parenthèses).
+      # joueurs), sinon son titre « vX.Y.Z : nouveautés, séparées par des virgules » (hors parenthèses). Pas d'annonce
+      # si le message contient « [sans annonce] ».
       - name: Annoncer la mise à jour sur Discord
         shell: bash
         env:
@@ -179,6 +180,8 @@ jobs:
         run: |
           [ -z "$DISCORD_WEBHOOK_URL" ] && { echo "Pas de webhook Discord : annonce ignorée"; exit 0; }
           git log -1 --format=%B > message.txt
+          # « [sans annonce] » dans le commit de version : Alykell poste l'annonce lui-même
+          grep -qF "[sans annonce]" message.txt && { echo "Annonce postée à la main : ignorée"; exit 0; }
           node -e '
             const fs = require("fs")
             const version = process.env.GITHUB_REF_NAME.replace(/^v/, "")
