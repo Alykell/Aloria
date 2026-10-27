@@ -474,8 +474,12 @@ ipcMain.handle('servers:unzipEntry', (_e, id: string, rel: string) => wrap(() =>
 ipcMain.handle('servers:uploadFiles', (e, id: string, rel: string) => wrap(() => uploadFiles(BrowserWindow.fromWebContents(e.sender), id, rel)))
 ipcMain.handle('servers:downloadFile', (e, id: string, rel: string) => wrap(() => downloadFile(BrowserWindow.fromWebContents(e.sender), id, rel)))
 ipcMain.handle('servers:contentRemove', (_e, id: string, fileName: string) => wrap(() => removeServerContent(id, fileName)))
-ipcMain.handle('playit:linked', () => playitLinked())
-ipcMain.handle('playit:usage', () => wrap(() => playitUsage()))
+// ALORIA_CAPTURE_PLAYIT_UNLINKED=1 (captures) : l'interface fait comme si playit.gg n'était pas relié (fenêtre de liaison)
+const captureUnlinked = !app.isPackaged && !!process.env.ALORIA_CAPTURE_PLAYIT_UNLINKED
+ipcMain.handle('playit:linked', () => !captureUnlinked && playitLinked())
+ipcMain.handle('playit:usage', () =>
+  wrap(async () => (captureUnlinked ? { ...(await playitUsage()), linked: false } : playitUsage()))
+)
 
 // Boutons Solo / Multijoueur de l'accueil
 ipcMain.handle('quick:worlds', (_e, profileId: string) => wrap(() => quickplay.listWorlds(profileId)))
@@ -1210,6 +1214,13 @@ app.whenReady().then(() => {
         for (let i = 0; i < 60 && !serverStatuses().find((s) => s.id === server.id)?.customAddress; i++) await wait(1000)
         await wait(800)
         await snap('2k-adresse-reliee')
+      }
+      if (process.env.ALORIA_CAPTURE_PLAYIT_UNLINKED && tunnel === 'playit') {
+        await click(translate(lang, 'server.playit.linkButton'))
+        await wait(600)
+        await snap('2l-playit-liaison')
+        await click(translate(lang, 'server.playitSetup.later'))
+        await wait(300)
       }
       // « Rejoindre » sur un serveur moddé sans profil : fenêtre du nom du profil
       if (type !== 'paper' && type !== 'vanilla') {

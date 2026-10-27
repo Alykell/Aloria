@@ -40,7 +40,7 @@ export default function ServerEditor({ server, defaultPort, maxRamMb, onSave, on
       loaderVersion: null,
       ramMb: Math.min(4096, maxRamMb),
       port: defaultPort,
-      tunnel: 'e4mc'
+      tunnel: 'playit'
     }
   )
   const [eula, setEula] = useState(!!server)
@@ -83,9 +83,11 @@ export default function ServerEditor({ server, defaultPort, maxRamMb, onSave, on
     }
   }, [form.type, version])
 
-  // e4mc par défaut quand il marche (aucun compte) ; sinon playit.gg, qui marche partout
-  const tunnelFor = (type: ServerType, gameVersion: string): ServerTunnel => (supportsE4mc(type, gameVersion) ? 'e4mc' : 'playit')
-  const chooseType = (type: ServerType) => set({ type, loaderVersion: null, tunnel: tunnelFor(type, version) })
+  // playit.gg par défaut (recommandé : marche partout, adresse fixe et adresse en .aloriamc.fr) ; e4mc reste au choix
+  // tant que le type et la version le permettent
+  const tunnelFor = (tunnel: ServerTunnel, type: ServerType, gameVersion: string): ServerTunnel =>
+    tunnel === 'e4mc' && !supportsE4mc(type, gameVersion) ? 'playit' : tunnel
+  const chooseType = (type: ServerType) => set({ type, loaderVersion: null, tunnel: tunnelFor(form.tunnel, type, version) })
   const loaderUnavailable = loaders !== null && loaders.length === 0
   const canSave = form.name.trim().length > 0 && !!version && eula && !loaderUnavailable && !saving
 
@@ -97,11 +99,11 @@ export default function ServerEditor({ server, defaultPort, maxRamMb, onSave, on
 
   // Compte gratuit de playit.gg : 4 adresses ; plein, playit.gg est grisé (sauf pour un serveur qui a déjà la sienne)
   const playitFull = !!playit?.linked && playit.used >= playit.max && !(server && playit.serverIds.includes(server.id))
-  const tunnels: { id: ServerTunnel; label: string; hint: string; disabled?: boolean }[] = [
-    { id: 'e4mc', label: t('server.tunnel.e4mc'), hint: t('server.tunnel.e4mcHint'), disabled: !supportsE4mc(form.type, version) },
+  const tunnels: { id: ServerTunnel; label: string; hint: string; disabled?: boolean; recommended?: boolean }[] = [
     {
       id: 'playit',
       label: t('server.tunnel.playit'),
+      recommended: true,
       hint: playitFull
         ? t('server.tunnel.playitFull', { used: playit!.used, max: playit!.max })
         : playit?.linked
@@ -109,6 +111,7 @@ export default function ServerEditor({ server, defaultPort, maxRamMb, onSave, on
           : t('server.tunnel.playitHint'),
       disabled: playitFull
     },
+    { id: 'e4mc', label: t('server.tunnel.e4mc'), hint: t('server.tunnel.e4mcHint'), disabled: !supportsE4mc(form.type, version) },
     { id: 'none', label: t('server.tunnel.none'), hint: t('server.tunnel.noneHint') }
   ]
 
@@ -150,7 +153,7 @@ export default function ServerEditor({ server, defaultPort, maxRamMb, onSave, on
                 gameVersion: v,
                 loaderVersion: null,
                 type,
-                tunnel: form.tunnel === 'none' ? 'none' : form.tunnel === 'playit' ? 'playit' : tunnelFor(type, v)
+                tunnel: tunnelFor(form.tunnel, type, v)
               })
             }}
             options={versions.filter((v) => v.type === 'release').map((v) => ({ value: v.id, label: v.id }))}
@@ -204,11 +207,15 @@ export default function ServerEditor({ server, defaultPort, maxRamMb, onSave, on
                 className={'choice-card' + (form.tunnel === tn.id && !tn.disabled ? ' active' : '')}
                 onClick={() => set({ tunnel: tn.id })}
               >
-                <strong>{tn.label}</strong>
+                <strong>
+                  {tn.label}
+                  {tn.recommended && <span className="choice-card__tag">{t('server.tunnel.recommended')}</span>}
+                </strong>
                 <small>{tn.hint}</small>
               </button>
             ))}
           </div>
+          {form.tunnel === 'playit' && playit && !playit.linked && <small className="muted">{t('server.tunnel.playitLinkNext')}</small>}
         </div>
 
         <label className="field">

@@ -203,6 +203,48 @@ function CustomAddress(props: { server: ServerInfo; status: ServerStatus; onErro
   )
 }
 
+/**
+ * Liaison de playit.gg, la première fois : les étapes expliquées, puis la page de playit ouverte dans le navigateur
+ * (le launcher attend que le joueur accepte, 10 minutes au plus)
+ */
+function PlayitSetup(props: { linked: boolean; linking: boolean; onLink: () => Promise<boolean>; onClose: () => void }) {
+  const { linked, linking, onLink, onClose } = props
+  return (
+    <div className="overlay" onClick={linking ? undefined : onClose}>
+      <div className="dialog playit-setup" onClick={(e) => e.stopPropagation()}>
+        <h3>{t('server.playitSetup.title')}</h3>
+        <p>{t('server.playitSetup.text')}</p>
+        <ol>
+          <li>{t('server.playitSetup.step1')}</li>
+          <li>{t('server.playitSetup.step2')}</li>
+          <li>{t('server.playitSetup.step3')}</li>
+        </ol>
+        {linked ? (
+          <p className="playit-setup__done">{t('server.playitSetup.done')}</p>
+        ) : (
+          linking && <p className="playit-setup__wait">{t('server.playitSetup.waiting')}</p>
+        )}
+        <div className="dialog__actions">
+          {linked ? (
+            <button className="primary" onClick={onClose}>
+              {t('server.playitSetup.continue')}
+            </button>
+          ) : (
+            <>
+              <button className="secondary" disabled={linking} onClick={onClose}>
+                {t('server.playitSetup.later')}
+              </button>
+              <button className="primary" disabled={linking} onClick={onLink}>
+                {linking ? t('server.playitSetup.opened') : t('server.playitSetup.open')}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /** Case de statistique : valeur, détail et jauge facultative */
 function Stat(props: { label: string; value: string; hint?: string; ratio?: number; level?: 'good' | 'warn' | 'bad' }) {
   const { label, value, hint, ratio, level } = props
@@ -438,14 +480,20 @@ export default function ServersPage({ settings, onError, onFocus }: Props) {
   useEffect(() => {
     if (openTunnelError) window.aloria.servers.playitLinked().then(setPlayitLinked)
   }, [openTunnelError])
-  const linkPlayit = async (id: string, alive: boolean) => {
+  const linkPlayit = async (id: string | null, alive: boolean): Promise<boolean> => {
     setLinking(true)
     const res = await window.aloria.servers.playitLink()
     setLinking(false)
-    if (!res.ok) return onError(res.error)
+    if (!res.ok) {
+      onError(res.error)
+      return false
+    }
     setPlayitLinked(true)
-    if (alive) window.aloria.servers.tunnel(id)
+    if (id && alive) window.aloria.servers.tunnel(id)
+    return true
   }
+  // Fenêtre qui guide la liaison de playit.gg (première fois) : serveur concerné, ou null pour la fermer
+  const [playitSetup, setPlayitSetup] = useState<string | null>(null)
   const restart = async (id: string) => {
     const res = await window.aloria.servers.restart(id)
     if (!res.ok) onError(res.error)
@@ -476,6 +524,19 @@ export default function ServersPage({ settings, onError, onFocus }: Props) {
     )
   }
 
+  const setupId = playitSetup
+  const playitDialog = setupId !== null && (
+    <PlayitSetup
+      linked={playitLinked}
+      linking={linking}
+      onLink={() => {
+        const st = status(setupId)
+        return linkPlayit(setupId, st.state === 'running' || st.state === 'starting')
+      }}
+      onClose={() => setPlayitSetup(null)}
+    />
+  )
+
   const editor = editing !== undefined && (
     <ServerEditor
       server={editing}
@@ -485,7 +546,11 @@ export default function ServersPage({ settings, onError, onFocus }: Props) {
       onSave={async (input) => {
         const res = editing ? await window.aloria.servers.update(editing.id, input) : await window.aloria.servers.create(input)
         if (!res.ok) onError(res.error)
-        else if (!editing) setOpenId(res.value.id)
+        else {
+          if (!editing) setOpenId(res.value.id)
+          // playit.gg choisi sans compte relié : on guide la liaison tout de suite
+          if (input.tunnel === 'playit' && !playitLinked) setPlayitSetup(res.value.id)
+        }
         setEditing(undefined)
         refresh()
       }}
@@ -620,7 +685,7 @@ export default function ServersPage({ settings, onError, onFocus }: Props) {
 
             <div className="card server-side__card">
               <strong>{t('server.addressFriends')}</strong>
-              {open.tunnel === 'playit' && <CustomAddress server={open} status={st} onError={onError} onChanged={refresh} />}
+              {open.tunnel === 'playit' && playitLinked && <CustomAddress server={open} status={st} onError={onError} onChanged={refresh} />}
               {open.tunnel === 'e4mc' && <small className="muted">{t('server.custom.playitOnly', { domain: ADDRESS_DOMAIN })}</small>}
               {open.tunnel === 'none' ? (
                 <small className="muted">{t('server.noTunnel')}</small>
@@ -629,7 +694,7 @@ export default function ServersPage({ settings, onError, onFocus }: Props) {
                   <small className={st.tunnelError && !linking ? 'warning' : 'muted'}>
                     {linking ? t('server.playit.linking') : (st.tunnelError ?? t('server.playit.link'))}
                   </small>
-                  <button className="primary" disabled={linking} onClick={() => linkPlayit(open.id, alive)}>
+                  <button className="primary" disabled={linking} onClick={() => setPlayitSetup(open.id)}>
                     {t('server.playit.linkButton')}
                   </button>
                 </>
@@ -678,6 +743,7 @@ export default function ServersPage({ settings, onError, onFocus }: Props) {
           </aside>
         </div>
         {editor}
+        {playitDialog}
       </section>
     )
   }
@@ -712,6 +778,7 @@ export default function ServersPage({ settings, onError, onFocus }: Props) {
         </button>
       </div>
       {editor}
+      {playitDialog}
     </section>
   )
 }
