@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import type { SettingsState } from '../hooks/useSettings'
 import type { AfterLaunch, AppModule, DiscordGameName, ThemeChoice } from '../../../shared/types'
 import { LANG_NAMES, LANGS, type MessageKey } from '../../../shared/i18n'
 import { gb, t } from '../i18n'
+import { DISCORD_INVITE, GITHUB_REPO } from '../../../shared/links'
 
 const THEMES: { id: ThemeChoice; label: MessageKey }[] = [
   { id: 'day', label: 'settings.themeDay' },
@@ -34,7 +36,37 @@ const DISCORD_NAMES: { id: DiscordGameName; label: string }[] = [
   { id: 'minecraft', label: 'Minecraft' }
 ]
 
+/** « Soutenir le projet » : pourquoi et comment (étoile GitHub, Discord, en parler) */
+function SupportDialog({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="dialog support-dialog" onClick={(e) => e.stopPropagation()}>
+        <h3>{t('support.title')}</h3>
+        <p>{t('support.why')}</p>
+        <ol>
+          <li>{t('support.star')}</li>
+          <li>{t('support.discord')}</li>
+          <li>{t('support.share')}</li>
+        </ol>
+        <p className="support-dialog__thanks">{t('support.thanks')}</p>
+        <div className="dialog__actions">
+          <button className="secondary" onClick={onClose}>
+            {t('common.close')}
+          </button>
+          <button className="secondary" onClick={() => window.open(DISCORD_INVITE)}>
+            Discord
+          </button>
+          <button className="primary" onClick={() => window.open(GITHUB_REPO)}>
+            ⭐ {t('support.github')}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function SettingsPage({ state: { settings, systemRamMb, update } }: { state: SettingsState }) {
+  const [support, setSupport] = useState(false)
   if (!settings) return null
   // On laisse toujours au moins 2 Go au système
   const maxRam = Math.max(1024, Math.floor((systemRamMb - 2048) / 512) * 512)
@@ -42,6 +74,19 @@ export default function SettingsPage({ state: { settings, systemRamMb, update } 
   return (
     <section className="page">
       <h2>{t('settings.title')}</h2>
+
+      <div className="card">
+        <div className="card__row">
+          <div>
+            <strong>{t('settings.support')}</strong>
+            <p>{t('settings.supportHint')}</p>
+          </div>
+          <button className="primary" onClick={() => setSupport(true)}>
+            {t('settings.supportButton')}
+          </button>
+        </div>
+      </div>
+      {support && <SupportDialog onClose={() => setSupport(false)} />}
 
       <div className="card">
         <div className="card__row">

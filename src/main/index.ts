@@ -1153,6 +1153,24 @@ app.whenReady().then(() => {
       app.quit()
     })
   }
+  // ALORIA_CAPTURE_SUPPORT=<image.png> : Paramètres → « Soutenir le projet », capture de la fenêtre, puis fermeture
+  if (!app.isPackaged && process.env.ALORIA_CAPTURE_SUPPORT) {
+    win.webContents.once('did-finish-load', async () => {
+      const { writeFile } = await import('node:fs/promises')
+      const lang = getSettings().language ?? 'fr'
+      const click = (label: string) =>
+        win.webContents.executeJavaScript(
+          `[...document.querySelectorAll('button, a')].find((b) => b.textContent.includes(${JSON.stringify(label)}))?.click()`
+        )
+      await new Promise((r) => setTimeout(r, 2500))
+      await click(translate(lang, 'settings.title'))
+      await new Promise((r) => setTimeout(r, 500))
+      await click(translate(lang, 'settings.supportButton'))
+      await new Promise((r) => setTimeout(r, 800))
+      await writeFile(process.env.ALORIA_CAPTURE_SUPPORT!, (await win.webContents.capturePage()).toPNG())
+      app.quit()
+    })
+  }
   // Captures de la page Serveurs en développement : ALORIA_CAPTURE_SERVERS=<dossier> crée un serveur Fabric de test,
   // le démarre et photographie la liste, la fiche (console, adresse) et la fenêtre de création, puis le supprime
   if (!app.isPackaged && process.env.ALORIA_CAPTURE_SERVERS) {

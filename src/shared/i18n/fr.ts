@@ -99,6 +99,16 @@ export const fr = {
 
   // Paramètres
   'settings.title': 'Paramètres',
+  'settings.support': 'Soutenir Aloria',
+  'settings.supportHint': 'Le launcher est gratuit et fait par un joueur. Tu peux l’aider en 30 secondes.',
+  'settings.supportButton': '💛 Soutenir le projet',
+  'support.title': 'Soutenir Aloria',
+  'support.why': 'Aloria est gratuit, sans pub, et développé par un seul joueur sur son temps libre. Ton soutien ne coûte rien et aide vraiment :',
+  'support.star': 'Mets une étoile ⭐ au projet sur GitHub (compte GitHub gratuit). Plus il a d’étoiles, plus Aloria est mis en avant et découvert par d’autres joueurs.',
+  'support.discord': 'Rejoins le Discord : tes idées et les bugs que tu signales font avancer le launcher.',
+  'support.share': 'Fais découvrir Aloria autour de toi.',
+  'support.thanks': 'Merci ! 💛',
+  'support.github': 'Ouvrir GitHub',
   'settings.language': 'Langue',
   'settings.languageHint': 'Celle du launcher. La langue du jeu et du HUD se règle dans « Réglages du jeu ».',
   'settings.theme': 'Apparence',

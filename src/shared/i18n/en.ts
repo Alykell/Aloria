@@ -101,6 +101,16 @@ export const en: Record<keyof typeof fr, string> = {
 
   // Settings
   'settings.title': 'Settings',
+  'settings.support': 'Support Aloria',
+  'settings.supportHint': 'The launcher is free and made by a player. You can help in 30 seconds.',
+  'settings.supportButton': '💛 Support the project',
+  'support.title': 'Support Aloria',
+  'support.why': 'Aloria is free, ad-free, and built by a single player in their spare time. Supporting it costs nothing and really helps:',
+  'support.star': 'Give the project a star ⭐ on GitHub (free GitHub account). The more stars it has, the more Aloria gets featured and found by other players.',
+  'support.discord': 'Join the Discord: your ideas and bug reports keep the launcher moving forward.',
+  'support.share': 'Tell people about Aloria.',
+  'support.thanks': 'Thank you! 💛',
+  'support.github': 'Open GitHub',
   'settings.language': 'Language',
   'settings.languageHint': "The launcher's language. The game and HUD language is set in “Game settings”.",
   'settings.theme': 'Appearance',
