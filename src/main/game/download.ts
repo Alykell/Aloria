@@ -125,11 +125,12 @@ export async function fetchBytes(
   }
 }
 
-async function downloadOne(task: DownloadTask): Promise<number> {
+/** `onBytes` : octets reçus pour l'essai en cours (repart de 0 à chaque nouvel essai) */
+async function downloadOne(task: DownloadTask, onBytes?: (done: number) => void): Promise<number> {
   let reason = ''
   // Deux passes : un fichier coupé en route peut aussi arriver incomplet (sha1 faux)
   for (let pass = 0; pass < 2; pass++) {
-    const res = await fetchBytes(task.url)
+    const res = await fetchBytes(task.url, { onBytes })
     if (!res.ok) {
       reason = `HTTP ${res.status}`
       break
@@ -148,25 +149,58 @@ async function downloadOne(task: DownloadTask): Promise<number> {
   throw new Error(tm('err.download', { url: task.url, reason }))
 }
 
+/** Progression envoyée au plus toutes les PROGRESS_MS pendant les fichiers (32 en parallèle : sinon des centaines par seconde) */
+const PROGRESS_MS = 150
+
+/**
+ * Télécharge les fichiers ; la progression avance pendant chaque fichier, octet par octet (un gros mod sur une connexion
+ * lente figeait sinon la barre plusieurs minutes, comme bloquée)
+ */
 export async function downloadAll(
   tasks: DownloadTask[],
   onProgress: (p: DownloadProgress) => void,
   concurrency = 32
 ): Promise<void> {
-  const progress: DownloadProgress = {
+  // Un même fichier listé deux fois (l'installeur Forge déclare certaines bibliothèques dans ses deux listes) serait
+  // téléchargé en parallèle vers le même .part : le premier le renomme, le second échoue (ENOENT)
+  tasks = [...new Map(tasks.map((t) => [t.path, t])).values()]
+  // Fichiers terminés, puis octets des fichiers en cours (comptés en plus dans doneBytes, et dans totalBytes si leur
+  // taille est inconnue, pour ne jamais dépasser 100 %)
+  const finished: DownloadProgress = {
     doneFiles: 0,
     totalFiles: tasks.length,
     doneBytes: 0,
     totalBytes: tasks.reduce((sum, t) => sum + (t.size ?? 0), 0)
   }
-  onProgress(progress)
+  const inFlight = new Map<DownloadTask, number>()
+  let lastSent = 0
+  const send = (force: boolean) => {
+    const now = Date.now()
+    if (!force && now - lastSent < PROGRESS_MS) return
+    lastSent = now
+    let partial = 0
+    let unknown = 0
+    for (const [t, done] of inFlight) {
+      partial += t.size === undefined ? done : Math.min(done, t.size)
+      if (t.size === undefined) unknown += done
+    }
+    onProgress({ ...finished, doneBytes: finished.doneBytes + partial, totalBytes: finished.totalBytes + unknown })
+  }
+  send(true)
   await pool(tasks, concurrency, async (t) => {
-    const bytes = await downloadOne(t)
-    progress.doneFiles++
-    progress.doneBytes += t.size ?? bytes
-    // Taille inconnue à l'avance : on l'ajoute au total pour ne jamais dépasser 100 %
-    if (t.size === undefined) progress.totalBytes += bytes
-    onProgress(progress)
+    inFlight.set(t, 0)
+    try {
+      const bytes = await downloadOne(t, (done) => {
+        inFlight.set(t, done)
+        send(false)
+      })
+      finished.doneFiles++
+      finished.doneBytes += t.size ?? bytes
+      if (t.size === undefined) finished.totalBytes += bytes
+    } finally {
+      inFlight.delete(t)
+    }
+    send(true)
   })
 }
 
