@@ -1,9 +1,13 @@
 // Worker des cosmétiques : CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID depuis %USERPROFILE%\.aloria-cloudflare-token\token.txt,
 // puis npx wrangler deploy (secret SESSION_SECRET déjà en place : wrangler secret put SESSION_SECRET)
+// Adresses de serveur : secret DNS_TOKEN = ligne 3 du même fichier (jeton « DNS edit » de la zone aloriamc.fr)
 {
   "name": "aloria-cosmetics",
   "main": "src/index.ts",
   "compatibility_date": "2026-10-01",
   "workers_dev": true,
-  "d1_databases": [{ "binding": "DB", "database_name": "aloria-cosmetics", "database_id": "4dac7558-3ddd-4b22-bb80-ac99e6adb6f9" }]
+  "d1_databases": [{ "binding": "DB", "database_name": "aloria-cosmetics", "database_id": "4dac7558-3ddd-4b22-bb80-ac99e6adb6f9" }],
+  "vars": { "ZONE_ID": "f27cc1ce340b34a2a1ca30cbeb3d2887" },
+  // Noms d'adresse abandonnés libérés chaque nuit
+  "triggers": { "crons": ["0 4 * * *"] }
 }

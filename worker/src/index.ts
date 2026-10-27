@@ -9,8 +9,9 @@
  */
 
 import { PLAYER_CERTIFICATE_KEYS } from './mojangKeys'
+import { checkAddress, claimAddress, expireAddresses, myAddresses, pointAddress, releaseAddress, type AddressEnv } from './addresses'
 
-export interface Env {
+export interface Env extends AddressEnv {
   DB: D1Database
   SESSION_SECRET: string
 }
@@ -234,6 +235,31 @@ export default {
       return json(await me(env, row))
     }
 
+    // Adresses de serveur `<nom>.aloriamc.fr` (voir addresses.ts) : { name } et, pour /target, { target, port }
+    if (url.pathname.startsWith('/addresses')) {
+      const body = request.method === 'POST' ? ((await request.json().catch(() => ({}))) as { name?: string; target?: string; port?: number }) : {}
+      const name = String(body.name ?? url.searchParams.get('name') ?? '').toLowerCase()
+      if (route === 'GET /addresses') return json(await myAddresses(env, row.uuid))
+      if (route === 'GET /addresses/check') return json({ name, problem: await checkAddress(env, row.uuid, name) })
+      if (route === 'POST /addresses/claim') {
+        const problem = await claimAddress(env, row.uuid, name)
+        return problem ? json({ error: problem, problem }, 409) : json({ name })
+      }
+      if (route === 'POST /addresses/target') {
+        const error = await pointAddress(env, row.uuid, name, String(body.target ?? '').toLowerCase(), Number(body.port))
+        return error ? fail(400, error) : json({ name })
+      }
+      if (route === 'POST /addresses/release') {
+        await releaseAddress(env, row.uuid, name)
+        return json({ name })
+      }
+    }
+
     return fail(404, 'route inconnue')
+  },
+
+  // Tous les jours : noms abandonnés libérés
+  async scheduled(_event: ScheduledController, env: Env): Promise<void> {
+    await expireAddresses(env)
   }
 }

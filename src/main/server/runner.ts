@@ -7,6 +7,7 @@ import { crashHint } from './crashHints'
 import { installServer } from './install'
 import { parseMspt, TICK_QUERY_LINE, tickQuerySupported, watchProcess } from './stats'
 import { acquireAgent, ensureTunnel, releaseAgent } from './playit'
+import { pointCustomAddress } from './address'
 import { writeBackup } from './backups'
 import { getServer, serverDirOf, updateServer } from './store'
 import type { ServerStatus } from '../../shared/types'
@@ -94,9 +95,25 @@ export async function connectTunnel(id: string): Promise<void> {
     const { address, fallback } = await ensureTunnel(server)
     if (server.lastAddress !== address) updateServer(id, { lastAddress: address })
     setStatus(r, { publicAddress: address, fallbackAddress: fallback ?? undefined })
+    linkCustomAddress(id, r, address, fallback ?? undefined)
   } catch (err) {
     setStatus(r, { tunnelError: err instanceof Error ? err.message : String(err) })
   }
+}
+
+/**
+ * `<nom>.aloriamc.fr` vers le tunnel playit de ce démarrage (pas e4mc : voir worker/src/addresses.ts) ; une erreur s'affiche
+ * sans toucher à l'adresse du tunnel
+ */
+export function linkCustomAddress(id: string, r = servers.get(id), address = r?.status.publicAddress, fallback = r?.status.fallbackAddress): void {
+  const server = getServer(id)
+  if (!r || !address || !server.customAddress || server.tunnel !== 'playit') {
+    if (r) setStatus(r, { customAddress: undefined, customAddressError: undefined })
+    return
+  }
+  pointCustomAddress(id, address, fallback)
+    .then((custom) => setStatus(r, { customAddress: custom ?? undefined, customAddressError: undefined }))
+    .catch((err) => setStatus(r, { customAddress: undefined, customAddressError: err instanceof Error ? err.message : String(err) }))
 }
 
 export const serverStatuses = (): ServerStatus[] => [...servers.values()].map((r) => r.status)

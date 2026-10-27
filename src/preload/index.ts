@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
 import type {
+  AddressProblem,
   ContentType,
   JoinTarget,
   LocalWorld,
@@ -187,6 +188,8 @@ const api = {
     create: (input: ServerInput): Promise<Result<ServerInfo>> => ipcRenderer.invoke('servers:create', input),
     update: (id: string, patch: Partial<ServerInfo>): Promise<Result<ServerInfo>> => ipcRenderer.invoke('servers:update', id, patch),
     remove: (id: string): Promise<Result<void>> => ipcRenderer.invoke('servers:delete', id),
+    checkAddress: (name: string): Promise<Result<AddressProblem | null>> => ipcRenderer.invoke('servers:checkAddress', name),
+    setAddress: (id: string, name: string | null): Promise<Result<AddressProblem | null>> => ipcRenderer.invoke('servers:setAddress', id, name),
     openFolder: (id: string): Promise<void> => ipcRenderer.invoke('servers:openFolder', id),
     start: (id: string): Promise<Result<void>> => ipcRenderer.invoke('servers:start', id),
     stop: (id: string): Promise<Result<void>> => ipcRenderer.invoke('servers:stop', id),

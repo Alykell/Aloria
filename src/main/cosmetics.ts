@@ -45,7 +45,8 @@ async function session(uuid: string): Promise<string> {
   return token
 }
 
-async function call<T>(uuid: string, method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+/** Requête au Worker au nom de ce compte (cosmétiques, adresses de serveur) */
+export async function call<T>(uuid: string, method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
   const send = async () =>
     fetch(`${COSMETICS_API}${path}`, {
       method,

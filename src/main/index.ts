@@ -31,13 +31,14 @@ import { saveKeyboardLayout } from './shared/options'
 import { e4mcSupported } from '../shared/aloriaHud'
 import { createServer, deleteServer, freePort, getServer, lanAddress, listServers, openServerFolder, serverDirOf, updateServer } from './server/store'
 import { deleteTunnel, linkPlayit, playitLinked, playitUsage, unlinkPlayit } from './server/playit'
+import { checkAddress, releaseCustomAddress, setCustomAddress } from './server/address'
 import * as quickplay from './quickplay'
 import { createServerProfile, exportServerPack, writeServerPack } from './server/profile'
 import { deleteBackup, listBackups, openBackupFolder, restoreBackup } from './server/backups'
 import { editPlayersOffline, listPlayers, playerCommand, readProperties, writeProperties } from './server/manage'
 import { installServerContent, listServerContent, missingDependencies, removeServerContent, searchServerContent, setServerContentEnabled } from './server/content'
 import { createEntry, deleteEntries, downloadFile, listFiles, quickFiles, readTextFile, renameEntry, unzipEntry, uploadFiles, writeTextFile, zipEntries } from './server/files'
-import { backupServer, connectTunnel, anyServerRunning, isServerAlive, killServer, restartServer, sendCommand, serverLog, serverStatuses, setServerTarget, startServer, stopAllServers, stopServer } from './server/runner'
+import { backupServer, connectTunnel, anyServerRunning, isServerAlive, killServer, linkCustomAddress, restartServer, sendCommand, serverLog, serverStatuses, setServerTarget, startServer, stopAllServers, stopServer } from './server/runner'
 import type {
   CosmeticSlot,
   ExportOptions,
@@ -398,7 +399,18 @@ ipcMain.handle('servers:delete', (_e, id: string) =>
   wrap(async () => {
     await stopServer(id)
     await deleteTunnel(getServer(id))
+    const address = getServer(id).customAddress
+    if (address) await releaseCustomAddress(address).catch(() => undefined)
     await deleteServer(id)
+  })
+)
+ipcMain.handle('servers:checkAddress', (_e, name: string) => wrap(() => checkAddress(name)))
+ipcMain.handle('servers:setAddress', (_e, id: string, name: string | null) =>
+  wrap(async () => {
+    const problem = await setCustomAddress(id, name)
+    // Serveur déjà en ligne : le nouveau nom pointe tout de suite vers son tunnel
+    if (!problem) linkCustomAddress(id)
+    return problem
   })
 )
 ipcMain.handle('servers:openFolder', (_e, id: string) => openServerFolder(id))
@@ -852,6 +864,26 @@ app.whenReady().then(() => {
   }
   // Test des serveurs en développement : ALORIA_TEST_SERVER="fabric:26.3,paper:1.21.11" crée chaque serveur, le démarre,
   // attend qu'il soit en ligne (et son adresse e4mc), l'arrête, le supprime, puis quitte
+  // Test des adresses au choix : attend que <nom>.aloriamc.fr soit relié au tunnel, puis visible des DNS publics
+  const waitCustomAddress = async (id: string): Promise<string | undefined> => {
+    const end = Date.now() + 180_000
+    let st = serverStatuses().find((s) => s.id === id)
+    while (Date.now() < end && !st?.customAddress && !st?.customAddressError) {
+      await new Promise((r) => setTimeout(r, 1000))
+      st = serverStatuses().find((s) => s.id === id)
+    }
+    console.log(`[address-test] relié → ${st?.customAddress ?? `ÉCHEC ${st?.customAddressError}`}`)
+    if (!st?.customAddress) return undefined
+    const { Resolver } = await import('node:dns/promises')
+    const resolver = new Resolver({ timeout: 3000, tries: 1 })
+    resolver.setServers(['1.1.1.1'])
+    while (Date.now() < end && !(await resolver.resolveSrv(`_minecraft._tcp.${st.customAddress}`).catch(() => [])).length) {
+      await new Promise((r) => setTimeout(r, 3000))
+    }
+    const [srv] = await resolver.resolveSrv(`_minecraft._tcp.${st.customAddress}`).catch(() => [])
+    console.log(`[address-test] SRV → ${srv ? `${srv.name}:${srv.port}` : 'absent'}`)
+    return st.customAddress
+  }
   if (!app.isPackaged && process.env.ALORIA_TEST_SERVER) {
     win.webContents.once('did-finish-load', async () => {
       for (const item of process.env.ALORIA_TEST_SERVER!.split(',').filter(Boolean)) {
@@ -864,10 +896,17 @@ app.whenReady().then(() => {
           loaderVersion: null,
           ramMb: 2048,
           port: freePort(),
-          tunnel: e4mcSupported(type, gameVersion) ? 'e4mc' : 'none'
+          // ALORIA_TEST_SERVER_TUNNEL=playit : tunnel playit (compte relié) au lieu d'e4mc
+          tunnel: process.env.ALORIA_TEST_SERVER_TUNNEL === 'playit' ? 'playit' : e4mcSupported(type, gameVersion) ? 'e4mc' : 'none'
         })
         // Rejoindre depuis le profil de démo (sans compte) : le serveur ne doit pas vérifier les comptes
         if (process.env.ALORIA_TEST_SERVER_JOIN) await writeProperties(server.id, { 'online-mode': 'false', 'white-list': 'false' })
+        // ALORIA_TEST_SERVER_ADDRESS=<nom> : adresse <nom>.aloriamc.fr réservée par le Worker (compte actif), libérée à la fin
+        if (process.env.ALORIA_TEST_SERVER_ADDRESS) {
+          const problem = await setCustomAddress(server.id, process.env.ALORIA_TEST_SERVER_ADDRESS).catch((err) => String(err))
+          console.log(`[address-test] réservation de ${process.env.ALORIA_TEST_SERVER_ADDRESS} → ${problem ?? 'OK'}`)
+          for (const bad of ['ab', 'admin', 'Nom Avec Espaces']) console.log(`[address-test] « ${bad} » → ${await checkAddress(bad).catch(String)}`)
+        }
         const started = Date.now()
         try {
           // ALORIA_TEST_SERVER_EARLYSTOP=1 : arrêt demandé en plein démarrage (monde en création), puis redémarrage
@@ -881,7 +920,7 @@ app.whenReady().then(() => {
           let status = serverStatuses().find((s) => s.id === server.id)
           while (Date.now() - started < 600_000) {
             status = serverStatuses().find((s) => s.id === server.id)
-            const ready = status?.state === 'running' && (server.tunnel !== 'e4mc' || status.publicAddress)
+            const ready = status?.state === 'running' && (server.tunnel === 'none' || status.publicAddress)
             if (ready || status?.state === 'stopped') break
             await new Promise((r) => setTimeout(r, 1000))
           }
@@ -899,7 +938,9 @@ app.whenReady().then(() => {
             // ALORIA_TEST_SERVER_AUTOLOGIN=1 : mot de passe pour ce serveur ; le serveur demande le /login dès l'arrivée
             const autoLogin = !!process.env.ALORIA_TEST_SERVER_AUTOLOGIN
             if (autoLogin) process.env.ALORIA_TEST_AUTOLOGIN = JSON.stringify({ [`localhost:${server.port}`]: 'aloria-test' })
-            await play(win.webContents, joinProfile, { host: 'localhost', port: server.port })
+            // Adresse au choix : on rejoint par <nom>.aloriamc.fr, sur le port 25565 (le seul pour lequel le jeu cherche un SRV)
+            const custom = process.env.ALORIA_TEST_SERVER_ADDRESS ? await waitCustomAddress(server.id) : undefined
+            await play(win.webContents, joinProfile, custom ? { host: custom, port: 25565 } : { host: 'localhost', port: server.port })
             const end = Date.now() + 240_000
             while (Date.now() < end && !serverLog(server.id).some((l) => /joined the game/.test(l))) await new Promise((r) => setTimeout(r, 500))
             const joined = serverLog(server.id).find((l) => /joined the game|lost connection|Disconnecting/.test(l))
@@ -964,7 +1005,12 @@ app.whenReady().then(() => {
             console.log(`[server-test] ${item} : restauration → monde ${existsSync(join(serverDirOf(server.id), 'world', 'level.dat')) ? 'présent' : 'ABSENT'}, sauvegardes ${after.map((b) => b.kind).join(', ')}`)
           }
         }
-        if (!process.env.ALORIA_TEST_SERVER_KEEP) await deleteServer(server.id)
+        if (!process.env.ALORIA_TEST_SERVER_KEEP) {
+          if (server.tunnel === 'playit') await deleteTunnel(server).catch(() => undefined)
+          const address = getServer(server.id).customAddress
+          if (address) await releaseCustomAddress(address).catch((err) => console.log('[address-test]', err))
+          await deleteServer(server.id)
+        }
       }
       app.quit()
     })
@@ -1149,6 +1195,22 @@ app.whenReady().then(() => {
       // Laisse le temps aux mesures (mémoire, processeur, TPS)
       await wait(9000)
       await snap('2-fiche')
+      // ALORIA_CAPTURE_SERVERS_ADDRESS=<nom> : adresse au choix tapée (vérifiée), puis réservée et reliée (compte actif ;
+      // libérée à la fin)
+      const addressName = process.env.ALORIA_CAPTURE_SERVERS_ADDRESS
+      if (addressName && tunnel !== 'none') {
+        await click(translate(lang, 'server.custom.choose').replace(' .{domain}', ''))
+        await wait(500)
+        await win.webContents.executeJavaScript(
+          `(() => { const i = document.querySelector('.custom-address__input input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(i, ${JSON.stringify(addressName)}); i.dispatchEvent(new Event('input', { bubbles: true })) })()`
+        )
+        await wait(3000)
+        await snap('2j-adresse-choix')
+        await click(translate(lang, 'server.custom.save'))
+        for (let i = 0; i < 60 && !serverStatuses().find((s) => s.id === server.id)?.customAddress; i++) await wait(1000)
+        await wait(800)
+        await snap('2k-adresse-reliee')
+      }
       // « Rejoindre » sur un serveur moddé sans profil : fenêtre du nom du profil
       if (type !== 'paper' && type !== 'vanilla') {
         await click(`🎮 ${translate(lang, 'server.join.button')}`)
@@ -1197,6 +1259,9 @@ app.whenReady().then(() => {
       await wait(400)
       await snap('5-creation-bas')
       await stopServer(server.id)
+      if (tunnel === 'playit') await deleteTunnel(getServer(server.id)).catch(() => undefined)
+      const custom = getServer(server.id).customAddress
+      if (custom) await releaseCustomAddress(custom).catch((e) => console.log('[capture] adresse', e))
       await deleteServer(server.id)
       app.quit()
     })

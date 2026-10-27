@@ -518,6 +518,8 @@ export interface ServerInfo extends ServerInput {
   lastStarted: number | null
   /** Dernière adresse playit.gg obtenue (fixe) : mise dans le pack pour les amis même serveur éteint */
   lastAddress?: string
+  /** Adresse au choix `<name>.aloriamc.fr`, réservée par ce compte Minecraft (le Worker n'accepte que lui pour la modifier) */
+  customAddress?: { name: string; owner: string }
   /** Profil créé pour rejoindre ce serveur (« Créer le profil du serveur ») */
   profileId?: string
   /** Sauvegarde automatique du monde toutes les N heures pendant que le serveur tourne (absent = 6, 0 = jamais) */
@@ -547,9 +549,15 @@ export interface ServerStatus {
   fallbackAddress?: string
   /** Adresse publique impossible à obtenir (ex. compte playit.gg pas encore relié) */
   tunnelError?: string
+  /** `<nom>.aloriamc.fr` une fois relié au tunnel de ce démarrage, ou l'erreur qui l'en empêche */
+  customAddress?: string
+  customAddressError?: string
   /** Mesures en direct pendant que le serveur tourne (TPS seulement depuis la 1.20.3) */
   stats?: { ramMb?: number; ramMaxMb?: number; cpu?: number; tps?: number; mspt?: number }
 }
+
+/** Nom refusé pour une adresse `<nom>.aloriamc.fr` (format, nom réservé, déjà pris, 4 noms par compte au plus) */
+export type AddressProblem = 'invalid' | 'reserved' | 'taken' | 'limit'
 
 /** Compte playit.gg : adresses utilisées (le compte gratuit en a 4 au plus) */
 export interface PlayitUsage {

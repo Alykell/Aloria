@@ -16,3 +16,17 @@ CREATE TABLE IF NOT EXISTS owned (
   at INTEGER NOT NULL,
   PRIMARY KEY (uuid, cosmetic)
 );
+
+-- Adresses de serveur `<nom>.aloriamc.fr` (SRV vers le tunnel du serveur ; voir src/addresses.ts)
+CREATE TABLE IF NOT EXISTS addresses (
+  name TEXT PRIMARY KEY,
+  uuid TEXT NOT NULL,
+  -- Relais du tunnel (machine *.ply.gg…) et port ; NULL tant que le serveur n'a pas démarré
+  target TEXT,
+  port INTEGER,
+  -- Enregistrement SRV chez Cloudflare
+  record_id TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS addresses_uuid ON addresses (uuid);

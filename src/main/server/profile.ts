@@ -7,6 +7,7 @@ import { getProjects } from '../modrinth/api'
 import { createProfile, gameDirOf, getProfile, listProfiles } from '../profiles'
 import { getServer, serverDirOf, updateServer } from './store'
 import { serverStatuses } from './runner'
+import { ADDRESS_DOMAIN } from './address'
 import type { Loader, Profile, ProfileInput, ServerInfo } from '../../shared/types'
 import { tm } from '../i18n'
 
@@ -108,8 +109,10 @@ export async function writeServerPack(id: string, dest: string): Promise<void> {
   const zip = new AdmZip()
   // Même format que l'export d'un profil : le bouton « Importer » de la page Profils le reconnaît
   // Adresse publique (playit : fixe ; e4mc : celle du démarrage en cours) : ajoutée à la liste Multijoueur de l'ami à l'import
+  // Adresse au choix (<nom>.aloriamc.fr) en premier : elle ne change jamais
   const live = serverStatuses().find((st) => st.id === id)?.publicAddress
-  const address = live ?? (server.tunnel === 'playit' ? server.lastAddress : undefined)
+  const custom = server.customAddress && server.tunnel === 'playit' ? `${server.customAddress.name}.${ADDRESS_DOMAIN}` : undefined
+  const address = custom ?? live ?? (server.tunnel === 'playit' ? server.lastAddress : undefined)
   const pack = { format: 1, profile: inputOf(server), ...(address ? { server: { name: server.name, address } } : {}) }
   zip.addFile('aloria-profile.json', Buffer.from(JSON.stringify(pack, null, 2)))
   for (const [name, path] of await clientMods(server)) zip.addLocalFile(path, 'mods', name)

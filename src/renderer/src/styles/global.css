@@ -889,6 +889,20 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .server-side { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; min-height: 0; }
 .server-side__card { gap: 8px; padding: 14px 16px; }
 .server-side__card strong { font-size: 14px; color: var(--sea-deep); }
+/* Adresse au choix <nom>.aloriamc.fr */
+.custom-address { display: flex; flex-direction: column; gap: 6px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.custom-address > .secondary { align-self: flex-start; padding: 7px 12px; font-size: 13px; }
+.custom-address small { font-size: 12.5px; }
+.custom-address__input { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); overflow: hidden; }
+.custom-address__input:focus-within { outline: 2px solid var(--lagoon); outline-offset: 1px; }
+.custom-address__input input { flex: 1; min-width: 0; padding: 8px 4px 8px 10px; border: none; font: inherit; font-size: 14px; color: var(--text); background: transparent; outline: none; user-select: text; }
+.custom-address__input span { padding-right: 10px; font-size: 13px; font-weight: 600; color: var(--text-soft); }
+.custom-address__actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.custom-address__actions .primary, .custom-address__actions .secondary { padding: 6px 12px; font-size: 13px; }
+.custom-address__actions .link-btn { color: var(--lagoon); font-weight: 600; padding: 4px; font-size: 13px; }
+.custom-address__actions .link-btn:hover { text-decoration: underline; }
+.custom-address__actions .link-danger { padding: 4px; font-size: 13px; }
+.success-text { color: var(--success); font-weight: 600; }
 .server-side__card .server-address { flex-wrap: wrap; }
 .server-side__card .server-address code { font-size: 13.5px; word-break: break-all; }
 .server-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

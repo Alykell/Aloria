@@ -5,7 +5,7 @@ import ServerFiles from './ServerFiles'
 import Select from './Select'
 import { useVersions } from '../hooks/useVersions'
 import type { SettingsState } from '../hooks/useSettings'
-import type { Profile, ServerInfo, ServerState, ServerStatus } from '../../../shared/types'
+import type { AddressProblem, Profile, ServerInfo, ServerState, ServerStatus } from '../../../shared/types'
 import { gb, t } from '../i18n'
 
 interface Props {
@@ -92,6 +92,114 @@ function Copyable({ value }: { value: string }) {
         {copied ? t('server.copied') : t('server.copy')}
       </button>
     </span>
+  )
+}
+
+const ADDRESS_DOMAIN = 'aloriamc.fr'
+
+/**
+ * Adresse au choix `<nom>.aloriamc.fr` : réservée par le Worker d'Aloria pour le compte actif, puis reliée au tunnel
+ * playit à chaque démarrage (pas e4mc, voir worker/src/addresses.ts). Le nom est vérifié pendant la frappe.
+ */
+function CustomAddress(props: { server: ServerInfo; status: ServerStatus; onError: (message: string) => void; onChanged: () => void }) {
+  const { server, status, onError, onChanged } = props
+  const [editing, setEditing] = useState(false)
+  const [name, setName] = useState('')
+  const [problem, setProblem] = useState<AddressProblem | null | 'checking'>(null)
+  const [saving, setSaving] = useState(false)
+  const current = server.customAddress && `${server.customAddress.name}.${ADDRESS_DOMAIN}`
+
+  useEffect(() => {
+    if (!editing || name.length < 3) {
+      setProblem(name.length > 0 ? 'invalid' : null)
+      return
+    }
+    setProblem('checking')
+    const timer = setTimeout(async () => {
+      const res = await window.aloria.servers.checkAddress(name)
+      if (res.ok) setProblem(res.value)
+      else {
+        setEditing(false)
+        onError(res.error)
+      }
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [name, editing])
+
+  const save = async (value: string | null) => {
+    setSaving(true)
+    const res = await window.aloria.servers.setAddress(server.id, value)
+    setSaving(false)
+    if (!res.ok) return onError(res.error)
+    if (res.value) return setProblem(res.value)
+    setEditing(false)
+    onChanged()
+  }
+
+  if (editing) {
+    return (
+      <div className="custom-address">
+        <div className="custom-address__input">
+          <input
+            autoFocus
+            value={name}
+            maxLength={32}
+            placeholder={t('server.custom.placeholder')}
+            onChange={(e) => setName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+            onKeyDown={(e) => e.key === 'Enter' && problem === null && name && save(name)}
+          />
+          <span>.{ADDRESS_DOMAIN}</span>
+        </div>
+        {name && (
+          <small className={problem === null ? 'success-text' : problem === 'checking' ? 'muted' : 'warning'}>
+            {problem === null ? t('server.custom.free') : problem === 'checking' ? t('server.custom.checking') : t(`server.custom.problem.${problem}`)}
+          </small>
+        )}
+        <div className="custom-address__actions">
+          <button className="secondary" onClick={() => setEditing(false)}>
+            {t('common.cancel')}
+          </button>
+          <button className="primary" disabled={!name || problem !== null || saving} onClick={() => save(name)}>
+            {saving ? t('common.loading') : t('server.custom.save')}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  const startEditing = () => {
+    setName(server.customAddress?.name ?? '')
+    setProblem(null)
+    setEditing(true)
+  }
+  if (!current) {
+    return (
+      <div className="custom-address">
+        <button className="secondary" onClick={startEditing}>
+          {t('server.custom.choose', { domain: ADDRESS_DOMAIN })}
+        </button>
+        <small className="muted">{t('server.custom.hint')}</small>
+      </div>
+    )
+  }
+  const alive = status.state === 'starting' || status.state === 'running'
+  return (
+    <div className="custom-address">
+      <Copyable value={current} />
+      {status.customAddressError ? (
+        <small className="warning">{t('server.custom.error', { error: status.customAddressError })}</small>
+      ) : (
+        !status.customAddress && <small className="muted">{alive ? t('server.custom.linking') : t('server.custom.whenStarted')}</small>
+      )}
+      <div className="custom-address__actions">
+        <button className="link-btn" disabled={saving} onClick={startEditing}>
+          {t('server.custom.change')}
+        </button>
+        <button className="link-danger" disabled={saving} onClick={() => save(null)}>
+          {t('server.custom.remove')}
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -512,6 +620,8 @@ export default function ServersPage({ settings, onError, onFocus }: Props) {
 
             <div className="card server-side__card">
               <strong>{t('server.addressFriends')}</strong>
+              {open.tunnel === 'playit' && <CustomAddress server={open} status={st} onError={onError} onChanged={refresh} />}
+              {open.tunnel === 'e4mc' && <small className="muted">{t('server.custom.playitOnly', { domain: ADDRESS_DOMAIN })}</small>}
               {open.tunnel === 'none' ? (
                 <small className="muted">{t('server.noTunnel')}</small>
               ) : open.tunnel === 'playit' && !playitLinked ? (
@@ -525,6 +635,7 @@ export default function ServersPage({ settings, onError, onFocus }: Props) {
                 </>
               ) : st.publicAddress ? (
                 <>
+                  {open.customAddress && open.tunnel === 'playit' && <small className="muted">{t('server.custom.tunnel')}</small>}
                   <Copyable value={st.publicAddress} />
                   {st.fallbackAddress && (
                     <>

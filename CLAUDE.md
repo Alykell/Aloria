@@ -90,6 +90,12 @@ toujours via `gameDirOf(id)` ; profils de test : `instances/<id>`. En développe
   Ne pas toucher aux serveurs de l'utilisateur (« Survie entre pote », « dfvdfv »).
 - Serveur depuis un modpack : `ALORIA_TEST_SERVER_MODPACK=<projet ou cf:<id>>` (dernière version, jusqu'au démarrage ; mods à télécharger
   à la main cherchés dans `ALORIA_TEST_DOWNLOADS`). RLCraft (`cf:285109`) testé le 2026-10-23 : TickProfiler (LibLoader → jcenter fermé) retiré.
+- Adresse au choix `<nom>.aloriamc.fr` (domaine OVH, DNS Cloudflare) : `src/main/server/address.ts` → Worker (`worker/src/addresses.ts`,
+  table `addresses`, secret `DNS_TOKEN` = ligne 3 du fichier de jetons) qui réserve le nom (compte vérifié, 4 max) et crée le SRV
+  `_minecraft._tcp.<nom>` vers le tunnel playit à chaque démarrage. Le jeu ne cherche le SRV que sur le port 25565 ; pas e4mc
+  (le jeu envoie la cible avec son point final, que le relais d’e4mc ne reconnaît pas).
+  Test : `ALORIA_TEST_SERVER_TUNNEL=playit ALORIA_TEST_SERVER_ADDRESS=<nom> ALORIA_TEST_SERVER_JOIN=selftest` (compte actif, sans
+  `ALORIA_USER_DATA` ; journal `[address-test]`) ; captures : `ALORIA_CAPTURE_SERVERS_ADDRESS=<nom>`.
 - Crashs connus expliqués simplement (carte d'erreur + console) : `src/main/server/crashHints.ts`.
 
 ## Cosmétiques et temps de jeu
