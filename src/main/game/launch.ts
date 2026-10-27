@@ -78,6 +78,9 @@ export function buildArguments(opts: LaunchOptions): string[] {
   return [
     `-Xmx${opts.ramMb}M`,
     `-Xms${Math.min(1024, opts.ramMb)}M`,
+    // Linux : réseau en IPv4 seulement. Sans IPv6 (box, FAI), Java tentait quand même l'adresse IPv6 des relais playit
+    // (*.tun.ply.gg, et donc aussi les adresses .aloriamc.fr) : « Address family not supported », impossible de rejoindre
+    ...(process.platform === 'linux' ? ['-Djava.net.preferIPv4Stack=true'] : []),
     ...jvm.map(fill),
     ...(opts.extraJvmArgs ?? []),
     ...(installed.loggingArg ? [installed.loggingArg] : []),
