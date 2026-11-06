@@ -7,6 +7,9 @@ directories:
 files:
   - out/**
   - package.json
+  # Icône près de l'horloge (src/main/tray.ts, chargée depuis app.asar : aussi dans les mises à jour légères)
+  - resources/icon.ico
+  - resources/icon.png
 # Le mod Aloria HUD (construit par Gradle dans mod/) est livré à côté du launcher
 extraResources:
   - from: mod/build/libs

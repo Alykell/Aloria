@@ -10,6 +10,9 @@ import { createPack, deletePack, installPack, listPacks, packVanilla, renamePack
 import { cancelLaunch, getStatus, isGameRunning, listVersions, play, stopGame } from './game/controller'
 import { checkMods, fixMods } from './game/modCheck'
 import { backupWorld, deleteWorldBackup, listWorldBackups, openWorldBackups, restoreWorld } from './worldBackups'
+import { bedrockAlive, bedrockInfo, bedrockStatus, isBedrockRunning, playBedrock } from './bedrock/game'
+import { BEDROCK_ID, bedrockWorldDir, deleteBedrockWorld, exportBedrockWorld, listBedrockWorlds, sharedDir } from './bedrock/worlds'
+import { deleteBedrockPack, importBedrockFile, listBedrockPacks, setBedrockPackGlobal } from './bedrock/packs'
 import { fabricLoaders } from './game/fabric'
 import { forgeLoaders } from './game/forge'
 import { neoforgeLoaders } from './game/neoforge'
@@ -26,6 +29,7 @@ import { paths } from './game/paths'
 import { getSettings, systemRamMb, updateSettings } from './settings'
 import { getUpdateStatus, initUpdater, installUpdate } from './updater'
 import { initDiscord, refreshDiscord } from './discord'
+import { initTray } from './tray'
 import { processPending } from './shared/pending'
 import { saveKeyboardLayout } from './shared/options'
 import { e4mcSupported } from '../shared/aloriaHud'
@@ -35,10 +39,10 @@ import { checkAddress, releaseCustomAddress, setCustomAddress } from './server/a
 import * as quickplay from './quickplay'
 import { createServerProfile, exportServerPack, writeServerPack } from './server/profile'
 import { deleteBackup, listBackups, openBackupFolder, restoreBackup } from './server/backups'
-import { editPlayersOffline, listPlayers, playerCommand, readProperties, writeProperties } from './server/manage'
+import { cachedUuid, editPlayersOffline, listPlayers, playerCommand, readProperties, writeProperties } from './server/manage'
 import { installServerContent, listServerContent, missingDependencies, removeServerContent, searchServerContent, setServerContentEnabled } from './server/content'
 import { createEntry, deleteEntries, downloadFile, listFiles, quickFiles, readTextFile, renameEntry, unzipEntry, uploadFiles, writeTextFile, zipEntries } from './server/files'
-import { backupServer, connectTunnel, anyServerRunning, isServerAlive, killServer, linkCustomAddress, restartServer, sendCommand, serverLog, serverStatuses, setServerTarget, startServer, stopAllServers, stopServer } from './server/runner'
+import { backupServer, cancelBedrockInvite, inviteBedrockPlayer, connectTunnel, anyServerRunning, isServerAlive, killServer, linkCustomAddress, restartServer, sendCommand, serverLog, serverStatuses, setServerTarget, startServer, stopAllServers, stopServer } from './server/runner'
 import type {
   CosmeticSlot,
   ExportOptions,
@@ -59,7 +63,8 @@ import type {
   ServerPlayerAction,
   Settings,
   VersionEntry,
-  ModCheck
+  ModCheck,
+  BedrockPackType
 } from '../shared/types'
 import { tm } from './i18n'
 
@@ -98,7 +103,7 @@ function createWindow(): BrowserWindow {
   // des réglages continuent, et le launcher quitte quand le jeu se ferme
   win.on('close', (event) => {
     // Sauf si le launcher quitte vraiment (ex. « Redémarrer pour installer » une mise à jour)
-    if (quitting || (!isGameRunning() && !anyServerRunning())) return
+    if (quitting || (!isGameRunning() && !isBedrockRunning() && !anyServerRunning())) return
     event.preventDefault()
     win.hide()
   })
@@ -171,12 +176,13 @@ ipcMain.handle('game:stop', (_e, profileId: string) => stopGame(profileId))
 ipcMain.handle('game:checkMods', (_e, profileId: string) => wrap(() => checkMods(profileId)))
 ipcMain.handle('game:fixMods', (_e, profileId: string, check: ModCheck, disableOnly: boolean) => wrap(() => fixMods(profileId, check, disableOnly)))
 // Sauvegardes des mondes solo d'un profil (restaurer : jeu du profil fermé)
-const profileRunning = (profileId: string) => getStatus().running.some((r) => r.profileId === profileId)
+const profileRunning = async (profileId: string) =>
+  profileId === BEDROCK_ID ? bedrockAlive() : getStatus().running.some((r) => r.profileId === profileId)
 ipcMain.handle('worlds:backups', (_e, profileId: string) => wrap(() => listWorldBackups(profileId)))
 ipcMain.handle('worlds:backup', (_e, profileId: string, world: string) => wrap(() => backupWorld(profileId, world, 'manual')))
 ipcMain.handle('worlds:restore', (_e, profileId: string, world: string, file: string) =>
   wrap(async () => {
-    if (profileRunning(profileId)) throw new Error(tm('err.worldRestoreRunning'))
+    if (await profileRunning(profileId)) throw new Error(tm('err.worldRestoreRunning'))
     await restoreWorld(profileId, world, file)
   })
 )
@@ -254,6 +260,60 @@ async function importProfileFile(path: string): Promise<Profile | { modpack: str
   }
   return importInstance(path)
 }
+// Minecraft Bedrock (Microsoft Store) : lancement suivi, mondes et packs (.mcpack, .mcaddon, .mcworld)
+ipcMain.handle('bedrock:info', () => bedrockInfo())
+ipcMain.handle('bedrock:status', () => bedrockStatus())
+ipcMain.handle('bedrock:play', (e) => wrap(() => playBedrock(e.sender)))
+ipcMain.handle('bedrock:worlds', () => wrap(() => listBedrockWorlds(true)))
+ipcMain.handle('bedrock:openWorld', async (_e, id: string) => shell.openPath(await bedrockWorldDir(id)))
+ipcMain.handle('bedrock:deleteWorld', (_e, id: string) =>
+  wrap(async () => {
+    if (await bedrockAlive()) throw new Error(tm('err.bedrockRunning'))
+    await deleteBedrockWorld(id)
+  })
+)
+ipcMain.handle('bedrock:exportWorld', (e, id: string, name: string) =>
+  wrap(async () => {
+    const win = BrowserWindow.fromWebContents(e.sender)
+    const dialogOptions = {
+      title: tm('dialog.exportBedrockWorld'),
+      defaultPath: join(app.getPath('downloads'), `${name.replace(/[\\/:*?"<>|]/g, '_')}.mcworld`),
+      filters: [{ name: 'Minecraft', extensions: ['mcworld'] }]
+    }
+    const res = win ? await dialog.showSaveDialog(win, dialogOptions) : await dialog.showSaveDialog(dialogOptions)
+    if (res.canceled || !res.filePath) return null
+    await exportBedrockWorld(id, res.filePath)
+    return res.filePath
+  })
+)
+ipcMain.handle('bedrock:packs', () => wrap(() => listBedrockPacks()))
+ipcMain.handle('bedrock:setGlobal', (_e, folder: string, on: boolean) => wrap(() => setBedrockPackGlobal(folder, on)))
+ipcMain.handle('bedrock:deletePack', (_e, type: BedrockPackType, folder: string) => wrap(() => deleteBedrockPack(type, folder)))
+ipcMain.handle('bedrock:openPacks', () => shell.openPath(sharedDir()))
+ipcMain.handle('bedrock:join', (_e, host: string, port: number) =>
+  wrap(async () => {
+    if (!(await bedrockInfo()).installed) throw new Error(tm('err.bedrockMissing'))
+    await shell.openExternal(`minecraft://connect/?serverUrl=${encodeURIComponent(host)}&serverPort=${Number(port)}`)
+  })
+)
+// Sans fichier : fenêtre de choix (null si annulée)
+ipcMain.handle('bedrock:import', (e, path: string | null) =>
+  wrap(async () => {
+    if (!path) {
+      const win = BrowserWindow.fromWebContents(e.sender)
+      const options = {
+        title: tm('dialog.importBedrock'),
+        defaultPath: app.getPath('downloads'),
+        filters: [{ name: 'Minecraft Bedrock', extensions: ['mcpack', 'mcaddon', 'mcworld', 'zip'] }],
+        properties: ['openFile' as const]
+      }
+      const res = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
+      if (res.canceled || res.filePaths.length === 0) return null
+      path = res.filePaths[0]
+    }
+    return importBedrockFile(path)
+  })
+)
 ipcMain.handle('profiles:showFile', (_e, path: string) => shell.showItemInFolder(path))
 ipcMain.handle('fabric:loaders', (_e, gameVersion: string): Promise<Result<LoaderVersion[]>> => wrap(() => fabricLoaders(gameVersion)))
 ipcMain.handle('neoforge:loaders', (_e, gameVersion: string): Promise<Result<LoaderVersion[]>> => wrap(() => neoforgeLoaders(gameVersion)))
@@ -436,15 +496,19 @@ ipcMain.handle('servers:setProperties', (_e, id: string, patch: Record<string, s
 ipcMain.handle('servers:players', (_e, id: string) => wrap(() => listPlayers(id)))
 ipcMain.handle('servers:player', (_e, id: string, action: ServerPlayerAction, name: string) =>
   wrap(async () => {
-    const clean = name.trim()
-    if (!/^\w{1,16}$/.test(clean)) throw new Error(tm('err.serverPlayerName'))
+    // Joueur Bedrock (crossplay) : « .Pseudo », les espaces de son pseudo Xbox deviennent « _ » (comme le fait Floodgate)
+    const clean = name.trim().replace(/ /g, '_')
+    if (!/^\.?\w{1,16}$/.test(clean)) throw new Error(tm('err.serverPlayerName'))
     if (isServerAlive(id)) {
+      // Jamais venu : il n'a pas encore d'identifiant, la liste blanche lui est ouverte le temps qu'il arrive
+      if (action === 'whitelist-add' && clean.startsWith('.') && !(await cachedUuid(id, clean))) return inviteBedrockPlayer(id, clean)
       // Le serveur réécrit lui-même ses fichiers : on lui laisse un instant avant de les relire
       sendCommand(id, playerCommand(action, clean))
       await new Promise((r) => setTimeout(r, 800))
     } else await editPlayersOffline(id, action, clean)
   })
 )
+ipcMain.handle('servers:cancelInvite', (_e, id: string) => cancelBedrockInvite(id))
 ipcMain.handle('servers:whitelist', (_e, id: string, on: boolean) =>
   wrap(async () => {
     if (isServerAlive(id)) {
@@ -526,6 +590,8 @@ app.whenReady().then(() => {
   setServerTarget(win.webContents)
   initUpdater(win)
   initDiscord()
+  // Icône près de l'horloge : ramène la fenêtre, arrête une partie ou un serveur oublié
+  initTray(() => BrowserWindow.getAllWindows()[0])
   // Réglages des parties terminées pendant que le launcher était fermé, puis dossiers des profils à leur nom
   processPending().finally(() => migrateProfileDirs())
   // Développement : ALORIA_CAPTURE=<dossier> prend des captures des pages, en jour et en nuit, puis quitte
@@ -761,6 +827,74 @@ app.whenReady().then(() => {
       app.quit()
     })
   }
+  // Test de Bedrock (avec ALORIA_ROOT et ALORIA_BEDROCK_ROOT de test) : ALORIA_TEST_BEDROCK=1 installe un .mcpack, un .mcaddon
+  // et un .mcworld fabriqués ici, exporte puis réimporte le monde, le sauvegarde, le supprime, le restaure (journal [bedrock-test])
+  if (!app.isPackaged && process.env.ALORIA_TEST_BEDROCK && process.env.ALORIA_ROOT && process.env.ALORIA_BEDROCK_ROOT) {
+    win.webContents.once('did-finish-load', async () => {
+      const log = (...args: unknown[]) => console.log('[bedrock-test]', ...args)
+      const { mkdir, readFile, writeFile } = await import('node:fs/promises')
+      const tmp = join(paths.root, 'bedrock-test')
+      // Un joueur (« 1234 ») et le dossier commun, comme sur un vrai PC
+      await mkdir(join(process.env.ALORIA_BEDROCK_ROOT!, 'Users', '1234', 'games', 'com.mojang', 'minecraftpe'), { recursive: true })
+      await mkdir(sharedDir(), { recursive: true })
+      const manifest = (name: string, uuid: string, type: string) =>
+        Buffer.from(`// commentaire\n{"format_version":2,"header":{"name":"${name}","description":"Test","uuid":"${uuid}","version":[1,2,0]},"modules":[{"type":"${type}","uuid":"${uuid}-m","version":[1,0,0]}],}`)
+      try {
+        await mkdir(tmp, { recursive: true })
+        const rp = new AdmZip()
+        rp.addFile('Pack Bleu/manifest.json', manifest('pack.name', 'aaaa-1111', 'resources'))
+        rp.addFile('Pack Bleu/texts/fr_FR.lang', Buffer.from('pack.name=Pack bleu ## nom\n'))
+        rp.addFile('Pack Bleu/textures/blocks/stone.png', Buffer.from('png'))
+        rp.writeZip(join(tmp, 'bleu.mcpack'))
+        const bp = new AdmZip()
+        bp.addFile('manifest.json', manifest('Machines BP', 'bbbb-2222', 'data'))
+        const addon = new AdmZip()
+        addon.addFile('machines_bp.mcpack', bp.toBuffer())
+        addon.addFile('machines_rp/manifest.json', manifest('Machines RP', 'cccc-3333', 'resources'))
+        addon.writeZip(join(tmp, 'machines.mcaddon'))
+        const world = new AdmZip()
+        world.addFile('level.dat', Buffer.from('dat'))
+        world.addFile('levelname.txt', Buffer.from('Île test'))
+        world.addFile('db/000001.ldb', Buffer.from('db'))
+        world.addFile('db/LOCK', Buffer.from(''))
+        world.addFile('behavior_packs/inside/manifest.json', manifest('Dans le monde', 'dddd-4444', 'data'))
+        world.writeZip(join(tmp, 'ile.mcworld'))
+
+        for (const f of ['bleu.mcpack', 'machines.mcaddon', 'ile.mcworld']) log(f, JSON.stringify(await importBedrockFile(join(tmp, f))))
+        log('mise à jour du même pack', JSON.stringify(await importBedrockFile(join(tmp, 'bleu.mcpack'))))
+        const packs = await listBedrockPacks()
+        log('packs', JSON.stringify(packs.map((p) => ({ type: p.type, folder: p.folder, name: p.name, version: p.version, global: p.global }))))
+        const worlds = await listBedrockWorlds(true)
+        log('mondes', JSON.stringify(worlds.map((w) => ({ id: w.id, name: w.name }))))
+        const w = worlds[0]
+        await exportBedrockWorld(w.id, join(tmp, 'export.mcworld'))
+        log('export', new AdmZip(join(tmp, 'export.mcworld')).getEntries().map((e) => e.entryName).join(', '))
+        log('réimport', JSON.stringify(await importBedrockFile(join(tmp, 'export.mcworld'))))
+        const backup = await backupWorld(BEDROCK_ID, w.id, 'manual')
+        log('sauvegarde', backup)
+        await deleteBedrockWorld(w.id)
+        log('après suppression', (await listBedrockWorlds()).length, 'monde(s)')
+        await restoreWorld(BEDROCK_ID, w.id, backup!)
+        const back = await bedrockWorldDir(w.id)
+        log('restauré', await readFile(join(back, 'levelname.txt'), 'utf8'), JSON.stringify((await listWorldBackups(BEDROCK_ID)).map((b) => [b.name, b.backups.length])))
+        await setBedrockPackGlobal(packs.find((p) => p.name === 'Machines RP')!.folder, false)
+        await deleteBedrockPack('behavior', packs.find((p) => p.type === 'behavior')!.folder)
+        log('après retrait', JSON.stringify((await listBedrockPacks()).map((p) => [p.name, p.global])))
+        try {
+          await writeFile(join(tmp, 'vide.zip'), new AdmZip().toBuffer())
+          await importBedrockFile(join(tmp, 'vide.zip'))
+        } catch (err) {
+          log('fichier vide refusé :', (err as Error).message)
+        }
+        log('infos', JSON.stringify(await bedrockInfo()))
+        log('fini')
+      } catch (err) {
+        log('ERREUR', err)
+      }
+      app.quit()
+    })
+  }
+
   // Test des sauvegardes de mondes (avec ALORIA_ROOT=<.aloria de test>) : ALORIA_TEST_WORLDS=1 crée un monde, le « joue » plusieurs
   // fois (sauvegardes automatiques, 5 gardées), le restaure, le supprime puis le récupère (journal [worlds-test])
   if (!app.isPackaged && process.env.ALORIA_TEST_WORLDS && process.env.ALORIA_ROOT) {
@@ -901,7 +1035,9 @@ app.whenReady().then(() => {
           ramMb: 2048,
           port: freePort(),
           // ALORIA_TEST_SERVER_TUNNEL=playit : tunnel playit (compte relié) au lieu d'e4mc
-          tunnel: process.env.ALORIA_TEST_SERVER_TUNNEL === 'playit' ? 'playit' : e4mcSupported(type, gameVersion) ? 'e4mc' : 'none'
+          tunnel: process.env.ALORIA_TEST_SERVER_TUNNEL === 'playit' ? 'playit' : e4mcSupported(type, gameVersion) ? 'e4mc' : 'none',
+          // ALORIA_TEST_SERVER_BEDROCK=1 : crossplay (Geyser + Floodgate), vérifié par un ping Bedrock en local et par le tunnel
+          bedrock: !!process.env.ALORIA_TEST_SERVER_BEDROCK
         })
         // Rejoindre depuis le profil de démo (sans compte) : le serveur ne doit pas vérifier les comptes
         if (process.env.ALORIA_TEST_SERVER_JOIN) await writeProperties(server.id, { 'online-mode': 'false', 'white-list': 'false' })
@@ -924,12 +1060,40 @@ app.whenReady().then(() => {
           let status = serverStatuses().find((s) => s.id === server.id)
           while (Date.now() - started < 600_000) {
             status = serverStatuses().find((s) => s.id === server.id)
-            const ready = status?.state === 'running' && (server.tunnel === 'none' || status.publicAddress)
+            const ready = status?.state === 'running' && (server.tunnel === 'none' || status.publicAddress || status.tunnelError)
             if (ready || status?.state === 'stopped') break
             await new Promise((r) => setTimeout(r, 1000))
           }
           console.log(`[server-test] ${item} : ${status?.state} en ${Math.round((Date.now() - started) / 1000)} s, adresse ${status?.publicAddress ?? '-'}`)
           if (status?.state !== 'running') console.log(`[server-test] ${item} : ÉCHEC\n${serverLog(server.id).slice(-15).join('\n')}`)
+          if (process.env.ALORIA_TEST_SERVER_BEDROCK && status?.state === 'running') {
+            const end = Date.now() + 90_000
+            const geyserUp = () => serverLog(server.id).some((l) => /\/geyser help/i.test(l))
+            while (Date.now() < end && !geyserUp()) await new Promise((r) => setTimeout(r, 1000))
+            const { readdir, readFile } = await import('node:fs/promises')
+            const dir = serverDirOf(server.id)
+            const cfg = await readFile(join(dir, 'plugins', 'Geyser-Spigot', 'config.yml'), 'utf8').catch(() => '')
+            console.log(`[crossplay-test] ${item} : Geyser ${geyserUp() ? 'démarré' : 'PAS démarré'}, plugins ${(await readdir(join(dir, 'plugins'))).filter((f) => f.endsWith('.jar')).join(', ')}`)
+            console.log(`[crossplay-test] ${item} : config ${(cfg.match(/^\s*(port|auth-type|transport|mode|advertise-addresses|stun-discovery|endpoint):.*$/gm) ?? []).map((l) => l.trim()).join(' | ')}`)
+            console.log(serverLog(server.id).filter((l) => /signaling|NetherNet|NOT enabled|UDP/i.test(l)).slice(-6).join('\n'))
+            // Signalisation de NetherNet : du HTTP sur le port Bedrock (en local, puis par le tunnel TCP de playit)
+            const signaling = async (address: string) => {
+              try {
+                const res = await fetch(`http://${address}/`, { signal: AbortSignal.timeout(8000) })
+                return `HTTP ${res.status} ${(await res.text()).slice(0, 80).replace(/\s+/g, ' ')}`
+              } catch (err) {
+                return `ÉCHEC ${(err as Error).cause ?? (err as Error).message}`
+              }
+            }
+            console.log(`[crossplay-test] ${item} : signalisation locale → ${await signaling(`127.0.0.1:${getServer(server.id).bedrockPort}`)}`)
+            if (server.tunnel === 'playit') {
+              const st = serverStatuses().find((x) => x.id === server.id)
+              console.log(`[crossplay-test] ${item} : adresse Bedrock → ${st?.bedrockAddress ?? `ÉCHEC ${st?.bedrockError}`}`)
+              // Signalisation de playit (nxs) : Geyser s'y inscrit avec le jeton du tunnel
+              await new Promise((r) => setTimeout(r, 15_000))
+              console.log(serverLog(server.id).filter((l) => /nxs|signal|nethernet|playit/i.test(l)).slice(-8).join('\n'))
+            }
+          }
           // ALORIA_TEST_SERVER_BACKUP=1 : sauvegarde pendant que le serveur tourne
           if (process.env.ALORIA_TEST_SERVER_BACKUP && status?.state === 'running') {
             const file = await backupServer(server.id, 'manual')

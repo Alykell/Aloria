@@ -24,7 +24,8 @@ const head = (name: string) => `https://mc-heads.net/avatar/${encodeURIComponent
 
 // ---------------------------------------------------------------- joueurs
 
-export function PlayersTab({ server, alive, online, onError }: TabProps & { online: string[] }) {
+/** `invite` : joueur Bedrock attendu (liste blanche ouverte pour lui seul, quelques minutes) */
+export function PlayersTab({ server, alive, online, invite, onError }: TabProps & { online: string[]; invite?: string }) {
   const [players, setPlayers] = useState<ServerPlayers | null>(null)
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
@@ -78,7 +79,8 @@ export function PlayersTab({ server, alive, online, onError }: TabProps & { onli
   )
 
   if (!players) return <div className="manage-tab muted">{t('common.loading')}</div>
-  const valid = /^\w{1,16}$/.test(name.trim())
+  // Joueur Bedrock (crossplay) : « .Pseudo » ; son pseudo Xbox peut avoir des espaces
+  const valid = (server.bedrock ? /^\.?[\w ]{1,16}$/ : /^\w{1,16}$/).test(name.trim())
   return (
     <div className="manage-tab">
       <div className="card">
@@ -89,7 +91,7 @@ export function PlayersTab({ server, alive, online, onError }: TabProps & { onli
           </span>
         </label>
         <div className="manage-add">
-          <input value={name} maxLength={16} placeholder={t('server.players.namePlaceholder')} onChange={(e) => setName(e.target.value)} />
+          <input value={name} maxLength={17} placeholder={t('server.players.namePlaceholder')} onChange={(e) => setName(e.target.value)} />
           <button className="primary" disabled={!valid || busy} onClick={() => act('whitelist-add', name.trim())}>
             {t('server.players.addWhitelist')}
           </button>
@@ -100,7 +102,16 @@ export function PlayersTab({ server, alive, online, onError }: TabProps & { onli
             {t('server.players.addBan')}
           </button>
         </div>
+        {server.bedrock && <small className="muted">{t('server.players.bedrockHint')}</small>}
         {!alive && <small className="muted">{t('server.players.offlineEdit')}</small>}
+        {invite && (
+          <div className="manage-row">
+            <small>⏳ {t('server.players.invite', { name: invite })}</small>
+            <button className="secondary" onClick={() => window.aloria.servers.cancelInvite(server.id)}>
+              {t('server.players.inviteCancel')}
+            </button>
+          </div>
+        )}
       </div>
 
       {online.length > 0 && (

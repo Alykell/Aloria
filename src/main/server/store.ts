@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path'
 import { networkInterfaces } from 'node:os'
 import { shell } from 'electron'
 import { paths } from '../game/paths'
+import { BEDROCK_PORT } from '../../shared/crossplay'
 import type { ServerInfo, ServerInput } from '../../shared/types'
 import { tm } from '../i18n'
 
@@ -38,6 +39,14 @@ export function getServer(id: string): ServerInfo {
 export function freePort(): number {
   const used = new Set(load().map((s) => s.port))
   let port = 25565
+  while (used.has(port)) port++
+  return port
+}
+
+/** Port UDP de Geyser pour le crossplay : 19132, sinon le suivant libre parmi les serveurs */
+export function freeBedrockPort(): number {
+  const used = new Set(load().map((s) => s.bedrockPort))
+  let port = BEDROCK_PORT
   while (used.has(port)) port++
   return port
 }

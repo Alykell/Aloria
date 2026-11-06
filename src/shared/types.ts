@@ -250,6 +250,52 @@ export interface LocalWorld {
   icon: string | null
 }
 
+/** Minecraft Bedrock (version du Microsoft Store, Windows seulement) : carte à part dans Profils */
+export interface BedrockInfo {
+  installed: boolean
+  /** « 26.60 » (« 1.21.50 » avant 2026) */
+  version: string | null
+  playTimeMs: number
+  lastPlayed: number | null
+}
+
+/** Lancement demandé (le jeu s'ouvre), puis partie en cours tant que le processus du jeu tourne */
+export interface BedrockStatus {
+  launching: boolean
+  running: boolean
+}
+
+export interface BedrockWorld {
+  /** Nom du dossier dans minecraftWorlds */
+  id: string
+  name: string
+  lastPlayed: number
+  sizeMb: number
+  /** world_icon.jpeg en data URL */
+  icon: string | null
+}
+
+export type BedrockPackType = 'resources' | 'behavior' | 'skins'
+
+export interface BedrockPack {
+  type: BedrockPackType
+  /** Nom du dossier du pack */
+  folder: string
+  uuid: string
+  name: string
+  description: string
+  version: string
+  icon: string | null
+  /** Pack de ressources actif dans tous les mondes */
+  global: boolean
+}
+
+/** Ce qu'un fichier .mcpack / .mcaddon / .mcworld a installé */
+export interface BedrockImport {
+  packs: string[]
+  worlds: string[]
+}
+
 /** Serveur de la liste Multijoueur du jeu (servers.dat du profil, ou liste commune) */
 export interface SavedServer {
   /** Place dans la liste : sert à le retrouver pour le modifier */
@@ -510,6 +556,10 @@ export interface ServerInput {
   ramMb: number
   port: number
   tunnel: ServerTunnel
+  /** Crossplay : joueurs Bedrock acceptés (Geyser + Floodgate, Paper 1.20.5+) */
+  bedrock?: boolean
+  /** Port UDP de Geyser (19132, puis les suivants pour les autres serveurs) */
+  bedrockPort?: number
 }
 
 export interface ServerInfo extends ServerInput {
@@ -552,6 +602,11 @@ export interface ServerStatus {
   /** `<nom>.aloriamc.fr` une fois relié au tunnel de ce démarrage, ou l'erreur qui l'en empêche */
   customAddress?: string
   customAddressError?: string
+  /** Crossplay : adresse:port à donner aux joueurs Bedrock (tunnel UDP playit), ou l'erreur qui l'en empêche */
+  bedrockAddress?: string
+  bedrockError?: string
+  /** Joueur Bedrock attendu (liste blanche coupée pour lui, quelques minutes) */
+  bedrockInvite?: string
   /** Mesures en direct pendant que le serveur tourne (TPS seulement depuis la 1.20.3) */
   stats?: { ramMb?: number; ramMaxMb?: number; cpu?: number; tps?: number; mspt?: number }
 }

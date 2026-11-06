@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import ProfileEditor from './ProfileEditor'
 import ModpackDialog from './ModpackDialog'
+import BedrockDialog from './BedrockDialog'
 import { describeProfile } from '../hooks/useVersions'
 import type { ProfilesState } from '../hooks/useProfiles'
 import type { SettingsState } from '../hooks/useSettings'
-import type { Profile } from '../../../shared/types'
+import type { BedrockInfo, BedrockStatus, Profile } from '../../../shared/types'
 import { t } from '../i18n'
 
 function lastPlayed(ts: number | null): string {
@@ -99,6 +100,25 @@ export default function ProfilesPage({ profiles, settings, onPlay, onError }: Pr
     }
   }, [modpackKey])
 
+  // Minecraft Bedrock (Microsoft Store, Windows) : carte à part, montrée seulement s'il est installé
+  const [bedrock, setBedrock] = useState<BedrockInfo | null>(null)
+  const [bedrockStatus, setBedrockStatus] = useState<BedrockStatus>({ launching: false, running: false })
+  const [bedrockOpen, setBedrockOpen] = useState(false)
+  useEffect(() => {
+    window.aloria.bedrock.info().then(setBedrock)
+    window.aloria.bedrock.status().then(setBedrockStatus)
+    return window.aloria.bedrock.onStatus((next) => {
+      setBedrockStatus(next)
+      // Fin de partie : temps de jeu à jour sur la carte
+      if (!next.launching && !next.running) window.aloria.bedrock.info().then(setBedrock)
+    })
+  }, [])
+  const playBedrock = async () => {
+    const res = await window.aloria.bedrock.play()
+    if (!res.ok) onError(res.error)
+    else window.aloria.bedrock.info().then(setBedrock)
+  }
+
   const s = settings.settings
   if (!s) return null
   const maxRamMb = Math.max(1024, Math.floor((settings.systemRamMb - 2048) / 512) * 512)
@@ -170,12 +190,47 @@ export default function ProfilesPage({ profiles, settings, onPlay, onError }: Pr
             </div>
           </div>
         ))}
+        {bedrock?.installed && (
+          <div className="profile-card" onClick={() => setBedrockOpen(true)}>
+            <span className="profile-card__icon">🪨</span>
+            <strong>Minecraft Bedrock</strong>
+            <span className="profile-card__version">{t('bedrock.version', { version: bedrock.version ?? '' })}</span>
+            <small>
+              {lastPlayed(bedrock.lastPlayed)}
+              {bedrock.playTimeMs >= 60_000 && ` · ${formatPlayTime(bedrock.playTimeMs)}`}
+            </small>
+            <div className="profile-card__actions">
+              <button
+                className="primary"
+                disabled={bedrockStatus.launching || bedrockStatus.running}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  playBedrock()
+                }}
+              >
+                {bedrockStatus.running ? t('bedrock.inGame') : bedrockStatus.launching ? t('bedrock.opening') : t('common.play')}
+              </button>
+              <button
+                className="secondary"
+                aria-label={t('bedrock.edit')}
+                title={t('bedrock.edit')}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setBedrockOpen(true)
+                }}
+              >
+                ✎
+              </button>
+            </div>
+          </div>
+        )}
         <button className="profile-card new" onClick={() => setEditing(null)}>
           <span className="profile-card__icon">＋</span>
           <strong>{t('profiles.new')}</strong>
         </button>
       </div>
 
+      {bedrockOpen && bedrock && <BedrockDialog info={bedrock} onClose={() => setBedrockOpen(false)} />}
       {editing !== undefined && (
         <ProfileEditor
           profile={editing}

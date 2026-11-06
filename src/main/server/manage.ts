@@ -66,6 +66,14 @@ export async function listPlayers(id: string): Promise<ServerPlayers> {
   }
 }
 
+/**
+ * UUID d'un joueur Bedrock (« .Pseudo », Floodgate) : tiré de son compte Xbox, il n'est connu qu'après une première connexion,
+ * dans usercache.json ; null sinon
+ */
+export async function cachedUuid(id: string, name: string): Promise<string | null> {
+  return (await readList(id, 'usercache.json')).find((e) => e.name.toLowerCase() === name.toLowerCase())?.uuid ?? null
+}
+
 /** UUID d'un joueur : celui de son compte Mojang, ou en mode crack celui que le serveur calcule à partir du pseudo */
 async function uuidOf(name: string, online: boolean): Promise<string> {
   if (!online) {
@@ -121,7 +129,9 @@ export async function editPlayersOffline(id: string, action: ServerPlayerAction,
   }
   if (list.some(same)) return
   const online = (await readProperties(id))['online-mode'] !== 'false'
-  const uuid = await uuidOf(name, online)
+  const bedrock = name.startsWith('.') ? await cachedUuid(id, name) : null
+  if (name.startsWith('.') && !bedrock) throw new Error(tm('err.bedrockPlayerUnknown', { name }))
+  const uuid = bedrock ?? (await uuidOf(name, online))
   const extra: Record<string, unknown> =
     action === 'op'
       ? { level: 4, bypassesPlayerLimit: false }

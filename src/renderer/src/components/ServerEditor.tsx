@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useVersions } from '../hooks/useVersions'
 import { forgeSupported, neoforgeSupported } from '../../../shared/loaders'
 import { e4mcSupported } from '../../../shared/aloriaHud'
+import { crossplaySupported } from '../../../shared/crossplay'
 import type { LoaderVersion, PlayitUsage, ServerInfo, ServerInput, ServerTunnel, ServerType } from '../../../shared/types'
 import Select from './Select'
 import { gb, t } from '../i18n'
@@ -91,9 +92,12 @@ export default function ServerEditor({ server, defaultPort, maxRamMb, onSave, on
   const loaderUnavailable = loaders !== null && loaders.length === 0
   const canSave = form.name.trim().length > 0 && !!version && eula && !loaderUnavailable && !saving
 
+  // Crossplay Bedrock : Paper 1.20.5 et plus (Geyser)
+  const crossOk = !!version && crossplaySupported(form.type, version)
+
   const save = async () => {
     setSaving(true)
-    await onSave({ ...form, name: form.name.trim() })
+    await onSave({ ...form, name: form.name.trim(), bedrock: !!form.bedrock && crossOk })
     setSaving(false)
   }
 
@@ -216,6 +220,19 @@ export default function ServerEditor({ server, defaultPort, maxRamMb, onSave, on
             ))}
           </div>
           {form.tunnel === 'playit' && playit && !playit.linked && <small className="muted">{t('server.tunnel.playitLinkNext')}</small>}
+        </div>
+
+        <div className="field">
+          <span>{t('server.crossplay')}</span>
+          <label className={'toggle-line' + (crossOk ? '' : ' disabled')}>
+            <input type="checkbox" disabled={!crossOk} checked={!!form.bedrock && crossOk} onChange={(e) => set({ bedrock: e.target.checked })} />
+            <span>
+              {t('server.crossplayToggle')}{' '}
+              <small className="muted">
+                {crossOk ? t('server.crossplayHint') : t('server.crossplayUnavailable')}
+              </small>
+            </span>
+          </label>
         </div>
 
         <label className="field">

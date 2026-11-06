@@ -1,11 +1,12 @@
 import { existsSync } from 'node:fs'
 import { mkdir, readdir, rm, stat } from 'node:fs/promises'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { shell } from 'electron'
 import AdmZip from 'adm-zip'
 import { gameDirOf } from './profiles'
 import { getSettings } from './settings'
 import { listWorlds } from './quickplay'
+import { BEDROCK_ID, bedrockBackupsDir, bedrockWorldDir, listBedrockWorlds, lockedFile } from './bedrock/worlds'
 import type { WorldBackup, WorldBackupKind, WorldBackups } from '../shared/types'
 import { tm } from './i18n'
 
@@ -13,13 +14,19 @@ import { tm } from './i18n'
  * Sauvegardes des mondes solo d'un profil : un zip par monde et par sauvegarde dans <profil>/aloria-backups/<monde>.
  * Automatiques après chaque partie (seulement les mondes joués depuis la dernière), avant une mise à jour de modpack
  * qui change la version du jeu, ou à la demande. Les automatiques au-delà des AUTO_KEEP dernières sont effacées.
+ * Minecraft Bedrock (id BEDROCK_ID) en profite aussi : ses mondes sont dans ses dossiers, ses sauvegardes dans .aloria/bedrock.
  */
 const AUTO_KEEP = 5
 // adm-zip prépare le zip en mémoire : au-delà, le monde est laissé de côté (il faudrait le sauvegarder à la main)
 const MAX_BYTES = 1.5 * 1024 ** 3
 
-const savesDir = (profileId: string) => join(gameDirOf(profileId), 'saves')
-const backupsDir = (profileId: string, world?: string) => join(gameDirOf(profileId), 'aloria-backups', ...(world ? [world] : []))
+const backupsDir = (profileId: string, world?: string) =>
+  join(profileId === BEDROCK_ID ? bedrockBackupsDir() : join(gameDirOf(profileId), 'aloria-backups'), ...(world ? [world] : []))
+/** Dossier d'un monde (qu'il existe ou non) */
+const worldDir = async (profileId: string, world: string) =>
+  profileId === BEDROCK_ID ? bedrockWorldDir(world) : join(gameDirOf(profileId), 'saves', world)
+const worldsOf = (profileId: string): Promise<{ id: string; name: string }[]> =>
+  profileId === BEDROCK_ID ? listBedrockWorlds() : listWorlds(profileId)
 const safeName = (name: string) => !!name && !name.includes('/') && !name.includes('\\') && name !== '..' && name !== '.'
 
 /** Nom de fichier : date, puis l'occasion (« 2026-10-21_15-30-00_auto.zip ») */
@@ -46,7 +53,7 @@ async function backupsOf(profileId: string, world: string): Promise<WorldBackup[
 
 /** Mondes du profil (et mondes supprimés dont il reste des sauvegardes), avec leurs sauvegardes */
 export async function listWorldBackups(profileId: string): Promise<WorldBackups[]> {
-  const worlds = await listWorlds(profileId)
+  const worlds = await worldsOf(profileId)
   const out: WorldBackups[] = []
   for (const w of worlds) out.push({ world: w.id, name: w.name, exists: true, backups: await backupsOf(profileId, w.id) })
   const root = backupsDir(profileId)
@@ -70,15 +77,15 @@ async function folderSize(dir: string): Promise<number> {
 /** Zippe un monde ; null s'il est trop gros */
 export async function backupWorld(profileId: string, world: string, kind: WorldBackupKind): Promise<string | null> {
   if (!safeName(world)) return null
-  const src = join(savesDir(profileId), world)
+  const src = await worldDir(profileId, world)
   if (!existsSync(src)) throw new Error(tm('err.worldMissing'))
   if ((await folderSize(src)) > MAX_BYTES) {
     if (kind === 'manual') throw new Error(tm('err.worldTooBig'))
     return null
   }
   const zip = new AdmZip()
-  // session.lock est verrouillé tant que le jeu a le monde ouvert (et inutile dans une sauvegarde)
-  await zip.addLocalFolderPromise(src, { zipPath: world, filter: (name: string) => !name.endsWith('session.lock') })
+  // session.lock (Java) et LOCK (Bedrock) sont verrouillés tant que le jeu a le monde ouvert (et inutiles dans une sauvegarde)
+  await zip.addLocalFolderPromise(src, { zipPath: world, filter: (name: string) => !name.endsWith('session.lock') && !lockedFile(name) })
   await mkdir(backupsDir(profileId, world), { recursive: true })
   const file = fileName(kind)
   await zip.writeZipPromise(join(backupsDir(profileId, world), file))
@@ -91,11 +98,9 @@ export async function backupWorld(profileId: string, world: string, kind: WorldB
 
 /** Mondes modifiés depuis leur dernière sauvegarde (level.dat est réécrit à chaque enregistrement du jeu) */
 async function changedWorlds(profileId: string): Promise<string[]> {
-  const saves = savesDir(profileId)
-  if (!existsSync(saves)) return []
   const changed: string[] = []
-  for (const world of await readdir(saves)) {
-    const levelDat = join(saves, world, 'level.dat')
+  for (const { id: world } of await worldsOf(profileId)) {
+    const levelDat = join(await worldDir(profileId, world), 'level.dat')
     if (!existsSync(levelDat)) continue
     const last = (await backupsOf(profileId, world))[0]
     if (!last || (await stat(levelDat)).mtimeMs > last.date) changed.push(world)
@@ -106,7 +111,7 @@ async function changedWorlds(profileId: string): Promise<string[]> {
 /** Sauvegarde de tous les mondes modifiés (après une partie) ou de tous les mondes (avant un changement de version) */
 export async function backupWorlds(profileId: string, kind: 'auto' | 'version'): Promise<void> {
   if (kind === 'auto' && getSettings().worldBackups === false) return
-  const worlds = kind === 'auto' ? await changedWorlds(profileId) : await listWorlds(profileId).then((list) => list.map((w) => w.id))
+  const worlds = kind === 'auto' ? await changedWorlds(profileId) : await worldsOf(profileId).then((list) => list.map((w) => w.id))
   for (const world of worlds) {
     await backupWorld(profileId, world, kind).catch((err) => console.warn('[sauvegardes]', world, err))
   }
@@ -131,18 +136,18 @@ export async function restoreWorld(profileId: string, world: string, file: strin
   if (!safeName(world) || !safeName(file)) return
   const path = join(backupsDir(profileId, world), file)
   if (!existsSync(path)) throw new Error(tm('err.worldBackupMissing'))
-  const dest = join(savesDir(profileId), world)
+  const dest = await worldDir(profileId, world)
   if (existsSync(dest)) {
     await backupWorld(profileId, world, 'restore')
     await rm(dest, { recursive: true, force: true })
   }
-  await mkdir(savesDir(profileId), { recursive: true })
+  await mkdir(dirname(dest), { recursive: true })
   const zip = new AdmZip(path)
   // Chaque fichier doit rester dans le dossier du monde (un zip modifié à la main pourrait viser ailleurs)
   if (zip.getEntries().some((e) => !e.entryName.startsWith(`${world}/`) || e.entryName.split('/').includes('..'))) {
     throw new Error(tm('err.worldBackupMissing'))
   }
-  await new Promise<void>((resolve, reject) => zip.extractAllToAsync(savesDir(profileId), true, false, (err) => (err ? reject(err) : resolve())))
+  await new Promise<void>((resolve, reject) => zip.extractAllToAsync(dirname(dest), true, false, (err) => (err ? reject(err) : resolve())))
 }
 
 export async function deleteWorldBackup(profileId: string, world: string, file: string): Promise<void> {

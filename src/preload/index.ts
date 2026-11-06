@@ -1,6 +1,12 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
 import type {
   AddressProblem,
+  BedrockImport,
+  BedrockInfo,
+  BedrockPack,
+  BedrockPackType,
+  BedrockStatus,
+  BedrockWorld,
   ContentType,
   JoinTarget,
   LocalWorld,
@@ -108,6 +114,26 @@ const api = {
     deleteBackup: (profileId: string, world: string, file: string): Promise<Result<void>> =>
       ipcRenderer.invoke('worlds:deleteBackup', profileId, world, file),
     openBackups: (profileId: string, world: string): Promise<void> => ipcRenderer.invoke('worlds:openBackups', profileId, world)
+  },
+  bedrock: {
+    info: (): Promise<BedrockInfo> => ipcRenderer.invoke('bedrock:info'),
+    status: (): Promise<BedrockStatus> => ipcRenderer.invoke('bedrock:status'),
+    onStatus: (cb: (s: BedrockStatus) => void) => subscribe('bedrock:status', cb),
+    play: (): Promise<Result<void>> => ipcRenderer.invoke('bedrock:play'),
+    worlds: (): Promise<Result<BedrockWorld[]>> => ipcRenderer.invoke('bedrock:worlds'),
+    openWorld: (id: string): Promise<void> => ipcRenderer.invoke('bedrock:openWorld', id),
+    deleteWorld: (id: string): Promise<Result<void>> => ipcRenderer.invoke('bedrock:deleteWorld', id),
+    /** Chemin du .mcworld créé, null si annulé */
+    exportWorld: (id: string, name: string): Promise<Result<string | null>> => ipcRenderer.invoke('bedrock:exportWorld', id, name),
+    packs: (): Promise<Result<BedrockPack[]>> => ipcRenderer.invoke('bedrock:packs'),
+    setGlobal: (folder: string, on: boolean): Promise<Result<void>> => ipcRenderer.invoke('bedrock:setGlobal', folder, on),
+    deletePack: (type: BedrockPackType, folder: string): Promise<Result<void>> => ipcRenderer.invoke('bedrock:deletePack', type, folder),
+    openPacks: (): Promise<void> => ipcRenderer.invoke('bedrock:openPacks'),
+    /** Ouvre Bedrock directement sur un serveur */
+    join: (host: string, port: number): Promise<Result<void>> => ipcRenderer.invoke('bedrock:join', host, port),
+    /** Sans fichier : fenêtre de choix (null si annulée) */
+    importFile: (file: File | null): Promise<Result<BedrockImport | null>> =>
+      ipcRenderer.invoke('bedrock:import', file ? webUtils.getPathForFile(file) : null)
   },
   presets: {
     list: (): Promise<SettingsPreset[]> => ipcRenderer.invoke('presets:list'),
@@ -219,6 +245,8 @@ const api = {
     player: (id: string, action: ServerPlayerAction, name: string): Promise<Result<void>> =>
       ipcRenderer.invoke('servers:player', id, action, name),
     whitelist: (id: string, on: boolean): Promise<Result<void>> => ipcRenderer.invoke('servers:whitelist', id, on),
+    /** Annule l'attente d'un joueur Bedrock (la liste blanche revient) */
+    cancelInvite: (id: string): Promise<void> => ipcRenderer.invoke('servers:cancelInvite', id),
     contentSearch: (id: string, query: string, source?: 'all' | 'modrinth' | 'curseforge'): Promise<Result<ServerContentHit[]>> =>
       ipcRenderer.invoke('servers:contentSearch', id, query, source),
     contentToggle: (id: string, fileName: string, enabled: boolean): Promise<Result<void>> =>

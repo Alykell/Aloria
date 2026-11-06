@@ -12,6 +12,7 @@ import { listVersions } from '../modrinth/api'
 import { bundledJar } from '../game/aloriaHud'
 import { e4mcSupported, needsE4mcCompat } from '../../shared/aloriaHud'
 import { serverDirOf, updateServer } from './store'
+import { syncCrossplay } from './crossplay'
 import type { ServerInfo } from '../../shared/types'
 import { tm } from '../i18n'
 
@@ -245,6 +246,7 @@ export async function installServer(server: ServerInfo, onStep: InstallStep): Pr
   }
 
   await syncE4mc(server, dir, onStep)
+  await syncCrossplay(server, dir, onStep)
   if (previous?.gameVersion !== server.gameVersion || previous?.loaderVersion !== loader) {
     updateServer(server.id, { installed: { gameVersion: server.gameVersion, loaderVersion: loader } })
   }

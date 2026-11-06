@@ -6,6 +6,7 @@ import Select from './Select'
 import { useVersions } from '../hooks/useVersions'
 import type { SettingsState } from '../hooks/useSettings'
 import type { AddressProblem, Profile, ServerInfo, ServerState, ServerStatus } from '../../../shared/types'
+import { BEDROCK_PORT } from '../../../shared/crossplay'
 import { gb, t } from '../i18n'
 
 interface Props {
@@ -73,6 +74,50 @@ function StateBadge({ status }: { status: ServerStatus }) {
       <span className="server-state__dot" />
       {t(STATE_LABELS[status.state])}
     </span>
+  )
+}
+
+/**
+ * Crossplay : ce qu'il faut aux joueurs Bedrock. Le jeu Bedrock demande l'adresse et le port dans deux champs séparés ;
+ * depuis ce PC, « Rejoindre en Bedrock » ouvre le jeu directement sur le serveur.
+ */
+function BedrockCard({ server, status, lanAddress, onError }: { server: ServerInfo; status: ServerStatus; lanAddress: string | null; onError: (m: string) => void }) {
+  const port = server.bedrockPort ?? BEDROCK_PORT
+  // Tunnel NetherNet de playit : son nom, toujours avec le port 19132 (même si playit montre un autre port)
+  const host = status.bedrockAddress ?? null
+  const publicPort = String(BEDROCK_PORT)
+  const running = status.state === 'running'
+  const join = async () => {
+    const res = await window.aloria.bedrock.join('127.0.0.1', port)
+    if (!res.ok) onError(res.error)
+  }
+  return (
+    <div className="card server-side__card">
+      <strong>🪨 {t('server.bedrock.title')}</strong>
+      {server.tunnel === 'playit' &&
+        (host ? (
+          <>
+            <small className="muted">{t('server.bedrock.address')}</small>
+            <Copyable value={host} />
+            <small className="muted">{t('server.bedrock.port')}</small>
+            <Copyable value={publicPort!} />
+          </>
+        ) : (
+          <small className={status.bedrockError ? 'warning' : 'muted'}>
+            {status.bedrockError ?? (status.state === 'stopped' ? t('server.addressWhenStarted') : t('server.addressWaiting'))}
+          </small>
+        ))}
+      {lanAddress && (
+        <>
+          <small className="muted">{t('server.bedrock.lan')}</small>
+          <Copyable value={`${lanAddress}:${port}`} />
+        </>
+      )}
+      <button className="secondary" disabled={!running} title={running ? undefined : t('server.bedrock.joinOff')} onClick={join}>
+        {t('server.bedrock.join')}
+      </button>
+      <small className="muted">{t('server.bedrock.trustHint')}</small>
+    </div>
   )
 }
 
@@ -648,7 +693,7 @@ export default function ServersPage({ settings, onError, onFocus }: Props) {
               ))}
             </div>
             {tab === 'console' && <Console id={open.id} running={alive} />}
-            {tab === 'players' && <PlayersTab server={open} alive={alive} online={st.players} onError={onError} />}
+            {tab === 'players' && <PlayersTab server={open} alive={alive} online={st.players} invite={st.bedrockInvite} onError={onError} />}
             {tab === 'settings' && <SettingsTab server={open} alive={alive} onError={onError} onRestart={() => restart(open.id)} />}
             {tab === 'content' && <ContentTab server={open} alive={alive} onError={onError} onRestart={() => restart(open.id)} />}
             {tab === 'files' && <ServerFiles server={open} onError={onError} />}
@@ -725,6 +770,8 @@ export default function ServersPage({ settings, onError, onFocus }: Props) {
                 </>
               )}
             </div>
+
+            {open.bedrock && <BedrockCard server={open} status={st} lanAddress={lanAddress} onError={onError} />}
 
             <div className="card server-side__card">
               <strong>{t('server.players', { n: st.players.length })}</strong>

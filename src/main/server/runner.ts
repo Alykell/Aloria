@@ -6,11 +6,13 @@ import type { WebContents } from 'electron'
 import { crashHint } from './crashHints'
 import { installServer } from './install'
 import { parseMspt, TICK_QUERY_LINE, tickQuerySupported, watchProcess } from './stats'
-import { acquireAgent, ensureTunnel, releaseAgent } from './playit'
+import { acquireAgent, deleteTunnel, ensureTunnel, releaseAgent } from './playit'
 import { pointCustomAddress } from './address'
 import { writeBackup } from './backups'
-import { getServer, serverDirOf, updateServer } from './store'
-import type { ServerStatus } from '../../shared/types'
+import { freeBedrockPort, getServer, serverDirOf, updateServer } from './store'
+import { configureGeyser } from './crossplay'
+import { BEDROCK_PORT } from '../../shared/crossplay'
+import type { ServerInfo, ServerStatus } from '../../shared/types'
 import { tm } from '../i18n'
 
 /** Lignes de console gardées par serveur (la page les réaffiche en revenant) */
@@ -42,6 +44,8 @@ interface Running {
   backingUp: boolean
   /** Erreur fatale vue au démarrage (affichée si le serveur s'arrête ensuite) */
   fatal?: string
+  /** Joueur Bedrock invité (liste blanche coupée pour lui) ; `reopen` : la remettre ensuite */
+  invite?: { name: string; reopen: boolean; timer: NodeJS.Timeout }
 }
 
 const servers = new Map<string, Running>()
@@ -98,7 +102,10 @@ export async function connectTunnel(id: string): Promise<void> {
     linkCustomAddress(id, r, address, fallback ?? undefined)
   } catch (err) {
     setStatus(r, { tunnelError: err instanceof Error ? err.message : String(err) })
+    return
   }
+  // Sans crossplay, les tunnels Bedrock d'avant sont rendus pour libérer des places du compte
+  if (!server.bedrock) void deleteTunnel(server, ['bedrock'])
 }
 
 /**
@@ -114,6 +121,87 @@ export function linkCustomAddress(id: string, r = servers.get(id), address = r?.
   pointCustomAddress(id, address, fallback)
     .then((custom) => setStatus(r, { customAddress: custom ?? undefined, customAddressError: undefined }))
     .catch((err) => setStatus(r, { customAddress: undefined, customAddressError: err instanceof Error ? err.message : String(err) }))
+}
+
+/**
+ * Crossplay (NetherNet) : Geyser doit connaître, dès son démarrage, comment les joueurs Bedrock le trouvent. Avec playit,
+ * le tunnel NetherNet et son jeton sont donc prêts avant le serveur (même adresse d'un démarrage à l'autre) : la signalisation
+ * passe par le service de playit pour les joueurs d'internet, et par celle de Geyser pour ce PC et le réseau local (« hybrid »).
+ * Une erreur n'empêche pas le serveur de démarrer.
+ */
+async function prepareCrossplay(r: Running, server: ServerInfo, dir: string): Promise<void> {
+  const id = server.id
+  const port = server.bedrockPort ?? BEDROCK_PORT
+  let token: string | undefined
+  if (server.tunnel === 'playit') {
+    setStatus(r, { label: tm('server.step.crossplayTunnel'), progress: undefined })
+    try {
+      await acquireAgent(id, () => {})
+      r.cleanup.push(() => releaseAgent(id))
+      const tunnel = await ensureTunnel(server, 'bedrock')
+      token = tunnel.nethernetToken
+      setStatus(r, { bedrockAddress: tunnel.address, bedrockError: undefined })
+    } catch (err) {
+      setStatus(r, { bedrockError: err instanceof Error ? err.message : String(err) })
+    }
+  }
+  await configureGeyser(dir, port, token)
+}
+
+/**
+ * Joueur Bedrock à ajouter à la liste blanche : le serveur ne le connaît qu'après une première connexion (Floodgate lui donne
+ * un identifiant tiré de son compte Xbox, inconnu de Mojang). La liste blanche est donc coupée pour lui seul, INVITE_MS au plus :
+ * dès qu'il arrive, il y est ajouté et elle revient ; un autre joueur non autorisé qui arrive entre-temps est renvoyé.
+ */
+const INVITE_MS = 5 * 60_000
+
+export async function inviteBedrockPlayer(id: string, name: string): Promise<void> {
+  const r = entry(id)
+  if (!r.child) return
+  // Invitation précédente remplacée : la liste blanche est déjà coupée par nous, à remettre ensuite de la même façon
+  const props = await readFile(join(serverDirOf(id), 'server.properties'), 'utf8').catch(() => '')
+  const reopen = r.invite?.reopen ?? /^white-list=true/m.test(props)
+  if (r.invite) clearTimeout(r.invite.timer)
+  else if (reopen) r.child.stdin.write('whitelist off\n')
+  r.invite = { name, reopen, timer: setTimeout(() => closeInvite(r), INVITE_MS) }
+  setStatus(r, { bedrockInvite: name })
+}
+
+function closeInvite(r: Running): void {
+  if (!r.invite) return
+  clearTimeout(r.invite.timer)
+  if (r.invite.reopen && r.child) r.child.stdin.write('whitelist on\n')
+  r.invite = undefined
+  setStatus(r, { bedrockInvite: undefined })
+}
+
+export function cancelBedrockInvite(id: string): void {
+  const r = servers.get(id)
+  if (r) closeInvite(r)
+}
+
+/** Noms autorisés pendant une invitation (liste blanche et opérateurs du serveur) */
+async function allowedNames(id: string): Promise<Set<string>> {
+  const names = new Set<string>()
+  for (const file of ['whitelist.json', 'ops.json']) {
+    try {
+      for (const e of JSON.parse(await readFile(join(serverDirOf(id), file), 'utf8')) as { name: string }[]) names.add(e.name.toLowerCase())
+    } catch {
+      // Liste absente : personne
+    }
+  }
+  return names
+}
+
+async function inviteJoined(r: Running, name: string): Promise<void> {
+  const invite = r.invite
+  if (!invite || !r.child) return
+  if (name.toLowerCase() === invite.name.toLowerCase()) {
+    r.child.stdin.write(`whitelist add ${name}\n`)
+    closeInvite(r)
+  } else if (invite.reopen && !(await allowedNames(r.status.id)).has(name.toLowerCase())) {
+    r.child?.stdin.write(`kick ${name} ${tm('server.bedrock.inviteKick')}\n`)
+  }
 }
 
 export const serverStatuses = (): ServerStatus[] => [...servers.values()].map((r) => r.status)
@@ -139,9 +227,11 @@ function parse(r: Running, line: string): void {
   }
   const domain = /Domain assigned: (\S+)/.exec(line)
   if (domain) setStatus(r, { publicAddress: domain[1] })
-  const joined = /\]: (\w{1,16}) joined the game/.exec(line)
+  // Joueurs Bedrock (crossplay) : Floodgate met un point devant leur pseudo
+  const joined = /\]: (\.?\w{1,16}) joined the game/.exec(line)
   if (joined && !r.status.players.includes(joined[1])) setStatus(r, { players: [...r.status.players, joined[1]] })
-  const left = /\]: (\w{1,16}) left the game/.exec(line)
+  if (joined && r.invite) void inviteJoined(r, joined[1])
+  const left = /\]: (\.?\w{1,16}) left the game/.exec(line)
   if (left) setStatus(r, { players: r.status.players.filter((p) => p !== left[1]) })
 }
 
@@ -223,7 +313,9 @@ async function setProperty(dir: string, key: string, value: string): Promise<voi
 export async function startServer(id: string): Promise<void> {
   const r = entry(id)
   if (r.child || r.status.state === 'installing') return
-  const server = getServer(id)
+  let server = getServer(id)
+  // Crossplay activé : un port UDP rien qu'à lui pour Geyser
+  if (server.bedrock && !server.bedrockPort) server = updateServer(id, { bedrockPort: freeBedrockPort() })
   const dir = serverDirOf(id)
   r.lines = []
   r.stopping = false
@@ -235,6 +327,7 @@ export async function startServer(id: string): Promise<void> {
       await backupServer(id, 'version')
     }
     const spec = await installServer(server, (label, progress) => setStatus(r, { label, progress }))
+    if (server.bedrock) await prepareCrossplay(r, server, dir)
     await setProperty(dir, 'server-port', String(server.port))
     const args = [
       `-Xmx${server.ramMb}M`,
@@ -283,6 +376,13 @@ export async function startServer(id: string): Promise<void> {
     child.on('exit', (code) => {
       r.child = null
       for (const stop of r.cleanup.splice(0)) stop()
+      // Arrêté pendant une invitation Bedrock : la liste blanche coupée pour l'invité revient pour le prochain démarrage
+      if (r.invite) {
+        clearTimeout(r.invite.timer)
+        if (r.invite.reopen) void setProperty(dir, 'white-list', 'true')
+        r.invite = undefined
+        setStatus(r, { bedrockInvite: undefined })
+      }
       // Erreur fatale au démarrage : on la montre, même si le serveur a été coupé (code 1) ou s'est fermé (code 0)
       const fatal = r.fatal
       r.fatal = undefined

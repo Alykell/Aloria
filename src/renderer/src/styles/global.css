@@ -539,6 +539,15 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
 .worlds__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .worlds__backup { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 6px; border-top: 1px solid var(--line, rgba(0, 0, 0, 0.06)); font-size: 14px; }
 .worlds__backup .export-box__actions button { padding: 4px 10px; font-size: 13px; }
+.dialog.bedrock { width: min(680px, 92vw); position: relative; }
+.dialog.bedrock h3 { margin: 0; }
+.bedrock__row { display: flex; align-items: center; gap: 12px; padding-top: 8px; border-top: 1px solid var(--line, rgba(0, 0, 0, 0.06)); }
+.bedrock__row img, .bedrock__icon { width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0; object-fit: cover; image-rendering: pixelated; }
+.bedrock__icon { display: grid; place-items: center; font-size: 22px; background: var(--foam); }
+.bedrock__text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.bedrock__text strong, .bedrock__text small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bedrock__row .export-box__actions button { padding: 4px 10px; font-size: 13px; }
+.bedrock__row .toggle-line { font-size: 13px; white-space: nowrap; }
 
 /* Aperçu d'un modpack */
 .dialog.modpack { width: min(620px, 92vw); max-height: 88vh; }

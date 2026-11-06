@@ -17,9 +17,11 @@ import { tm } from '../i18n'
  */
 const API = 'https://api.playit.gg'
 /** Programme officiel de playit (version fixée : son fonctionnement a déjà changé d'une version à l'autre) */
-const AGENT_VERSION = 'v1.0.12'
+const AGENT_VERSION = 'v1.2.0'
 const AGENT_FILES: Partial<Record<NodeJS.Platform, string>> = {
-  win32: 'playit-windows-x86_64-signed.exe',
+  // Le service (« playitd ») : il prend la clé en option, sans installation ni fenêtre (depuis la 1.2, le programme « playit »
+  // n'est plus qu'une interface pour lui). La 1.2 fait passer les tunnels NetherNet (Bedrock 26.x)
+  win32: 'playitd-windows-x86_64-signed.exe',
   linux: 'playit-linux-amd64'
 }
 
@@ -113,11 +115,19 @@ interface RunData {
     assigned_domain: string
     custom_domain: string | null
     port: { from: number }
+    tunnel_type?: string | null
   }[]
   pending: { id: string; name: string | null }[]
 }
 
-const tunnelName = (server: ServerInfo) => `aloria-${server.id}`
+/**
+ * Tunnels d'un serveur : Java (TCP), et pour le crossplay un tunnel « nethernet » (UDP), la connexion de Bedrock 26.x :
+ * la signalisation passe par le service de playit (nethernet.playit.gg, avec le jeton du tunnel), le jeu par le tunnel
+ */
+export type TunnelKind = 'java' | 'bedrock'
+const SUFFIXES: Record<TunnelKind, string> = { java: '', bedrock: '-bedrock' }
+const TUNNEL_TYPES: Record<TunnelKind, string> = { java: 'minecraft-java', bedrock: 'nethernet' }
+const tunnelName = (server: ServerInfo, kind: TunnelKind = 'java') => `aloria-${server.id}${SUFFIXES[kind]}`
 
 /** Le programme de playit vient de démarrer : tant qu'il ne s'est pas présenté à playit.gg, sa version est inconnue */
 async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
@@ -142,6 +152,8 @@ export interface TunnelAddress {
   address: string
   /** IP:port du relais, qui marche même avant que le nom de domaine soit connu de toutes les box */
   fallback: string | null
+  /** Tunnel NetherNet : jeton pour la signalisation de playit (réglage nxs de Geyser) */
+  nethernetToken?: string
 }
 
 /** IP:port du relais, demandée à un DNS public (celui de la box peut ne pas encore connaître un tunnel tout neuf) */
@@ -156,29 +168,36 @@ async function fallbackAddress(domain: string, port: number): Promise<string | n
   }
 }
 
-export async function ensureTunnel(server: ServerInfo): Promise<TunnelAddress> {
+/**
+ * Bedrock (crossplay) : tunnel TCP + UDP vers le port de Geyser. Le jeu Bedrock ne lit pas les enregistrements SRV :
+ * l'adresse s'utilise avec son port (« domaine:port »).
+ */
+export async function ensureTunnel(server: ServerInfo, kind: TunnelKind = 'java'): Promise<TunnelAddress> {
   const secret = config()?.secretKey
   if (!secret) throw new Error(tm('err.playitNotLinked'))
+  const name = tunnelName(server, kind)
+  const localPort = kind === 'java' ? server.port : (server.bedrockPort ?? 19132)
   let run = await call<RunData>('/agents/rundata', {}, secret)
-  let tunnel = run.tunnels.find((t) => t.name === tunnelName(server))
-  if (tunnel && tunnel.local_port !== server.port) {
+  let tunnel = run.tunnels.find((t) => t.name === name)
+  // Port changé, ou tunnel d'un ancien type (« minecraft-bedrock », RakNet, que Bedrock n'accepte plus) : recréé
+  if (tunnel && (tunnel.local_port !== localPort || (tunnel.tunnel_type && tunnel.tunnel_type !== TUNNEL_TYPES[kind]))) {
     await call('/tunnels/delete', { tunnel_id: tunnel.id }, secret)
     tunnel = undefined
   }
   if (!tunnel) {
     // Déjà demandé à un démarrage précédent, toujours en attente : on l'attend au lieu d'en demander un autre
-    const pending = run.pending.find((p) => p.name === tunnelName(server))
+    const pending = run.pending.find((p) => p.name === name)
     const created =
       pending ??
       (await withRetry(() =>
         call<{ id: string }>(
           '/tunnels/create',
           {
-            name: tunnelName(server),
-            tunnel_type: 'minecraft-java',
-            port_type: 'tcp',
+            name,
+            tunnel_type: TUNNEL_TYPES[kind],
+            port_type: kind === 'bedrock' ? 'udp' : 'tcp',
             port_count: 1,
-            origin: { type: 'agent', data: { agent_id: run.agent_id, local_ip: '127.0.0.1', local_port: server.port } },
+            origin: { type: 'agent', data: { agent_id: run.agent_id, local_ip: '127.0.0.1', local_port: localPort } },
             enabled: true,
             alloc: null,
             firewall_id: null,
@@ -202,7 +221,15 @@ export async function ensureTunnel(server: ServerInfo): Promise<TunnelAddress> {
     }
   }
   const domain = tunnel.custom_domain ?? tunnel.assigned_domain
-  return { address: domain, fallback: await fallbackAddress(tunnel.assigned_domain, tunnel.port.from) }
+  const fallback = await fallbackAddress(tunnel.assigned_domain, tunnel.port.from)
+  if (kind === 'bedrock') {
+    // Le jeton n'est que dans la liste des tunnels du compte ; les joueurs Bedrock tapent le nom du tunnel et le port 19132
+    const list = await call<{ tunnels: { id: string; nethernet_token: string | null }[] }>('/tunnels/list', {}, secret)
+    const token = list.tunnels.find((t) => t.id === tunnel!.id)?.nethernet_token
+    if (!token) throw new Error(tm('err.playitTunnelTimeout', { n: run.tunnels.length }))
+    return { address: tunnel.assigned_domain, fallback, nethernetToken: token }
+  }
+  return { address: domain, fallback }
 }
 
 /** Places du compte gratuit de playit.gg (le 5e tunnel reste en attente pour toujours) */
@@ -223,18 +250,19 @@ export async function playitUsage(): Promise<PlayitUsage> {
     linked: true,
     used: run.tunnels.length,
     max: PLAYIT_FREE_TUNNELS,
-    serverIds: names.filter((n) => n.startsWith('aloria-')).map((n) => n.slice('aloria-'.length))
+    serverIds: [...new Set(names.filter((n) => n.startsWith('aloria-')).map((n) => n.slice('aloria-'.length).replace(/-bedrock$/, '')))]
   }
 }
 
-/** Supprime le tunnel d'un serveur supprimé (sans erreur si playit n'est pas relié ou injoignable) */
-export async function deleteTunnel(server: ServerInfo): Promise<void> {
+/** Supprime les tunnels d'un serveur supprimé, ou seulement ceux indiqués (sans erreur si playit n'est pas relié ou injoignable) */
+export async function deleteTunnel(server: ServerInfo, only?: TunnelKind[]): Promise<void> {
   const secret = config()?.secretKey
   if (!secret) return
   try {
     const run = await call<RunData>('/agents/rundata', {}, secret)
     // Le tunnel actif, et les demandes encore en attente (compte plein)
-    const ids = [...run.tunnels, ...run.pending].filter((t) => t.name === tunnelName(server)).map((t) => t.id)
+    const names = (only ?? (Object.keys(SUFFIXES) as TunnelKind[])).map((kind) => tunnelName(server, kind))
+    const ids = [...run.tunnels, ...run.pending].filter((t) => names.includes(t.name ?? '')).map((t) => t.id)
     for (const id of ids) await call('/tunnels/delete', { tunnel_id: id }, secret)
   } catch {
     // Le tunnel restera visible sur le site de playit, où on peut le supprimer à la main
