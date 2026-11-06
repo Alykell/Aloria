@@ -238,8 +238,10 @@ public abstract class AloriaScreen extends Screen {
 		g.text(font, text, x, y, color, shadow);
 	}
 
+	/** Texte centré, sans ombre (l'ombre dédoublait le texte foncé posé sur les couleurs d'accent) */
 	protected void centered(GuiGraphicsExtractor g, String text, int x, int y, int color) {
-		g.centeredText(font, Fonts.text(Fonts.menu(), text), x, y, color);
+		var c = Fonts.text(Fonts.menu(), text);
+		g.text(font, c, x - font.width(c) / 2, y, color, false);
 	}
 
 	protected int w(String text) {
