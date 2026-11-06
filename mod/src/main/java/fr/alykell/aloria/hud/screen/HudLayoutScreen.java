@@ -91,19 +91,79 @@ public class HudLayoutScreen extends AloriaScreen {
 			String name = hovered.name();
 			int tw = w(name) + 8;
 			int ty = b.y() > 16 ? b.y() - 15 : b.y() + b.height() + 4;
-			round(g, b.x() - 2, ty, tw, 12, Theme.WINDOW);
+			round(g, b.x() - 2, ty, tw, 12, Theme.UI_PANEL);
 			text(g, name, b.x() + 2, ty + 2, Theme.LAGOON, false);
 		}
+
+		if (selected != null && placed(selected) && dragging == null && selected.fixedAnchor() == null) drawAnchor(g, mouseX, mouseY, selected);
 
 		// Barre d'outils en bas au centre, au-dessus de la barre d'objets (les modules sont rarement là)
 		String hint = Tr.tr("layout.hint");
 		int barW = w(hint) + 24 + 70;
 		int bx = (width - barW) / 2;
 		int by = height - 70;
-		round(g, bx, by, barW, 22, Theme.WINDOW);
-		roundOutline(g, bx, by, barW, 22, Theme.BORDER);
-		text(g, hint, bx + 10, by + 7, Theme.FOAM, false);
+		round(g, bx, by, barW, 22, Theme.UI_PANEL);
+		roundOutline(g, bx, by, barW, 22, Theme.UI_LINE);
+		text(g, hint, bx + 10, by + 7, Theme.UI_TEXT, false);
 		button(g, mouseX, mouseY, bx + barW - 68, by + 2, 64, 18, Tr.tr("layout.done"), true, this::onClose);
+	}
+
+	/** Les neuf points autour du module choisi : le losange rouge est le côté d'où il s'agrandit */
+	private void drawAnchor(GuiGraphicsExtractor g, int mouseX, int mouseY, HudModule module) {
+		ModuleSettings s = settings(module);
+		Bounds b = bounds(module);
+		String active = s.effectiveAnchor();
+		boolean auto = ModuleSettings.AUTO.equals(s.anchor);
+		int bx = b.x() - 2;
+		int by = b.y() - 2;
+		int bw = b.width() + 4;
+		int bh = b.height() + 4;
+		for (String a : ModuleSettings.ANCHORS) {
+			int px = bx + Math.round(ModuleSettings.fx(a) * (bw - 1));
+			int py = by + Math.round(ModuleSettings.fy(a) * (bh - 1));
+			boolean hover = hovered(mouseX, mouseY, px - 4, py - 4, 9, 9);
+			if (a.equals(active)) diamond(g, px, py, 4, auto ? 0xFFFF9AA4 : Theme.CAT_PVP);
+			else {
+				g.fill(px - 2, py - 2, px + 3, py + 3, 0xC0000000);
+				g.fill(px - 1, py - 1, px + 2, py + 2, hover ? Theme.CAT_PVP : Theme.WHITE);
+			}
+			onClick("anchor:" + a, px - 4, py - 4, 9, 9, () -> {
+				Bounds now = bounds(module);
+				s.setAnchor(a, now.x(), now.y(), now.width(), now.height(), width, height);
+			});
+		}
+
+		// Bandeau : de quel côté il grandit, et retour à l'automatique
+		String h = Tr.tr(active.charAt(1) == 'l' ? "layout.grow.right" : active.charAt(1) == 'r' ? "layout.grow.left" : "layout.grow.sides");
+		String v = Tr.tr(active.charAt(0) == 't' ? "layout.grow.down" : active.charAt(0) == 'b' ? "layout.grow.up" : "layout.grow.both");
+		String info = module.name() + " · " + Tr.tr("layout.grows", h, v) + (auto ? " " + Tr.tr("layout.autoTag") : "");
+		String autoLabel = Tr.tr("layout.auto");
+		int aw = w(autoLabel) + 14;
+		int barW = w(info) + 24 + aw;
+		int x0 = (width - barW) / 2;
+		int y0 = height - 96;
+		round(g, x0, y0, barW, 20, Theme.UI_PANEL);
+		roundOutline(g, x0, y0, barW, 20, Theme.UI_LINE);
+		text(g, info, x0 + 8, y0 + 6, Theme.UI_TEXT, false);
+		int saved = accent;
+		accent = Theme.CAT_PVP;
+		buttonWithId("anchor:auto", g, mouseX, mouseY, x0 + barW - aw - 3, y0 + 2, aw, 16, autoLabel, auto, () -> {
+			Bounds now = bounds(module);
+			s.setAnchor(ModuleSettings.AUTO, now.x(), now.y(), now.width(), now.height(), width, height);
+		});
+		accent = saved;
+	}
+
+	/** Losange plein centré sur (x, y) */
+	private static void diamond(GuiGraphicsExtractor g, int x, int y, int r, int color) {
+		for (int i = -r; i <= r; i++) {
+			int half = r - Math.abs(i);
+			g.fill(x - half - 1, y + i - 1, x + half + 2, y + i + 2, 0xC0000000);
+		}
+		for (int i = -r; i <= r; i++) {
+			int half = r - Math.abs(i);
+			g.fill(x - half, y + i, x + half + 1, y + i + 1, color);
+		}
 	}
 
 	@Override
@@ -143,8 +203,8 @@ public class HudLayoutScreen extends AloriaScreen {
 	private void move(HudModule module, int x, int y, Bounds b) {
 		ModuleSettings s = settings(module);
 		int left = Mth.clamp(x, 0, Math.max(0, width - b.width()));
-		s.x = (float) (module.centered() ? left + b.width() / 2.0 : left) / width;
-		s.y = (float) Mth.clamp(y, 0, Math.max(0, height - b.height())) / height;
+		int top = Mth.clamp(y, 0, Math.max(0, height - b.height()));
+		s.place(left, top, b.width(), b.height(), width, height);
 	}
 
 	private int snapX(int x, int w) {

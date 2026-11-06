@@ -47,6 +47,21 @@ public abstract class HudModule {
 		return true;
 	}
 
+	/** Point d'ancrage imposé (éléments du jeu), ou null : au choix du joueur */
+	public @org.jspecify.annotations.Nullable String fixedAnchor() {
+		return null;
+	}
+
+	/** Faux pour un élément du jeu : seule sa taille se règle (pas de police, fond, couleurs) */
+	public boolean styled() {
+		return true;
+	}
+
+	/** Place habituelle du point d'ancrage d'un élément du jeu (pixels de l'interface), ou null */
+	public float @org.jspecify.annotations.Nullable [] naturalAnchor(int screenW, int screenH) {
+		return null;
+	}
+
 	/** Vrai si la position enregistrée est le centre horizontal du module (largeur variable, ex. bloc visé) */
 	public boolean centered() {
 		return false;

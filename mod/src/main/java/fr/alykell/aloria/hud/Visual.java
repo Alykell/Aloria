@@ -31,6 +31,9 @@ public final class Visual {
 	private Visual() {
 	}
 
+	/** Décalage vers le bas des flammes du pack « Feu bas » */
+	public static final float LOW_FIRE_OFFSET = 0.3f;
+
 	public static VisualSettings settings() {
 		return AloriaHud.config().visual();
 	}

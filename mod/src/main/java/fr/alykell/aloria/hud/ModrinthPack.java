@@ -23,31 +23,80 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
+
+import org.jspecify.annotations.Nullable;
 
 /**
- * Pack de textures Modrinth activable en un clic depuis l'écran Visuel (onglet Autres), sans relancer le jeu :
+ * Pack de textures Modrinth activable depuis la page « Packs de ressources » du menu, sans relancer le jeu :
  * téléchargé dans resourcepacks/ dans sa version pour ce jeu. L'interrupteur suit l'état réel du jeu (le pack peut
  * aussi être retiré dans le menu des packs).
  */
 public final class ModrinthPack {
 	/** Redstone Tweaks : sens et état des blocs de redstone visibles */
-	public static final ModrinthPack REDSTONE = new ModrinthPack("redstone-tweaks", "Redstone Tweaks ");
+	public static final ModrinthPack REDSTONE = new ModrinthPack("redstone-tweaks", "Redstone Tweaks ", "redstone", 0xFFD82020);
 	/** Enchant Icons : icône et couleur devant chaque enchantement (texte des objets), dans toutes les langues */
-	public static final ModrinthPack ENCHANT_ICONS = new ModrinthPack("enchant-icons-countxd", "Enchant Icons ");
+	public static final ModrinthPack ENCHANT_ICONS = new ModrinthPack("enchant-icons-countxd", "Enchant Icons ", "enchantIcons", 0xFFA070FF);
 	/** NoBlockRotations : herbe, terre, sable, pierre… toujours dans le même sens (rotation aléatoire des textures retirée) */
-	public static final ModrinthPack NO_ROTATION = new ModrinthPack("noblockrotations", "NoBlockRotations ");
+	public static final ModrinthPack NO_ROTATION = new ModrinthPack("noblockrotations", "NoBlockRotations ", "noRotation", 0xFF7FB24F);
+
+	/** Feu bas : fait par Aloria, en code (les flammes à l'écran descendent), sans rechargement des ressources */
+	public static final ModrinthPack LOW_FIRE = new ModrinthPack(null, "", "lowFire", 0xFFFF8A1F, null,
+		() -> Visual.settings().lowFire, on -> Visual.settings().lowFire = on);
+	/** Sans particules d'explosion : fait par Aloria, écrit dans resourcepacks/ (textures d'explosion transparentes) */
+	public static final ModrinthPack NO_EXPLOSION = new ModrinthPack(null, "Aloria Sans explosions", "noExplosion", 0xFFB8B8C8,
+		AloriaPacks::writeNoExplosion, null, null);
+
+	/** Tous les packs proposés, dans l'ordre de la page « Packs de ressources » */
+	public static final List<ModrinthPack> ALL = List.of(REDSTONE, ENCHANT_ICONS, NO_ROTATION, LOW_FIRE, NO_EXPLOSION);
+
+	/** Pack fait par Aloria : écrit en zip au lieu d'être téléchargé */
+	public interface Generator {
+		void write(Path zip) throws IOException;
+	}
 
 	public enum Status { IDLE, DOWNLOADING, FAILED, UNAVAILABLE }
 
 	private final String project;
 	/** Début du nom des fichiers téléchargés : sert à reconnaître le pack parmi ceux du jeu */
 	private final String filePrefix;
+	/** Identifiant court (zones cliquables, textes « visual.<id> » et « visual.<id>Hint ») */
+	public final String id;
+	/** Couleur de la vignette dans la liste */
+	public final int color;
 	private volatile Status status = Status.IDLE;
 
-	private ModrinthPack(String project, String filePrefix) {
+	private final @Nullable Generator generator;
+	/** Pack « en code » (pas de fichier) : état lu et changé dans les réglages */
+	private final @Nullable BooleanSupplier codeActive;
+	private final @Nullable Consumer<Boolean> codeSet;
+
+	private ModrinthPack(String project, String filePrefix, String id, int color) {
+		this(project, filePrefix, id, color, null, null, null);
+	}
+
+	private ModrinthPack(@Nullable String project, String filePrefix, String id, int color, @Nullable Generator generator,
+		@Nullable BooleanSupplier codeActive, @Nullable Consumer<Boolean> codeSet) {
 		this.project = project;
 		this.filePrefix = filePrefix;
+		this.id = id;
+		this.color = color;
+		this.generator = generator;
+		this.codeActive = codeActive;
+		this.codeSet = codeSet;
+	}
+
+	/** Fait par Aloria (pas un pack Modrinth) */
+	public boolean aloria() {
+		return project == null;
+	}
+
+	public String project() {
+		return project;
 	}
 
 	public Status status() {
@@ -56,11 +105,16 @@ public final class ModrinthPack {
 
 	/** Le pack est activé dans le jeu */
 	public boolean active() {
+		if (codeActive != null) return codeActive.getAsBoolean();
 		return !selectedIds(Minecraft.getInstance().getResourcePackRepository()).isEmpty();
 	}
 
 	public void toggle() {
 		if (status == Status.DOWNLOADING) return;
+		if (codeSet != null) {
+			codeSet.accept(!active());
+			return;
+		}
 		if (active()) disable();
 		else enable();
 	}
@@ -111,8 +165,71 @@ public final class ModrinthPack {
 		thread.start();
 	}
 
+	/**
+	 * Applique plusieurs changements d'un coup : télécharge ce qu'il faut, puis active et retire les packs
+	 * et ne recharge les ressources du jeu qu'une fois (au lieu d'une fois par pack).
+	 */
+	public static void applyAll(Map<ModrinthPack, Boolean> wanted) {
+		Map<ModrinthPack, Boolean> changes = new LinkedHashMap<>();
+		wanted.forEach((pack, on) -> {
+			if (pack.status == Status.DOWNLOADING || on == pack.active()) return;
+			// Pack en code : appliqué tout de suite, rien à recharger
+			if (pack.codeSet != null) pack.codeSet.accept(on);
+			else changes.put(pack, on);
+		});
+		if (changes.isEmpty()) return;
+		changes.forEach((pack, on) -> {
+			if (on) pack.status = Status.DOWNLOADING;
+		});
+		Thread thread = new Thread(() -> {
+			Map<ModrinthPack, String> files = new LinkedHashMap<>();
+			changes.forEach((pack, on) -> {
+				if (!on) return;
+				try {
+					String fileName = pack.download();
+					if (fileName == null) pack.status = Status.UNAVAILABLE;
+					else files.put(pack, fileName);
+				} catch (IOException | InterruptedException | RuntimeException e) {
+					AloriaHud.LOGGER.warn("Téléchargement du pack {} impossible", pack.project, e);
+					pack.status = Status.FAILED;
+				}
+			});
+			Minecraft mc = Minecraft.getInstance();
+			mc.execute(() -> {
+				PackRepository repository = mc.getResourcePackRepository();
+				if (!files.isEmpty()) repository.reload();
+				changes.forEach((pack, on) -> {
+					if (!on) {
+						for (String id : pack.selectedIds(repository)) repository.removePack(id);
+						pack.status = Status.IDLE;
+					}
+				});
+				files.forEach((pack, fileName) -> {
+					if (repository.addPack("file/" + fileName)) pack.status = Status.IDLE;
+					else {
+						AloriaHud.LOGGER.warn("Pack {} introuvable après téléchargement", fileName);
+						pack.status = Status.FAILED;
+					}
+				});
+				mc.options.updateResourcePacks(repository);
+			});
+		}, "Aloria HUD - packs");
+		thread.setDaemon(true);
+		thread.start();
+	}
+
 	/** Télécharge la version du pack faite pour ce jeu (si elle n'est pas déjà là) ; null si Modrinth n'en a pas */
 	private String download() throws IOException, InterruptedException {
+		if (generator != null) {
+			// Pack d'Aloria : réécrit à chaque activation (quelques Ko), toujours à jour
+			Path packs = Minecraft.getInstance().gameDirectory.toPath().resolve("resourcepacks");
+			Files.createDirectories(packs);
+			String fileName = filePrefix + ".zip";
+			Path temp = packs.resolve(fileName + ".part");
+			generator.write(temp);
+			Files.move(temp, packs.resolve(fileName), StandardCopyOption.REPLACE_EXISTING);
+			return fileName;
+		}
 		String game = FabricLoader.getInstance().getModContainer("minecraft")
 			.map(c -> c.getMetadata().getVersion().getFriendlyString()).orElseThrow();
 		HttpClient http = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).connectTimeout(Duration.ofSeconds(10)).build();

@@ -2,7 +2,6 @@ package fr.alykell.aloria.hud.screen;
 
 import fr.alykell.aloria.hud.AloriaHud;
 import fr.alykell.aloria.hud.G;
-import fr.alykell.aloria.hud.ModrinthPack;
 import fr.alykell.aloria.hud.Theme;
 import fr.alykell.aloria.hud.Tr;
 import fr.alykell.aloria.hud.Visual;
@@ -13,12 +12,12 @@ import net.minecraft.client.gui.screen.Screen;
 import java.util.Locale;
 
 /**
- * Écran Visuel de la 1.8.9 : main tenue, luminosité, blocs sans rotation et brouillard (mêmes réglages que le mod moderne, sans seconde
- * main, bouclier, totem ni neige poudreuse, absents de cette version).
+ * Réglages d'un module de la catégorie Rendu en 1.8.9 : main tenue ou brouillard (mêmes réglages que le mod moderne, sans seconde
+ * main, bouclier, totem ni neige poudreuse, absents de cette version), ouverts depuis le menu.
  * Petit panneau en haut de l'écran, sans assombrir le jeu, pour voir chaque réglage en direct.
  */
 public class VisualScreen extends AloriaScreen {
-	private static final String[][] TABS = {{"hands", "visual.tab.hands"}, {"light", "visual.tab.light"}, {"fog", "visual.tab.fog"}};
+	private static final String[][] TABS = {{"hands", "visual.tab.hands"}, {"fog", "visual.tab.fog"}};
 	private static final int PAD = 8;
 	private static final int ROW_H = 15;
 	private static final int LABEL_W = 80;
@@ -30,8 +29,18 @@ public class VisualScreen extends AloriaScreen {
 
 	private String tab = "hands";
 
-	public VisualScreen(Screen parent) {
+	public VisualScreen(Screen parent, String section) {
 		super(parent);
+		this.tab = section;
+		this.accent = Theme.CAT_RENDER;
+	}
+
+	/** Nom de la partie ouverte (titre du panneau) */
+	public static String sectionName(String section) {
+		for (String[] t : TABS) {
+			if (t[0].equals(section)) return Tr.tr(t[1]);
+		}
+		return section;
 	}
 
 	/** Pour l'auto-test */
@@ -45,7 +54,6 @@ public class VisualScreen extends AloriaScreen {
 
 	private int rows() {
 		if (tab.equals("hands")) return 5;
-		if (tab.equals("light")) return 6;
 		return 5;
 	}
 
@@ -61,29 +69,21 @@ public class VisualScreen extends AloriaScreen {
 		int x = (width - w) / 2;
 		int y = 4;
 		int h = PAD + 16 + 8 + rows() * ROW_H + PAD - 2;
-		round(g, x, y, w, h, Theme.WINDOW);
-		roundOutline(g, x, y, w, h, Theme.BORDER);
+		round(g, x, y, w, h, Theme.UI_PANEL);
+		roundOutline(g, x, y, w, h, Theme.UI_LINE);
 
-		button(g, mouseX, mouseY, x + w - PAD - 16, y + PAD, 16, 16, "✕", false, this::onClose);
-
-		// Onglets
+		// Retour au menu, nom du module (pastille violette de la catégorie Rendu) et fermeture
 		int tx = x + PAD;
 		int ty = y + PAD;
-		for (String[] t : TABS) {
-			String name = Tr.tr(t[1]);
-			int tw = w(name) + 10;
-			boolean active = tab.equals(t[0]);
-			boolean hover = hovered(mouseX, mouseY, tx, ty, tw, 16);
-			round(g, tx, ty, tw, 16, active ? Theme.SEA : hover ? Theme.CARD_HOVER : Theme.CARD);
-			centered(g, name, tx + tw / 2, ty + 4, active ? Theme.WHITE : Theme.FOAM);
-			final String id = t[0];
-			onClick("vtab:" + id, tx, ty, tw, 16, () -> tab = id);
-			tx += tw + 3;
-		}
+		String back = Tr.tr("menu.back");
+		int backW = w(back) + 12;
+		buttonWithId("visual:back", g, mouseX, mouseY, tx, ty, backW, 16, back, false, this::onClose);
+		round(g, tx + backW + 8, ty + 5, 6, 6, Theme.CAT_RENDER);
+		text(g, bold(sectionName(tab)), tx + backW + 18, ty + 4, Theme.WHITE, false);
+		button(g, mouseX, mouseY, x + w - PAD - 16, y + PAD, 16, 16, "✕", false, () -> client.setScreen(null));
 
 		int oy = ty + 16 + 8;
 		if (tab.equals("hands")) drawHand(g, mouseX, mouseY, x, oy, w);
-		else if (tab.equals("light")) drawLight(g, x, oy, w);
 		else drawFog(g, mouseX, mouseY, x, oy, w);
 	}
 
@@ -92,14 +92,14 @@ public class VisualScreen extends AloriaScreen {
 	/** Ligne « libellé, curseur, valeur » ; la valeur est arrondie au pas donné */
 	private void sliderRow(G g, int mouseX, int mouseY, String id, String label, int x, int y, int w,
 		float value, final float min, final float max, final float step, String display, final FloatSetter set) {
-		text(g, label, x + PAD, y + 2, Theme.FOAM, false);
+		text(g, label, x + PAD, y + 2, Theme.UI_TEXT, false);
 		int sx = x + PAD + LABEL_W;
 		int sw = w - PAD * 2 - LABEL_W - 44;
 		slider(g, mouseX, mouseY, id, sx, y, sw, (value - min) / (max - min), t -> {
 			float raw = min + t * (max - min);
 			set.accept(Math.round(raw / step) * step);
 		});
-		text(g, display, x + w - PAD - 38, y + 2, Theme.LAGOON, false);
+		text(g, display, x + w - PAD - 38, y + 2, Theme.CAT_RENDER, false);
 	}
 
 	private static String signed(float value) {
@@ -125,35 +125,6 @@ public class VisualScreen extends AloriaScreen {
 		y += ROW_H;
 		String label = Tr.tr("menu.reset");
 		buttonWithId("main:reset", g, mouseX, mouseY, x + PAD, y, w(label) + 16, 13, label, false, () -> v().mainHand = new HandTransform());
-	}
-
-	private void drawLight(G g, int x, int y, int w) {
-		text(g, Tr.tr("visual.fullbright"), x + PAD, y + 2, Theme.FOAM, false);
-		toggle("fullbright", g, x + w - PAD - 24, y + 1, v().fullbright, () -> v().fullbright = !v().fullbright);
-		y += ROW_H;
-		text(g, Tr.tr("visual.fullbrightHint"), x + PAD, y + 2, Theme.TEXT_SOFT, false);
-		y += ROW_H;
-		text(g, Tr.tr("visual.hidePumpkin"), x + PAD, y + 2, Theme.FOAM, false);
-		toggle("hidePumpkin", g, x + w - PAD - 24, y + 1, v().hidePumpkin, () -> v().hidePumpkin = !v().hidePumpkin);
-		y += ROW_H;
-		text(g, Tr.tr("visual.hidePumpkinHint"), x + PAD, y + 2, Theme.TEXT_SOFT, false);
-		y += ROW_H;
-		packRow(g, x, y, w, ModrinthPack.NO_ROTATION, "noRotationPack", "visual.noRotation", "visual.noRotationHint");
-	}
-
-	/** Pack Modrinth en un clic : nom et interrupteur, puis l'explication ou l'état du téléchargement */
-	private void packRow(G g, int x, int y, int w, ModrinthPack pack, String id, String label, String hintKey) {
-		text(g, Tr.tr(label), x + PAD, y + 2, Theme.FOAM, false);
-		toggle(id, g, x + w - PAD - 24, y + 1, pack.active(), pack::toggle);
-		y += ROW_H;
-		String hint;
-		switch (pack.status()) {
-			case DOWNLOADING: hint = Tr.tr("visual.redstone.downloading"); break;
-			case FAILED: hint = Tr.tr("visual.redstone.failed"); break;
-			case UNAVAILABLE: hint = Tr.tr("visual.redstone.unavailable"); break;
-			default: hint = Tr.tr(hintKey);
-		}
-		text(g, hint, x + PAD, y + 2, pack.status() == ModrinthPack.Status.FAILED ? Theme.CORAL : Theme.TEXT_SOFT, false);
 	}
 
 	private void drawFog(G g, int mouseX, int mouseY, int x, int y, int w) {

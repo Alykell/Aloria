@@ -40,11 +40,25 @@ public final class HudRenderer {
 	public static Bounds bounds(MinecraftClient mc, G g, HudModule module, ModuleSettings s, int screenW, int screenH, boolean preview) {
 		int w = Math.round(module.width(mc, g, s, preview) * s.scale);
 		int h = Math.round(module.height(mc, g, s, preview) * s.scale);
-		// La position est gardée en fraction de l'écran, et le module reste toujours visible
-		int left = Math.round(s.x * screenW) - (module.centered() ? w / 2 : 0);
-		int x = Draw.clamp(left, MARGIN, Math.max(MARGIN, screenW - w - MARGIN));
-		int y = Draw.clamp(Math.round(s.y * screenH), MARGIN, Math.max(MARGIN, screenH - h - MARGIN));
+		// La position (point d'ancrage) est gardée en fraction de l'écran, et le module reste toujours visible
+		placeGameElement(module, s, screenW, screenH);
+		s.migrate(module.centered(), w, h, screenW, screenH);
+		int x = Draw.clamp(s.left(w, screenW), MARGIN, Math.max(MARGIN, screenW - w - MARGIN));
+		int y = Draw.clamp(s.top(h, screenH), MARGIN, Math.max(MARGIN, screenH - h - MARGIN));
 		return new Bounds(x, y, w, h);
+	}
+
+	/** Élément du jeu : point d'ancrage imposé, et place habituelle tant que le joueur ne l'a pas déplacé */
+	public static void placeGameElement(HudModule module, ModuleSettings s, int screenW, int screenH) {
+		String fixed = module.fixedAnchor();
+		if (fixed == null) return;
+		s.anchor = fixed;
+		float[] natural = module.naturalAnchor(screenW, screenH);
+		if (natural != null && (s.x < 0 || s.y < 0) && screenW > 0 && screenH > 0) {
+			s.x = natural[0] / screenW;
+			s.y = natural[1] / screenH;
+			s.anchored = true;
+		}
 	}
 
 	public static void drawModule(G g, MinecraftClient mc, HudModule module, ModuleSettings s, Bounds b, boolean preview) {

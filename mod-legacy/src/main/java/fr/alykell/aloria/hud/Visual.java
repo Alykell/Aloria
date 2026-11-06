@@ -30,6 +30,19 @@ public final class Visual {
 	// ---------------------------------------------------------------- main tenue
 
 	/** Appelé juste après la mise en place du dessin de la main (et de l'objet tenu) en vue à la première personne */
+	/** Décalage vers le bas des flammes du pack « Feu bas » */
+	public static final float LOW_FIRE_OFFSET = 0.3f;
+
+	/** Avant les flammes à l'écran (joueur en feu) : descendues avec le pack « Feu bas » */
+	public static void beginFire() {
+		GlStateManager.pushMatrix();
+		if (settings().lowFire) GlStateManager.translate(0.0F, -LOW_FIRE_OFFSET, 0.0F);
+	}
+
+	public static void endFire() {
+		GlStateManager.popMatrix();
+	}
+
 	public static void transformHand() {
 		HandTransform t = settings().mainHand;
 		if (t.isNeutral()) return;

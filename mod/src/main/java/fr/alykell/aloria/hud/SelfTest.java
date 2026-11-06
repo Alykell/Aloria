@@ -264,9 +264,9 @@ public final class SelfTest {
 			check("le clic ouvre le menu des modules", mc.gui.screen() instanceof HudMenuScreen);
 			return screenshot(mc, "03-menu-modules");
 		});
+		add("onglet PvP", 2, () -> click(mc, "tab:pvp"));
 		add("activer CPS depuis sa carte", 5, () -> click(mc, "toggle:cps"));
 		add("CPS activé", 3, () -> check("le bouton Activé de la carte CPS fonctionne", settings("cps").enabled));
-		add("onglet PvP", 2, () -> click(mc, "tab:pvp"));
 		add("capture onglet PvP", 5, () -> screenshot(mc, "04-onglet-pvp"));
 		add("onglet Tous", 2, () -> click(mc, "tab:all"));
 		add("ouvrir les réglages de FPS", 3, () -> click(mc, "gear:fps"));
@@ -389,6 +389,28 @@ public final class SelfTest {
 			check("le glisser-déposer déplace le module (x=" + s.x + ", y=" + s.y + ")", s.x < 0.5f && s.y > 0.05f);
 			return screenshot(mc, "07-apres-glisser");
 		});
+		add("ancrage automatique", 2, () -> {
+			ModuleSettings s = settings("fps");
+			int sw = mc.getWindow().getGuiScaledWidth();
+			int sh = mc.getWindow().getGuiScaledHeight();
+			var b = HudRenderer.bounds(mc, AloriaHud.modules().get(0), s, sw, sh, true);
+			String expected = ModuleSettings.autoFor(b.x() + b.width() / 2f, b.y() + b.height() / 2f, sw, sh);
+			return check("l'ancrage automatique suit la place à l'écran (" + s.anchor + " / " + s.autoAnchor + ", attendu " + expected + ")",
+				ModuleSettings.AUTO.equals(s.anchor) && expected.equals(s.effectiveAnchor()));
+		});
+		add("choisir un point d'ancrage", 3, () -> {
+			anchorBefore = HudRenderer.bounds(mc, AloriaHud.modules().get(0), settings("fps"), mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight(), true);
+			return click(mc, "anchor:br");
+		});
+		add("point d'ancrage choisi", 3, () -> {
+			ModuleSettings s = settings("fps");
+			var b = HudRenderer.bounds(mc, AloriaHud.modules().get(0), s, mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight(), true);
+			check("le point en bas à droite est choisi (" + s.anchor + ")", "br".equals(s.anchor));
+			check("changer de point ne déplace pas le module", anchorBefore != null && b.x() == anchorBefore.x() && b.y() == anchorBefore.y());
+			return screenshot(mc, "07b-point-ancrage");
+		});
+		add("ancrage remis en automatique", 3, () -> click(mc, "anchor:auto"));
+		add("ancrage automatique (retour)", 2, () -> check("« Automatique » remet l'ancrage auto", ModuleSettings.AUTO.equals(settings("fps").anchor)));
 		add("terminer la disposition", 2, () -> click(mc, "btn:" + Tr.tr("layout.done")));
 		add("retour au menu", 3, () -> check("Terminé ramène au menu des modules", mc.gui.screen() instanceof HudMenuScreen));
 		add("fermer", 2, () -> click(mc, "btn:✕"));
@@ -604,14 +626,61 @@ public final class SelfTest {
 	/** Blocs remplacés par de l'eau pour le test du brouillard, remis en place ensuite */
 	private static final java.util.Map<net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState> REPLACED = new java.util.HashMap<>();
 
+	/** Ouvre directement les réglages d'un module de rendu (panneau compact) */
+	private static boolean openVisual(Minecraft mc, String section) {
+		mc.gui.setScreen(new fr.alykell.aloria.hud.screen.VisualScreen(new HudMenuScreen(null).category("render"), section));
+		return true;
+	}
+
+	/** Ouvre le menu sur une catégorie, clique une zone puis referme le menu (pour voir le jeu sur la capture) */
+	private static void addMenuClick(Minecraft mc, String name, String category, String id) {
+		add(name + " (menu)", 2, () -> {
+			mc.gui.setScreen(new HudMenuScreen(null).category(category));
+			return true;
+		});
+		add(name, 3, () -> click(mc, id));
+		add(name + " (fermer)", 2, () -> {
+			mc.gui.setScreen(null);
+			return true;
+		});
+	}
+
+	private static boolean packsCaptured;
+	private static HudRenderer.Bounds anchorBefore;
+
+	/** Coche ou décoche un pack dans la page des packs, applique, puis referme le menu */
+	private static void addPackSteps(Minecraft mc, String name, String pack) {
+		add(name + " (menu)", 2, () -> {
+			mc.gui.setScreen(new HudMenuScreen(null).category("packs"));
+			return true;
+		});
+		add(name + " (case)", 3, () -> {
+			if (click(mc, "pack:" + pack)) return true;
+			// Pack plus bas dans la liste : on la fait défiler jusqu'à lui
+			if (mc.gui.screen() instanceof HudMenuScreen menu) menu.mouseScrolled(0, 0, 0, -1);
+			return false;
+		});
+		if (!packsCaptured) {
+			packsCaptured = true;
+			add("capture page des packs", 3, () -> screenshot(mc, "17d2-page-packs"));
+		}
+		add(name, 3, () -> click(mc, "packs:apply"));
+		add(name + " (fermer)", 2, () -> {
+			mc.gui.setScreen(null);
+			return true;
+		});
+	}
+
 	private static void addVisualSteps(Minecraft mc) {
 		add("ouvrir le menu (visuel)", 2, () -> {
 			mc.gui.setScreen(new HudMenuScreen(null));
 			return true;
 		});
-		add("bouton Visuel", 3, () -> click(mc, "btn:" + Tr.tr("menu.visual")));
+		add("catégorie Rendu", 2, () -> click(mc, "tab:render"));
+		add("capture catégorie Rendu", 3, () -> screenshot(mc, "12b-categorie-rendu"));
+		add("carte Mains", 3, () -> click(mc, "gear:hands"));
 		add("écran Visuel", 3, () -> {
-			check("le bouton Visuel ouvre l'écran Visuel", mc.gui.screen() instanceof fr.alykell.aloria.hud.screen.VisualScreen);
+			check("la carte Mains ouvre ses réglages", mc.gui.screen() instanceof fr.alykell.aloria.hud.screen.VisualScreen);
 			// Épée en main, bouclier dans l'autre : on voit les deux réglages
 			command(mc, "item replace entity @a weapon.mainhand with minecraft:diamond_sword");
 			command(mc, "item replace entity @a weapon.offhand with minecraft:shield");
@@ -628,7 +697,7 @@ public final class SelfTest {
 			return clickAt(mc, c[0] - 25, c[1]);
 		});
 		add("main réduite", 2, () -> check("le curseur Taille réduit la main principale (" + visual().mainHand.scale + ")", visual().mainHand.scale < 1f));
-		add("onglet Bouclier", 2, () -> click(mc, "vtab:shield"));
+		add("réglages du bouclier", 2, () -> openVisual(mc, "shield"));
 		add("bouclier écarté", 2, () -> {
 			visual().shield.side = 0.1f;
 			visual().shield.height = -0.04f;
@@ -637,21 +706,22 @@ public final class SelfTest {
 				new ItemStack(Items.SHIELD)) == visual().shield);
 		});
 		add("capture mains réglées", 10, () -> screenshot(mc, "14-mains-reglees"));
-		add("onglet Totem", 2, () -> click(mc, "vtab:totem"));
+		add("réglages du totem", 2, () -> openVisual(mc, "totem"));
 		add("totem plus petit", 2, () -> {
 			visual().totemScale = 0.4f;
 			return click(mc, "btn:" + Tr.tr("visual.preview"));
 		});
 		add("capture totem", 12, () -> screenshot(mc, "15-totem-reduit"));
-		add("onglet Luminosité", 25, () -> {
+		add("nuit", 25, () -> {
 			command(mc, "time set midnight");
-			return click(mc, "vtab:light");
+			mc.gui.setScreen(null);
+			return true;
 		});
 		add("capture nuit", 10, () -> {
 			mc.player.setXRot(30f);
 			return screenshot(mc, "16-nuit-normale");
 		});
-		add("luminosité max", 2, () -> click(mc, "fullbright"));
+		addMenuClick(mc, "luminosité max", "render", "toggle:fullbright");
 		add("capture luminosité max", 10, () -> {
 			check("l'interrupteur Luminosité max fonctionne", visual().fullbright);
 			return screenshot(mc, "17-nuit-luminosite-max");
@@ -663,7 +733,7 @@ public final class SelfTest {
 			return true;
 		});
 		add("capture citrouille", 15, () -> screenshot(mc, "17b-citrouille"));
-		add("contour de la citrouille caché", 2, () -> click(mc, "hidePumpkin"));
+		addMenuClick(mc, "contour de la citrouille caché", "render", "toggle:pumpkin");
 		add("capture citrouille cachée", 10, () -> {
 			check("l'interrupteur Citrouille fonctionne", visual().hidePumpkin);
 			return screenshot(mc, "17c-citrouille-cachee");
@@ -692,9 +762,12 @@ public final class SelfTest {
 			return true;
 		});
 		// Pack resté actif après un test interrompu : on part sans lui
-		add("pack redstone éteint au départ", 2, () -> !ModrinthPack.REDSTONE.active() || click(mc, "redstonePack"));
+		add("pack redstone éteint au départ", 2, () -> {
+			if (ModrinthPack.REDSTONE.active()) ModrinthPack.applyAll(java.util.Map.of(ModrinthPack.REDSTONE, false));
+			return true;
+		});
 		add("capture redstone (sans pack)", 15, () -> screenshot(mc, "17d-redstone-normal"));
-		add("pack redstone activé", 2, () -> click(mc, "redstonePack"));
+		addPackSteps(mc, "pack redstone activé", "redstone");
 		add("pack redstone téléchargé", 200, () -> {
 			if (ModrinthPack.REDSTONE.status() == ModrinthPack.Status.DOWNLOADING) return false;
 			return check("le pack Redstone Tweaks est téléchargé et activé (" + ModrinthPack.REDSTONE.status() + ")", ModrinthPack.REDSTONE.active());
@@ -703,10 +776,11 @@ public final class SelfTest {
 		add("pack redstone retiré", 2, () -> {
 			REPLACED.forEach((pos, state) -> mc.getSingleplayerServer().execute(() -> mc.getSingleplayerServer().overworld().setBlock(pos, state, 3)));
 			REPLACED.clear();
-			return click(mc, "redstonePack");
+			return true;
 		});
-		add("pack redstone désactivé", 40, () -> check("l'interrupteur retire le pack", !ModrinthPack.REDSTONE.active()));
-		add("pack Enchant Icons activé", 2, () -> click(mc, "enchantIconsPack"));
+		addPackSteps(mc, "pack redstone retiré (menu)", "redstone");
+		add("pack redstone désactivé", 40, () -> check("la case retire le pack", !ModrinthPack.REDSTONE.active()));
+		addPackSteps(mc, "pack Enchant Icons activé", "enchantIcons");
 		add("pack Enchant Icons téléchargé", 200, () -> {
 			ModrinthPack.Status status = ModrinthPack.ENCHANT_ICONS.status();
 			if (status == ModrinthPack.Status.DOWNLOADING) return false;
@@ -715,9 +789,12 @@ public final class SelfTest {
 			return check("le pack Enchant Icons est téléchargé et activé (" + status + ")", ModrinthPack.ENCHANT_ICONS.active());
 		});
 		add("capture Enchant Icons", 40, () -> screenshot(mc, "17f-enchant-icons"));
-		add("pack Enchant Icons retiré", 2, () -> !ModrinthPack.ENCHANT_ICONS.active() || click(mc, "enchantIconsPack"));
-		add("pack Enchant Icons désactivé", 40, () -> check("l'interrupteur retire Enchant Icons", !ModrinthPack.ENCHANT_ICONS.active()));
-		add("pack NoBlockRotations activé", 2, () -> click(mc, "noRotationPack"));
+		add("pack Enchant Icons retiré", 2, () -> {
+			if (ModrinthPack.ENCHANT_ICONS.active()) ModrinthPack.applyAll(java.util.Map.of(ModrinthPack.ENCHANT_ICONS, false));
+			return true;
+		});
+		add("pack Enchant Icons désactivé", 40, () -> check("Enchant Icons retiré", !ModrinthPack.ENCHANT_ICONS.active()));
+		addPackSteps(mc, "pack NoBlockRotations activé", "noRotation");
 		add("pack NoBlockRotations téléchargé", 200, () -> {
 			ModrinthPack.Status status = ModrinthPack.NO_ROTATION.status();
 			if (status == ModrinthPack.Status.DOWNLOADING) return false;
@@ -725,8 +802,100 @@ public final class SelfTest {
 			return check("le pack NoBlockRotations est téléchargé et activé (" + status + ")", ModrinthPack.NO_ROTATION.active());
 		});
 		add("capture NoBlockRotations", 40, () -> screenshot(mc, "17g-no-rotation"));
-		add("pack NoBlockRotations retiré", 2, () -> !ModrinthPack.NO_ROTATION.active() || click(mc, "noRotationPack"));
-		add("pack NoBlockRotations désactivé", 40, () -> check("l'interrupteur retire NoBlockRotations", !ModrinthPack.NO_ROTATION.active()));
+		add("pack NoBlockRotations retiré", 2, () -> {
+			if (ModrinthPack.NO_ROTATION.active()) ModrinthPack.applyAll(java.util.Map.of(ModrinthPack.NO_ROTATION, false));
+			return true;
+		});
+		add("pack NoBlockRotations désactivé", 40, () -> check("NoBlockRotations retiré", !ModrinthPack.NO_ROTATION.active()));
+		// Pack d'Aloria écrit dans resourcepacks/ : textures d'explosion transparentes
+		addPackSteps(mc, "pack Sans explosions activé", "noExplosion");
+		add("pack Sans explosions chargé", 200, () -> {
+			if (ModrinthPack.NO_EXPLOSION.status() == ModrinthPack.Status.DOWNLOADING) return false;
+			boolean file = java.nio.file.Files.isRegularFile(mc.gameDirectory.toPath().resolve("resourcepacks/Aloria Sans explosions.zip"));
+			return check("le pack Sans explosions est écrit et activé (" + ModrinthPack.NO_EXPLOSION.status() + ", fichier " + file + ")",
+				file && ModrinthPack.NO_EXPLOSION.active());
+		});
+		add("pack Sans explosions retiré", 40, () -> {
+			ModrinthPack.applyAll(java.util.Map.of(ModrinthPack.NO_EXPLOSION, false));
+			return true;
+		});
+		add("pack Sans explosions désactivé", 40, () -> check("Sans explosions retiré", !ModrinthPack.NO_EXPLOSION.active()));
+		// Feu bas : pack en code, sans rechargement
+		add("joueur en feu", 2, () -> {
+			mc.gui.setScreen(null);
+			command(mc, "effect give @p minecraft:fire_resistance 60 0 true");
+			var server = mc.getSingleplayerServer();
+			var uuid = mc.player.getUUID();
+			server.execute(() -> {
+				var player = server.getPlayerList().getPlayer(uuid);
+				if (player != null) player.setRemainingFireTicks(400);
+			});
+			return true;
+		});
+		add("capture feu normal", 15, () -> {
+			check("le joueur brûle", mc.player.isOnFire());
+			return screenshot(mc, "17h-feu-normal");
+		});
+		addPackSteps(mc, "feu bas activé", "lowFire");
+		add("capture feu bas", 5, () -> {
+			check("la case Feu bas l'active aussitôt", visual().lowFire && ModrinthPack.LOW_FIRE.active());
+			return screenshot(mc, "17i-feu-bas");
+		});
+		// Éléments du jeu : tableau des scores, chat et barre de boss déplacés et agrandis
+		add("éléments du jeu", 2, () -> {
+			mc.gui.setScreen(null);
+			command(mc, "scoreboard objectives add aloria dummy \"Aloria\"");
+			command(mc, "scoreboard objectives setdisplay sidebar aloria");
+			command(mc, "scoreboard players set Alykell aloria 12");
+			command(mc, "scoreboard players set Royer aloria 9");
+			command(mc, "bossbar add aloria:test \"Test Aloria\"");
+			command(mc, "bossbar set aloria:test players @a");
+			command(mc, "say Bonjour depuis l'auto-test");
+			return true;
+		});
+		add("capture éléments à leur place", 20, () -> screenshot(mc, "20-elements-du-jeu"));
+		add("éléments déplacés", 2, () -> {
+			for (String id : new String[] {"scoreboard", "chat", "bossbar"}) settings(id).enabled = true;
+			ModuleSettings board = settings("scoreboard");
+			board.x = 0.62f;
+			board.y = 0.45f;
+			board.scale = 1.5f;
+			ModuleSettings chat = settings("chat");
+			chat.x = 0.3f;
+			chat.y = 0.55f;
+			chat.scale = 1.3f;
+			ModuleSettings boss = settings("bossbar");
+			boss.x = 0.5f;
+			boss.y = 0.25f;
+			boss.scale = 1.5f;
+			return check("les éléments du jeu ont une transformation", GameElements.transform("scoreboard") != null
+				&& GameElements.transform("chat") != null && GameElements.transform("bossbar") != null);
+		});
+		add("capture éléments déplacés", 5, () -> screenshot(mc, "21-elements-deplaces"));
+		add("disposition des éléments", 2, () -> {
+			mc.gui.setScreen(new HudLayoutScreen(new HudMenuScreen(null)));
+			return true;
+		});
+		add("capture disposition des éléments", 5, () -> screenshot(mc, "22-disposition-elements"));
+		add("éléments remis", 2, () -> {
+			mc.gui.setScreen(null);
+			for (HudModule m : AloriaHud.modules()) {
+				if (m.fixedAnchor() != null) AloriaHud.config().reset(m);
+			}
+			command(mc, "scoreboard objectives remove aloria");
+			command(mc, "bossbar remove aloria:test");
+			return check("à la remise à zéro, les éléments reprennent leur place", GameElements.transform("chat") == null);
+		});
+		add("feu éteint", 2, () -> {
+			visual().lowFire = false;
+			var server = mc.getSingleplayerServer();
+			var uuid = mc.player.getUUID();
+			server.execute(() -> {
+				var player = server.getPlayerList().getPlayer(uuid);
+				if (player != null) player.clearFire();
+			});
+			return true;
+		});
 		add("de l'eau sur la tête", 2, () -> {
 			visual().fullbright = false;
 			command(mc, "time set noon");
@@ -743,7 +912,7 @@ public final class SelfTest {
 					level.setBlock(immutable, net.minecraft.world.level.block.Blocks.WATER.defaultBlockState(), 3);
 				}
 			});
-			return click(mc, "vtab:fog");
+			return openVisual(mc, "fog");
 		});
 		add("capture sous l'eau (normal)", 15, () -> {
 			check("la caméra est sous l'eau", mc.gameRenderer.mainCamera().getFluidInCamera() == net.minecraft.world.level.material.FogType.WATER);

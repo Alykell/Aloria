@@ -27,6 +27,8 @@ public class VisualSettings {
 	public boolean fullbright = false;
 	/** Cacher le contour de la citrouille portée sur la tête */
 	public boolean hidePumpkin = false;
+	/** Pack « Feu bas » : les flammes affichées quand on brûle sont plus basses à l'écran */
+	public boolean lowFire = false;
 	/** Brouillard en pourcentage : 100 = normal, 0 = aucun */
 	public int fogOverworld = 100;
 	public int fogNether = 100;

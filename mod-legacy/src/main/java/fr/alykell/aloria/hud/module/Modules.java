@@ -34,7 +34,10 @@ public final class Modules {
 			new ArmorModule(),
 			new EffectsModule(),
 			new LookModule(),
-			new ExplosionModule()
+			new ExplosionModule(),
+			new GameElementModule.Scoreboard(),
+			new GameElementModule.Chat(),
+			new GameElementModule.BossBars()
 		);
 	}
 

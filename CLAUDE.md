@@ -40,6 +40,17 @@ toujours via `gameDirOf(id)` ; profils de test : `instances/<id>`. En développe
 - 1.21.x obfusqué (plugin `fabric-loom-remap`, noms Mojang au build) : pas de réflexion par nom à l'exécution → invokers mixin.
 - Sources décompilées : `./gradlew genSources -Pminecraft_version=X` (jar `-sources` dans `.gradle/loom-cache/minecraftMaven`).
 
+## Menus d'Aloria HUD (mod/ et mod-legacy, même présentation)
+- `HudMenuScreen` : barre latérale (Tous, Infos, PvP, Rendu, Écran du jeu | Packs, Général), une couleur par catégorie
+  (`Theme.CAT_*`, neutres `Theme.UI_*`, `accent` d'AloriaScreen) ; ne pas toucher aux couleurs des modules eux-mêmes.
+  Rendu = ancien écran Visuel : cartes Mains/Bouclier/Totem/Brouillard → `VisualScreen(parent, section)`, interrupteurs Luminosité/Citrouille.
+- Packs : `ModrinthPack.ALL` (Modrinth, pack généré par `AloriaPacks`, ou pack « en code » comme Feu bas) ; cochés puis
+  `applyAll` = un seul rechargement (bouton Appliquer ou sortie de la page).
+- Ancrage : `ModuleSettings.anchor/autoAnchor` (x, y = point d'ancrage ; `migrate()` convertit les anciens réglages sans bouger).
+- Éléments du jeu (scoreboard, chat, barres de boss) : `GameElementModule` + `GameElements` + mixins, ancre imposée, x < 0 = place habituelle.
+- Auto-test : supprimer `config/aloria-hud.json` du profil de test avant (sinon échecs dus à l'ancienne config) ;
+  « souris du jeu (NaN, NaN) » dans le journal = clic perdu par le test, pas un bug du mod.
+
 ## Mod 1.8.9 (`mod-legacy/`)
 - Projet séparé : Legacy Fabric (meta.legacyfabric.net, même format que Fabric ; le launcher l'utilise avant 1.14),
   Java 8, noms **Yarn** (`MinecraftClient`, `DrawableHelper`…), pas de Fabric API (tout en mixins). `./gradlew build` dans `mod-legacy`.
@@ -79,10 +90,33 @@ toujours via `gameDirOf(id)` ; profils de test : `instances/<id>`. En développe
 - Import de profils (bouton « Importer » : .mrpack, .zip CurseForge, zip Prism/MultiMC/Aloria) : `importProfileFile` de `src/main/index.ts`.
   Test : `ALORIA_ROOT=<test> ALORIA_TEST_IMPORT=<dossier de fichiers>` (journal `[import-test]`, profils supprimés ensuite).
 
+## Minecraft Bedrock (carte dans Profils, Windows)
+- `src/main/bedrock/` : `game` (détection `Get-AppxPackage Microsoft.MinecraftUWP`, lien `minecraft:`, suivi de `Minecraft.Windows.exe`
+  pour le temps de jeu, Discord et les sauvegardes ; `.aloria/bedrock/bedrock.json`), `worlds` (`%APPDATA%\Minecraft Bedrock\Users\<joueur>\games\com.mojang`,
+  export/import `.mcworld`), `packs` (`.mcpack`/`.mcaddon` dans `Users\Shared`, ressources activées partout par `global_resource_packs.json`).
+  Sauvegardes : `worldBackups.ts` avec l'id `bedrock` (zips dans `.aloria/bedrock/backups`). Carte cachée si Bedrock est absent.
+- Test : `ALORIA_ROOT=<test> ALORIA_BEDROCK_ROOT=<test> ALORIA_TEST_BEDROCK=1` (journal `[bedrock-test]`) ; jamais sur le vrai dossier Bedrock.
+- Version : le Store dit « 1.26.6005.0 », le jeu « 26.60 » (numérotation par année depuis 2026).
+- Crossplay (`ServerInput.bedrock`, Paper 1.20.5+) : `src/main/server/crossplay.ts` met Geyser + Floodgate (API download.geysermc.org)
+  et ViaVersion (Modrinth, serveur plus ancien que `GEYSER_JAVA`) dans `plugins/` (préfixe `aloria-`), port UDP `bedrockPort` (19132+).
+  Geyser en **NetherNet** (seule connexion du jeu depuis le 27/10/2026 ; RakNet répond aux pings mais le jeu refuse : « Terracotta »).
+  Avec playit (agent **playitd v1.2.0**, le seul qui relaie NetherNet) : tunnel `aloria-<id>-bedrock` de type `nethernet` (UDP),
+  créé **avant** le serveur (`prepareCrossplay`) ; jeton `nethernet_token` lu dans `/tunnels/list` → Geyser `signaling.mode: hybrid`,
+  `nxs.endpoint: https://nethernet.playit.gg`, STUN coupé (signalisation de playit pour internet, celle de Geyser pour ce PC/Wi-Fi).
+  Les joueurs tapent le nom du tunnel et le port **19132**. Pas de SRV en Bedrock : `<nom>.aloriamc.fr` ne sert qu'à Java.
+  Compte playit gratuit : 4 tunnels TCP (Java) au plus, les UDP à part. Floodgate préfixe les pseudos d'un « . ».
+  Liste blanche : un joueur Bedrock n'a d'UUID (usercache.json) qu'après une 1re connexion → `inviteBedrockPlayer` (runner) coupe
+  la liste blanche 5 min pour « .Pseudo », l'ajoute à son arrivée, renvoie les autres non autorisés, la remet (aussi à l'arrêt).
+  `<nom>.aloriamc.fr` impossible en Bedrock : la signalisation de playit est en HTTPS et refuse tout nom hors `*.tun.ply.gg`.
+  Test : `ALORIA_TEST_SERVER=paper:26.3 ALORIA_TEST_SERVER_BEDROCK=1` (+ `_TUNNEL=playit`, playit.json copié dans le `.aloria` de test) :
+  signalisation locale + inscription chez playit (« Registered with the external signaling service ») (journal `[crossplay-test]`).
+
 ## Serveurs (page « Serveurs »)
+- Icône près de l'horloge (`src/main/tray.ts`) : clic = fenêtre, clic droit = fermer une partie, arrêter un serveur, tout arrêter, quitter.
+  Icônes chargées par `?asset` depuis `resources/` (listées dans `files` d'electron-builder.yml, sinon absentes de l'app.asar).
 - `src/main/server/` : `store` (servers.json, `%APPDATA%\.aloria\servers\<id>`), `install` (Vanilla, Fabric, Paper via fill.papermc.io,
   Forge/NeoForge via `--installServer`), `runner` (processus, console, TPS par `/tick query` caché, sauvegardes), `stats` (RAM/CPU),
-  `playit` (API api.playit.gg + programme playit v1.0.12), `manage` (server.properties, joueurs), `content` (mods/plugins Modrinth), `backups`.
+  `playit` (API api.playit.gg + service playitd v1.2.0), `manage` (server.properties, joueurs), `content` (mods/plugins Modrinth), `backups`.
 - e4mc (adresse gratuite, Fabric/Forge/NeoForge ≥ 1.17) plante en 26.x (`hasPermission(int)` retiré) : `CommandPermissionCompatMixin`
   d'Aloria HUD le corrige ; le mod est donc aussi copié sur les serveurs Fabric 26.x (`fabric.mod.json` environment `*`).
 - Tests : `ALORIA_TEST_SERVER="fabric:26.3,paper:1.21.11"` (+ `_COMMAND`, `_BACKUP=1`, `_EARLYSTOP=1`, `_BREAK=1`, `_PROFILE=1`, `_JOIN=selftest` avec `ALORIA_TEST_DEMO=1`,

@@ -3,7 +3,9 @@
 	"package": "fr.alykell.aloria.hud.mixin",
 	"compatibilityLevel": "JAVA_${java}",
 	"client": [
+		"BossBarMixin",
 		"CapeMixin",
+		"ChatMoveMixin",
 		"CreeperAccessor",
 		"FogMixin",
 		"GameModeAccessor",
@@ -13,8 +15,10 @@
 		"InputInvoker",
 		"KeyboardInvoker",
 		"LightmapMixin",
+		"LowFireMixin",
 		"MouseHandlerMixin",
 		"PumpkinMixin",
+		"ScoreboardMixin",
 		"TotemMixin"
 	],
 	"injectors": {

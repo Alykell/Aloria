@@ -47,6 +47,21 @@ public abstract class HudModule {
 	}
 
 	/** Vrai si la position enregistrée est le centre horizontal du module */
+	/** Point d'ancrage imposé (éléments du jeu), ou null : au choix du joueur */
+	public String fixedAnchor() {
+		return null;
+	}
+
+	/** Faux pour un élément du jeu : seule sa taille se règle (pas de couleurs ni de fond) */
+	public boolean styled() {
+		return true;
+	}
+
+	/** Place habituelle du point d'ancrage d'un élément du jeu (pixels de l'interface), ou null */
+	public float[] naturalAnchor(int screenW, int screenH) {
+		return null;
+	}
+
 	public boolean centered() {
 		return false;
 	}

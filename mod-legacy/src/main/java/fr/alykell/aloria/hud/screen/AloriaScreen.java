@@ -292,35 +292,41 @@ public abstract class AloriaScreen extends Screen {
 		return textRenderer.getStringWidth(text);
 	}
 
-	/** Bouton plat ; « accent » = turquoise plein */
+	/** Couleur d'accent des boutons, interrupteurs et curseurs (le menu prend celle de la catégorie ouverte) */
+	protected int accent = Theme.UI_ACCENT;
+
+	/** Texte lisible posé sur la couleur d'accent */
+	protected static final int ON_ACCENT = 0xFF06121C;
+
+	/** Bouton plat ; « accent » = couleur d'accent pleine */
 	protected void button(G g, int mouseX, int mouseY, int x, int y, int w, int h, String label, boolean accent, Runnable action) {
 		buttonWithId("btn:" + label, g, mouseX, mouseY, x, y, w, h, label, accent, action);
 	}
 
 	protected void buttonWithId(String id, G g, int mouseX, int mouseY, int x, int y, int w, int h, String label, boolean accent, Runnable action) {
 		boolean hover = hovered(mouseX, mouseY, x, y, w, h);
-		int bg = accent ? (hover ? Theme.LAGOON : Theme.SEA) : (hover ? Theme.CARD_HOVER : Theme.CARD);
+		int bg = accent ? (hover ? Theme.mix(this.accent, 0xFFFFFFFF, 0.2f) : this.accent) : (hover ? Theme.UI_CARD_HOVER : Theme.UI_CARD);
 		round(g, x, y, w, h, bg);
-		if (!accent) roundOutline(g, x, y, w, h, hover ? Theme.BORDER_HOVER : Theme.BORDER);
-		centered(g, label, x + w / 2, y + (h - 8) / 2, accent || hover ? Theme.WHITE : Theme.FOAM);
+		if (!accent) roundOutline(g, x, y, w, h, hover ? Theme.mix(Theme.UI_LINE, this.accent, 0.6f) : Theme.UI_LINE);
+		text(g, label, x + (w - w(label)) / 2, y + (h - 8) / 2, accent ? ON_ACCENT : hover ? Theme.WHITE : Theme.UI_TEXT, false);
 		onClick(id, x, y, w, h, action);
 	}
 
 	/** Interrupteur on/off */
 	protected void toggle(String id, G g, int x, int y, boolean on, Runnable action) {
-		round(g, x, y, 24, 12, on ? Theme.SEA : 0xFF27465A);
+		round(g, x, y, 24, 12, on ? accent : Theme.UI_TRACK);
 		int knob = on ? x + 13 : x + 2;
-		round(g, knob, y + 2, 9, 8, on ? Theme.WHITE : 0xFF9DB4C0);
+		round(g, knob, y + 2, 9, 8, on ? Theme.WHITE : Theme.UI_MUTED);
 		onClick(id, x - 2, y - 2, 28, 16, action);
 	}
 
 	/** Curseur horizontal ; t est la valeur entre 0 et 1 */
 	protected void slider(G g, int mouseX, int mouseY, String id, int x, int y, int w, float t, ValueSetter set) {
 		int knob = x + Math.round(Draw.clamp(t, 0f, 1f) * (w - 8));
-		round(g, x, y + 4, w, 4, 0xC01B3A4B);
-		round(g, x, y + 4, knob - x + 4, 4, Theme.SEA);
+		round(g, x, y + 4, w, 4, Theme.UI_TRACK);
+		round(g, x, y + 4, knob - x + 4, 4, accent);
 		boolean hover = isDragging(id) || hovered(mouseX, mouseY, knob, y, 8, 12);
-		round(g, knob, y + 1, 8, 10, hover ? Theme.WHITE : Theme.FOAM);
+		round(g, knob, y + 1, 8, 10, hover ? Theme.WHITE : Theme.UI_TEXT);
 		// La valeur suit le centre du bouton : on retire sa demi-largeur aux deux bouts
 		onDrag(id, x, y - 2, w, 16, (fx, fy) -> set.accept(Draw.clamp((fx * (w - 1) - 4) / (w - 8), 0f, 1f)));
 	}
