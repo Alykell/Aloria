@@ -331,7 +331,9 @@ export async function startServer(id: string): Promise<void> {
     await setProperty(dir, 'server-port', String(server.port))
     const args = [
       `-Xmx${server.ramMb}M`,
-      `-Xms${Math.min(server.ramMb, 1024)}M`,
+      // Toute la mémoire dès le départ (conseil habituel pour Paper) : Java n'en rend jamais, or Java 25.0.1 (celui de
+      // Mojang en 26.x) plante parfois en la rendant (« g1HeapRegionManager.cpp:55 … FreeList_lock », hs_err_pid*.log)
+      `-Xms${server.ramMb}M`,
       // Console en UTF-8 (accents des noms de joueurs, messages traduits)
       '-Dstdout.encoding=UTF-8',
       '-Dstderr.encoding=UTF-8',
@@ -341,6 +343,9 @@ export async function startServer(id: string): Promise<void> {
     addLine(id, r, `> ${tm('server.console.starting')}`)
     const child = spawn(spec.java, args, { cwd: dir, windowsHide: true })
     r.child = child
+    // Serveur fermé (crash) avant que « exit » arrive : une commande envoyée entre-temps (tick query…) échoue en EPIPE,
+    // erreur qui sans écouteur ferait planter tout le launcher
+    child.stdin.on('error', () => {})
     if (child.pid) {
       const pid = child.pid
       r.cleanup.push(
