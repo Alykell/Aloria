@@ -60,7 +60,7 @@ def yarn = '1.8.9-net.legacyfabric.yarn.1_8_9.1.8.9+build.604-v2'
 def remapLegacy = tasks.register('remapLegacy', RemapSourcesTask) {
 	legacySources = file('../mod-legacy/src/main/java')
 	sharedSources = file('../mod/src/main/java')
-	sharedFiles = ['ModuleSettings', 'GlobalSettings', 'VisualSettings'].collect { "fr/alykell/aloria/hud/config/${it}.java".toString() }
+	sharedFiles = ['ModuleSettings', 'GlobalSettings', 'VisualSettings'].collect { "fr/alykell/aloria/hud/config/${it}.java".toString() } + ['fr/alykell/aloria/hud/AloriaSrv.java']
 	yarnMappings = new File(loomCache, 'fabric-loom/1.8.9/net.legacyfabric.yarn.1_8_9.1.8.9+build.604-v2/mappings.tiny')
 	mcpMappings = new File(loomCache, 'essential-loom/1.8.9/de.oceanlabs.mcp.mcp_stable.1_8_9.22-1.8.9-forge-1.8.9-11.15.1.2318-1.8.9/mappings.tiny')
 	classpath.from(new File(loomCache, "fabric-loom/minecraftMaven/net/minecraft/minecraft-merged-legacy-intermediary-1-v2/${yarn}/minecraft-merged-legacy-intermediary-1-v2-${yarn}.jar"))

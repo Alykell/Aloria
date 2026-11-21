@@ -40,7 +40,16 @@ import * as quickplay from './quickplay'
 import { createServerProfile, exportServerPack, writeServerPack } from './server/profile'
 import { deleteBackup, listBackups, openBackupFolder, restoreBackup } from './server/backups'
 import { cachedUuid, editPlayersOffline, listPlayers, playerCommand, readProperties, writeProperties } from './server/manage'
-import { installServerContent, listServerContent, missingDependencies, removeServerContent, searchServerContent, setServerContentEnabled } from './server/content'
+import {
+  checkServerContentUpdates,
+  installServerContent,
+  listServerContent,
+  missingDependencies,
+  removeServerContent,
+  searchServerContent,
+  setServerContentEnabled,
+  updateServerContent
+} from './server/content'
 import { createEntry, deleteEntries, downloadFile, listFiles, quickFiles, readTextFile, renameEntry, unzipEntry, uploadFiles, writeTextFile, zipEntries } from './server/files'
 import { backupServer, cancelBedrockInvite, inviteBedrockPlayer, connectTunnel, anyServerRunning, isServerAlive, killServer, linkCustomAddress, restartServer, sendCommand, serverLog, serverStatuses, setServerTarget, startServer, stopAllServers, stopServer } from './server/runner'
 import type {
@@ -526,6 +535,8 @@ ipcMain.handle('servers:contentInstall', (_e, id: string, projectId: string, wit
   wrap(() => installServerContent(id, projectId, withDeps))
 )
 ipcMain.handle('servers:contentDeps', (_e, id: string, projectId: string) => wrap(() => missingDependencies(id, projectId)))
+ipcMain.handle('servers:contentUpdates', (_e, id: string) => wrap(() => checkServerContentUpdates(id)))
+ipcMain.handle('servers:contentUpdate', (_e, id: string, fileNames: string[]) => wrap(() => updateServerContent(id, fileNames)))
 ipcMain.handle('servers:files', (_e, id: string, rel: string) => wrap(() => listFiles(id, rel)))
 ipcMain.handle('servers:quickFiles', (_e, id: string) => quickFiles(id))
 ipcMain.handle('servers:readFile', (_e, id: string, rel: string) => wrap(() => readTextFile(id, rel)))
@@ -1000,9 +1011,50 @@ app.whenReady().then(() => {
       if (!process.env.ALORIA_TEST_RECIPES_KEEP) app.quit()
     })
   }
+  // Test du bouton « Mettre à jour » (avec ALORIA_ROOT=<.aloria de test>) : ALORIA_TEST_SERVER_UPDATE="paper:1.21.1:1.21.11" crée un
+  // serveur (sans le démarrer), y installe des plugins faits pour la 1.21.1, met un jar Fabric « à la main », passe en 1.21.11,
+  // vérifie, met tout à jour, vérifie encore puis supprime le serveur (journal [update-test])
+  if (!app.isPackaged && process.env.ALORIA_TEST_SERVER_UPDATE && process.env.ALORIA_ROOT) {
+    win.webContents.once('did-finish-load', async () => {
+      const log = (...args: unknown[]) => console.log('[update-test]', ...args)
+      const [type, from, to] = process.env.ALORIA_TEST_SERVER_UPDATE!.split(':') as [ServerInput['type'], string, string]
+      const server = await createServer({ name: 'Test MAJ', icon: '🧪', type, gameVersion: from, loaderVersion: null, ramMb: 1024, port: freePort(), tunnel: 'none' })
+      try {
+        const plugins = type === 'paper'
+        for (const p of plugins ? ['luckperms', 'viaversion', 'chunky'] : ['lithium', 'ferrite-core', 'cf:394468']) {
+          await installServerContent(server.id, p, true).catch((e) => log('installation', p, String(e)))
+        }
+        const folder = join(serverDirOf(server.id), plugins ? 'plugins' : 'mods')
+        // Jar mis à la main, fait pour un autre chargeur (reconnu par son SHA-1)
+        const { listVersions } = await import('./modrinth/api')
+        const wrong = (await listVersions(plugins ? 'luckperms' : 'chunky', [plugins ? 'fabric' : 'paper'], [from]))[0]?.files[0]
+        if (wrong) {
+          const { writeFile: write } = await import('node:fs/promises')
+          await write(join(folder, `main-${wrong.filename}`), Buffer.from(await (await fetch(wrong.url)).arrayBuffer()))
+        }
+        log('installés', (await listServerContent(server.id)).map((c) => `${c.fileName} (${c.projectId ?? 'à la main'})`).join(' | '))
+        log(`même version (${from})`, JSON.stringify(await checkServerContentUpdates(server.id)))
+        updateServer(server.id, { gameVersion: to })
+        const before = await checkServerContentUpdates(server.id)
+        log(`passé en ${to}`, JSON.stringify(before))
+        log('noms après identification', (await listServerContent(server.id)).map((c) => c.title).join(' | '))
+        await updateServerContent(server.id, before.filter((u) => u.status === 'update').map((u) => u.fileName)).catch((e) => log('erreur', String(e)))
+        log('après mise à jour', JSON.stringify(await checkServerContentUpdates(server.id)))
+        const { readdir: dirOf } = await import('node:fs/promises')
+        log('anciens gardés', (await dirOf(join(serverDirOf(server.id), 'aloria-old', plugins ? 'plugins' : 'mods'))).join(' | '))
+        log('dossier', (await dirOf(folder)).join(' | '))
+      } catch (e) {
+        log('échec', e)
+      } finally {
+        await deleteServer(server.id)
+        log('terminé')
+      }
+    })
+  }
   // Test des serveurs en développement : ALORIA_TEST_SERVER="fabric:26.3,paper:1.21.11" crée chaque serveur, le démarre,
   // attend qu'il soit en ligne (et son adresse e4mc), l'arrête, le supprime, puis quitte
   // Test des adresses au choix : attend que <nom>.aloriamc.fr soit relié au tunnel, puis visible des DNS publics
+  let lastSrv: { name: string; port: number } | undefined
   const waitCustomAddress = async (id: string): Promise<string | undefined> => {
     const end = Date.now() + 180_000
     let st = serverStatuses().find((s) => s.id === id)
@@ -1020,6 +1072,44 @@ app.whenReady().then(() => {
     }
     const [srv] = await resolver.resolveSrv(`_minecraft._tcp.${st.customAddress}`).catch(() => [])
     console.log(`[address-test] SRV → ${srv ? `${srv.name}:${srv.port}` : 'absent'}`)
+    lastSrv = srv
+    // Ping brut du tunnel avec le nom tel que le jeu l'envoie sans Aloria HUD (point final) puis sans le point
+    if (srv) {
+      const { connect } = await import('node:net')
+      const varint = (n: number) => {
+        const out: number[] = []
+        do {
+          out.push((n & 0x7f) | (n > 0x7f ? 0x80 : 0))
+          n >>>= 7
+        } while (n)
+        return Buffer.from(out)
+      }
+      const packet = (...parts: Buffer[]) => Buffer.concat([varint(Buffer.concat(parts).length), ...parts])
+      // intent 1 = ping, 2 = connexion (suivie d'un « Login Start » : le serveur répond, même pour refuser)
+      const ping = (host: string, intent: 1 | 2) =>
+        new Promise<string>((resolve) => {
+          const socket = connect(srv.port, srv.name)
+          const done = (r: string) => (socket.destroy(), resolve(`${r} [${socket.remoteAddress ?? '?'}]`))
+          socket.setTimeout(8000, () => done('pas de réponse'))
+          socket.on('error', (e) => done(`erreur ${e.message}`))
+          socket.on('close', () => done('connexion coupée'))
+          socket.on('data', (d) => done(`réponse (${d.length} octets) ${d.toString('latin1').replace(/[^\x20-\x7e]/g, '.').slice(0, 80)}`))
+          socket.on('connect', () => {
+            const port = Buffer.alloc(2)
+            port.writeUInt16BE(25565)
+            socket.write(packet(varint(0), varint(772), varint(Buffer.byteLength(host)), Buffer.from(host), port, varint(intent)))
+            if (intent === 1) socket.write(packet(varint(0)))
+            else socket.write(packet(varint(0), varint(8), Buffer.from('AloTest1'), Buffer.alloc(16)))
+          })
+        })
+      const { lookup } = await import('node:dns/promises')
+      console.log(`[address-test] IP du tunnel : ${JSON.stringify(await lookup(srv.name, { all: true }).catch(String))}`)
+      for (const intent of [1, 2] as const) {
+        for (const host of [`${srv.name}.`, srv.name, st.customAddress]) {
+          console.log(`[address-test] ${intent === 1 ? 'ping' : 'connexion'} avec « ${host} » → ${await ping(host, intent)}`)
+        }
+      }
+    }
     return st.customAddress
   }
   if (!app.isPackaged && process.env.ALORIA_TEST_SERVER) {
@@ -1107,8 +1197,15 @@ app.whenReady().then(() => {
             const autoLogin = !!process.env.ALORIA_TEST_SERVER_AUTOLOGIN
             if (autoLogin) process.env.ALORIA_TEST_AUTOLOGIN = JSON.stringify({ [`localhost:${server.port}`]: 'aloria-test' })
             // Adresse au choix : on rejoint par <nom>.aloriamc.fr, sur le port 25565 (le seul pour lequel le jeu cherche un SRV)
-            const custom = process.env.ALORIA_TEST_SERVER_ADDRESS ? await waitCustomAddress(server.id) : undefined
-            await play(win.webContents, joinProfile, custom ? { host: custom, port: 25565 } : { host: 'localhost', port: server.port })
+            let custom = process.env.ALORIA_TEST_SERVER_ADDRESS ? await waitCustomAddress(server.id) : undefined
+            // ALORIA_TEST_SERVER_JOIN_VIA=tunnel : rejoindre par l'adresse playit directe (comparaison avec <nom>.aloriamc.fr)
+            if (process.env.ALORIA_TEST_SERVER_JOIN_VIA === 'tunnel') custom = undefined
+            const tunnelJoin = process.env.ALORIA_TEST_SERVER_JOIN_VIA === 'tunnel' && lastSrv ? `${lastSrv.name}:${lastSrv.port}` : undefined
+            await play(win.webContents, joinProfile, custom
+                ? { host: custom, port: 25565 }
+                : tunnelJoin
+                  ? { host: tunnelJoin.split(':')[0], port: Number(tunnelJoin.split(':')[1] ?? 25565) }
+                  : { host: 'localhost', port: server.port })
             const end = Date.now() + 240_000
             while (Date.now() < end && !serverLog(server.id).some((l) => /joined the game/.test(l))) await new Promise((r) => setTimeout(r, 500))
             const joined = serverLog(server.id).find((l) => /joined the game|lost connection|Disconnecting/.test(l))

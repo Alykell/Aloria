@@ -681,6 +681,18 @@ export interface ServerContent {
   iconUrl: string | null
 }
 
+/** État d'un mod ou plugin installé face à la version du serveur (bouton « Mettre à jour ») */
+export interface ServerContentUpdate {
+  fileName: string
+  /** upToDate : déjà la bonne version ; update : une plus récente existe ; missing : rien pour cette version du jeu ;
+   *  unknown : fichier introuvable sur Modrinth et CurseForge */
+  status: 'upToDate' | 'update' | 'missing' | 'unknown'
+  /** Numéro de la version proposée */
+  newVersion?: string
+  /** Chargeur pour lequel le jar est fait quand ce n'est pas celui du serveur (ex. « Fabric » dans un serveur Paper) */
+  wrongLoader?: string
+}
+
 export interface ServerLogLine {
   id: string
   line: string

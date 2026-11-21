@@ -187,6 +187,15 @@ export async function cfModIdsByFingerprint(fingerprints: number[]): Promise<num
   return res.exactMatches.map((m) => m.file.modId)
 }
 
+/** Projet CurseForge (modId) de chaque empreinte reconnue */
+export async function cfModsByFingerprint(fingerprints: number[]): Promise<Map<number, number>> {
+  const out = new Map<number, number>()
+  if (fingerprints.length === 0) return out
+  const res = await get<{ exactMatches: { file: { modId: number; fileFingerprint: number } }[] }>('/fingerprints/432', { fingerprints })
+  for (const m of res.exactMatches) out.set(m.file.fileFingerprint, m.file.modId)
+  return out
+}
+
 export const cfSha1 = (f: CfFile) => f.hashes.find((h) => h.algo === 1)?.value ?? ''
 
 export const modpackSummary = async (projectId: string) => (await get<CfMod>(`/mods/${modIdOf(projectId)}`)).summary

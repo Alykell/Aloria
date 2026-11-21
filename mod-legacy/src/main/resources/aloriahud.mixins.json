@@ -22,6 +22,7 @@
 		"MinecraftClientMixin",
 		"MouseInputMixin",
 		"PumpkinMixin",
+		"AloriaAddressMixin",
 		"VisualRendererMixin"
 	],
 	"injectors": {

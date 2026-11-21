@@ -1,12 +1,14 @@
+import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import AdmZip from 'adm-zip'
 import { downloadAll } from '../game/download'
 import { getProjects, listVersions, versionsByHash } from '../modrinth/api'
-import { cfBestFile, cfFiles, cfMods, cfSearch, cfSha1, isCurseforgeId, modIdOf } from '../curseforge'
+import { cfBestFile, cfFingerprint, cfMods, cfModsByFingerprint, cfSearch, cfSha1, isCurseforgeId, modIdOf } from '../curseforge'
 import { prepareServerMods } from '../modrinth/modpack'
 import { getServer, serverDirOf } from './store'
-import type { Loader, ServerContent, ServerContentDependency, ServerContentHit, ServerInfo } from '../../shared/types'
+import type { Loader, ServerContent, ServerContentDependency, ServerContentHit, ServerContentUpdate, ServerInfo } from '../../shared/types'
 import { tm } from '../i18n'
 
 /**
@@ -224,4 +226,186 @@ export async function removeServerContent(id: string, fileName: string): Promise
   const index = await readIndex(dir)
   delete index[fileName]
   await writeFile(join(dir, INDEX), JSON.stringify(index, null, 2))
+}
+
+// ---------------------------------------------------------------- mises à jour
+
+/** Dossier où les anciennes versions remplacées sont gardées (pour revenir en arrière à la main, onglet Fichiers) */
+export const OLD_DIR = 'aloria-old'
+
+/** Chargeurs pour lesquels un jar est fait, d'après les fichiers qu'il contient */
+function jarLoaders(data: Buffer): Set<string> {
+  const kinds = new Set<string>()
+  let names: string[]
+  try {
+    names = new AdmZip(data).getEntries().map((e) => e.entryName)
+  } catch {
+    return kinds
+  }
+  for (const n of names) {
+    if (n === 'fabric.mod.json') kinds.add('Fabric')
+    else if (n === 'quilt.mod.json') kinds.add('Quilt')
+    else if (n === 'META-INF/neoforge.mods.toml') kinds.add('NeoForge')
+    else if (n === 'META-INF/mods.toml' || n === 'mcmod.info') kinds.add('Forge')
+    else if (n === 'plugin.yml' || n === 'paper-plugin.yml') kinds.add('Paper')
+    else if (n === 'velocity-plugin.json') kinds.add('Velocity')
+    else if (n === 'bungee.yml') kinds.add('BungeeCord')
+  }
+  return kinds
+}
+
+/** Chargeurs (au sens de jarLoaders) qu'accepte ce serveur ; NeoForge lit encore les mods.toml de Forge (1.20.1 à 1.20.4) */
+const ACCEPTED: Record<string, string[]> = { paper: ['Paper'], fabric: ['Fabric'], forge: ['Forge'], neoforge: ['NeoForge', 'Forge'] }
+
+/** Jars du dossier (activés ou non), hors fichiers gérés par Aloria */
+async function jarsOf(dir: string): Promise<{ fileName: string; path: string }[]> {
+  return (await readdir(dir))
+    .filter((f) => (f.endsWith('.jar') || f.endsWith(`.jar${DISABLED}`)) && !MANAGED.test(f))
+    .map((f) => ({ fileName: f.endsWith(DISABLED) ? f.slice(0, -DISABLED.length) : f, path: join(dir, f) }))
+}
+
+const sha1Of = (data: Buffer) => createHash('sha1').update(data).digest('hex')
+
+/** Fichier à installer pour un projet Modrinth : la dernière version stable pour ce serveur (null : aucune) */
+async function modrinthTarget(server: ServerInfo, project: string, currentSha1?: string) {
+  const versions = await listVersions(project, loadersOf(server), [server.gameVersion])
+  const best = versions.find((v) => v.version_type === 'release') ?? versions[0]
+  const file = best?.files.find((f) => f.primary) ?? best?.files[0]
+  if (!best || !file) return null
+  // Version installée plus récente que la stable proposée (une bêta choisie exprès) : on ne redescend pas
+  const current = currentSha1 ? versions.findIndex((v) => v.files.some((f) => f.hashes.sha1 === currentSha1)) : -1
+  const upToDate = current !== -1 && current <= versions.indexOf(best)
+  return { version: best, file, upToDate }
+}
+
+/**
+ * Compare chaque mod ou plugin à ce qui existe pour la version du serveur. Les jars mis à la main sont reconnus à leur
+ * empreinte (Modrinth, puis CurseForge pour les mods) et rangés dans l'index, avec leur nom et leur icône.
+ */
+export async function checkServerContentUpdates(id: string): Promise<ServerContentUpdate[]> {
+  const server = getServer(id)
+  loadersOf(server)
+  const dir = join(serverDirOf(id), folderOf(server))
+  if (!existsSync(dir)) return []
+  const index = await readIndex(dir)
+  const jars = await Promise.all(
+    (await jarsOf(dir)).map(async (j) => {
+      const data = await readFile(j.path)
+      const fingerprint = !index[j.fileName] && server.type !== 'paper' ? cfFingerprint(data) : 0
+      return { ...j, sha1: sha1Of(data), loaders: jarLoaders(data), fingerprint }
+    })
+  )
+
+  // Jars inconnus de l'index : Modrinth d'abord, puis CurseForge
+  let indexChanged = false
+  const unknown = jars.filter((j) => !index[j.fileName])
+  if (unknown.length > 0) {
+    const byHash = await versionsByHash(unknown.map((j) => j.sha1)).catch(() => ({}) as Awaited<ReturnType<typeof versionsByHash>>)
+    const found = unknown.filter((j) => byHash[j.sha1])
+    const projects = found.length ? await getProjects([...new Set(found.map((j) => byHash[j.sha1].project_id))]).catch(() => []) : []
+    for (const j of found) {
+      const p = projects.find((x) => x.id === byHash[j.sha1].project_id)
+      index[j.fileName] = { projectId: byHash[j.sha1].project_id, title: p?.title ?? j.fileName.replace(/\.jar$/, ''), iconUrl: p?.icon_url ?? null }
+      indexChanged = true
+    }
+    const rest = unknown.filter((j) => !index[j.fileName] && j.fingerprint)
+    if (rest.length > 0) {
+      const byPrint = await cfModsByFingerprint(rest.map((j) => j.fingerprint)).catch(() => new Map<number, number>())
+      const mods = byPrint.size ? await cfMods([...new Set(byPrint.values())]).catch(() => []) : []
+      for (const j of rest) {
+        const mod = mods.find((m) => m.id === byPrint.get(j.fingerprint))
+        if (!mod) continue
+        index[j.fileName] = { projectId: `cf:${mod.id}`, title: mod.name, iconUrl: mod.logo?.thumbnailUrl ?? null }
+        indexChanged = true
+      }
+    }
+  }
+  if (indexChanged) await writeFile(join(dir, INDEX), JSON.stringify(index, null, 2))
+
+  const accepted = ACCEPTED[server.type] ?? []
+  return Promise.all(
+    jars.map(async (j): Promise<ServerContentUpdate> => {
+      const wrong = j.loaders.size > 0 && ![...j.loaders].some((l) => accepted.includes(l))
+      const base: ServerContentUpdate = { fileName: j.fileName, status: 'unknown', ...(wrong ? { wrongLoader: [...j.loaders][0] } : {}) }
+      const entry = index[j.fileName]
+      if (!entry) return base
+      try {
+        if (isCurseforgeId(entry.projectId)) {
+          const best = await cfBestFile(modIdOf(entry.projectId), 'mod', server.gameVersion, server.type as Loader)
+          if (!best) return { ...base, status: 'missing' }
+          const same = cfSha1(best) === j.sha1 || best.fileName === j.fileName
+          return same && !wrong ? { ...base, status: 'upToDate' } : { ...base, status: 'update', newVersion: best.displayName }
+        }
+        const target = await modrinthTarget(server, entry.projectId, j.sha1)
+        if (!target) return { ...base, status: 'missing' }
+        return target.upToDate && !wrong ? { ...base, status: 'upToDate' } : { ...base, status: 'update', newVersion: target.version.version_number }
+      } catch {
+        return base
+      }
+    })
+  )
+}
+
+/**
+ * Remplace des mods ou plugins par leur version pour le serveur. L'ancien jar part dans aloria-old/<dossier>, le nouveau
+ * garde l'état activé ou non ; les nouvelles dépendances obligatoires sont installées ensuite.
+ */
+export async function updateServerContent(id: string, fileNames: string[]): Promise<void> {
+  const server = getServer(id)
+  const folder = folderOf(server)
+  const dir = join(serverDirOf(id), folder)
+  const oldDir = join(serverDirOf(id), OLD_DIR, folder)
+  const tmpDir = join(serverDirOf(id), OLD_DIR, '.download')
+  const index = await readIndex(dir)
+  const deps = new Set<string>()
+  const failed: string[] = []
+  await mkdir(oldDir, { recursive: true })
+  for (const name of fileNames) {
+    const entry = index[name]
+    if (!entry || name.includes('/') || name.includes('\\')) continue
+    const disabled = !existsSync(join(dir, name)) && existsSync(join(dir, name + DISABLED))
+    const current = join(dir, disabled ? name + DISABLED : name)
+    try {
+      let target: { url: string; fileName: string; sha1?: string; size?: number } | null = null
+      if (isCurseforgeId(entry.projectId)) {
+        const best = await cfBestFile(modIdOf(entry.projectId), 'mod', server.gameVersion, server.type as Loader)
+        const sha1 = best ? cfSha1(best) : ''
+        const url =
+          best?.downloadUrl ??
+          (sha1
+            ? (await versionsByHash([sha1]).catch(() => ({}) as Awaited<ReturnType<typeof versionsByHash>>))[sha1]?.files.find((f) => f.hashes.sha1 === sha1)?.url
+            : undefined)
+        if (best && url) {
+          target = { url, fileName: best.fileName, sha1: sha1 || undefined, size: best.fileLength }
+          for (const d of best.dependencies ?? []) if (d.relationType === 3) deps.add(`cf:${d.modId}`)
+        }
+      } else {
+        const t = await modrinthTarget(server, entry.projectId)
+        if (t) {
+          target = { url: t.file.url, fileName: t.file.filename, sha1: t.file.hashes.sha1, size: t.file.size }
+          for (const d of t.version.dependencies) if (d.dependency_type === 'required' && d.project_id) deps.add(d.project_id)
+        }
+      }
+      if (!target || target.fileName.includes('/') || target.fileName.includes('\\')) {
+        failed.push(entry.title)
+        continue
+      }
+      // Téléchargé à part d'abord : rien n'est touché si ça échoue (et le nom peut être le même que l'ancien)
+      const tmp = join(tmpDir, target.fileName)
+      await downloadAll([{ url: target.url, path: tmp, sha1: target.sha1, size: target.size }], () => {})
+      await rm(join(oldDir, name), { force: true })
+      await rename(current, join(oldDir, name))
+      await rename(tmp, join(dir, disabled ? target.fileName + DISABLED : target.fileName))
+      delete index[name]
+      index[target.fileName] = entry
+    } catch (e) {
+      console.log('[server-content] mise à jour', name, e)
+      failed.push(entry.title)
+    }
+  }
+  await writeFile(join(dir, INDEX), JSON.stringify(index, null, 2))
+  await rm(tmpDir, { recursive: true, force: true })
+  const installed = new Set(Object.values(index).map((e) => e.projectId))
+  for (const dep of deps) if (!installed.has(dep)) await installServerContent(id, dep, true).catch(() => {})
+  if (failed.length > 0) throw new Error(tm('err.serverContentUpdate', { names: failed.join(', ') }))
 }

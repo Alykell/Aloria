@@ -595,6 +595,8 @@ export default function ServersPage({ settings, onError, onFocus }: Props) {
           if (!editing) setOpenId(res.value.id)
           // playit.gg choisi sans compte relié : on guide la liaison tout de suite
           if (input.tunnel === 'playit' && !playitLinked) setPlayitSetup(res.value.id)
+          // Nouvelle version du jeu : les mods/plugins doivent souvent suivre, on ouvre leur onglet (vérification automatique)
+          else if (editing && input.gameVersion !== editing.gameVersion && editing.type !== 'vanilla' && editing.installed) setTab('content')
         }
         setEditing(undefined)
         refresh()

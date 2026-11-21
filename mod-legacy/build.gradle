@@ -11,12 +11,13 @@ base {
 	archivesName = 'aloria-hud'
 }
 
-// Classes de réglages partagées avec le mod moderne (simples et compatibles Java 8) : même format de fichier
+// Classes de réglages partagées avec le mod moderne (simples et compatibles Java 8) : même format de fichier ; AloriaSrv (adresses aloriamc.fr)
 def sharedConfig = tasks.register('sharedConfig', Sync) {
 	from('../mod/src/main/java') {
 		include 'fr/alykell/aloria/hud/config/ModuleSettings.java'
 		include 'fr/alykell/aloria/hud/config/GlobalSettings.java'
 		include 'fr/alykell/aloria/hud/config/VisualSettings.java'
+		include 'fr/alykell/aloria/hud/AloriaSrv.java'
 	}
 	into layout.buildDirectory.dir('shared-src')
 }

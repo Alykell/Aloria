@@ -127,9 +127,16 @@ toujours via `gameDirOf(id)` ; profils de test : `instances/<id>`. En développe
 - Adresse au choix `<nom>.aloriamc.fr` (domaine OVH, DNS Cloudflare) : `src/main/server/address.ts` → Worker (`worker/src/addresses.ts`,
   table `addresses`, secret `DNS_TOKEN` = ligne 3 du fichier de jetons) qui réserve le nom (compte vérifié, 4 max) et crée le SRV
   `_minecraft._tcp.<nom>` vers le tunnel playit à chaque démarrage. Le jeu ne cherche le SRV que sur le port 25565 ; pas e4mc
-  (le jeu envoie la cible avec son point final, que le relais d’e4mc ne reconnaît pas).
-  Test : `ALORIA_TEST_SERVER_TUNNEL=playit ALORIA_TEST_SERVER_ADDRESS=<nom> ALORIA_TEST_SERVER_JOIN=selftest` (compte actif, sans
-  `ALORIA_USER_DATA` ; journal `[address-test]`) ; captures : `ALORIA_CAPTURE_SERVERS_ADDRESS=<nom>`.
+  (le jeu envoie la cible avec son point final, que le relais d’e4mc ne reconnaît pas ; playit l'accepte, avec ou sans).
+  Les DNS des joueurs gardent jusqu'à 30 min (TTL négatif) un « n'existe pas » obtenu serveur éteint : Aloria HUD demande donc
+  le SRV des `*.aloriamc.fr` à 1.1.1.1/8.8.8.8 (`AloriaSrv`, partagé avec mod-legacy/mod-forge ; `AloriaAddressMixin`).
+  Le relais playit coupe un handshake dont le nom est `<nom>.aloriamc.fr` (ECONNRESET), il ne prend que `<tunnel>.tun.ply.gg`.
+  Test : `ALORIA_TEST_SERVER=paper:26.3 ALORIA_TEST_SERVER_TUNNEL=playit ALORIA_TEST_SERVER_ADDRESS=<nom> ALORIA_TEST_SERVER_JOIN=selftest
+  ALORIA_TEST_DEMO=1` (compte actif, launcher installé **fermé**, sans `ALORIA_USER_DATA` ; journal `[address-test]` avec ping et
+  connexion bruts selon le nom envoyé ; `_JOIN_VIA=tunnel` rejoint par l'adresse playit) ; captures : `ALORIA_CAPTURE_SERVERS_ADDRESS=<nom>`.
+- Bouton « Mettre à jour » des mods/plugins (onglet Mods/Plugins) : `checkServerContentUpdates`/`updateServerContent` de `content.ts`
+  (jars mis à la main reconnus par SHA-1 Modrinth puis empreinte CurseForge, mauvais chargeur lu dans le jar, anciens jars dans
+  `<serveur>/aloria-old/<dossier>`). Test : `ALORIA_ROOT=<test> ALORIA_TEST_SERVER_UPDATE=paper:1.21.1:1.21.11` (journal `[update-test]`).
 - Crashs connus expliqués simplement (carte d'erreur + console) : `src/main/server/crashHints.ts`.
 
 ## Cosmétiques et temps de jeu

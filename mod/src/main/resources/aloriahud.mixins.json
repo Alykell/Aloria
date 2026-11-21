@@ -19,6 +19,7 @@
 		"MouseHandlerMixin",
 		"PumpkinMixin",
 		"ScoreboardMixin",
+		"AloriaAddressMixin",
 		"TotemMixin"
 	],
 	"injectors": {

@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import Select from './Select'
+import { SERVER_TYPE_LABELS } from './ServerEditor'
 import type {
   ServerBackup,
   ServerContent,
   ServerContentDependency,
   ServerContentHit,
+  ServerContentUpdate,
   ServerInfo,
   ServerPlayerAction,
   ServerPlayers
@@ -314,6 +316,10 @@ export function ContentTab({ server, alive, onError, onRestart }: TabProps & { o
   const [changedWhileOn, setChangedWhileOn] = useState(false)
   // Mod demandé dont les dépendances manquent : on demande avant de tout installer
   const [deps, setDeps] = useState<{ hit: ServerContentHit; list: ServerContentDependency[] } | null>(null)
+  // État de chaque fichier face à la version du serveur (null : vérification en cours)
+  const [updates, setUpdates] = useState<Record<string, ServerContentUpdate> | null>(null)
+  // Fichiers en cours de mise à jour
+  const [updating, setUpdating] = useState<string[]>([])
   const plugins = server.type === 'paper'
   const installedIds = new Set(installed.map((c) => c.projectId).filter(Boolean))
 
@@ -321,9 +327,18 @@ export function ContentTab({ server, alive, onError, onRestart }: TabProps & { o
     const res = await window.aloria.servers.content(server.id)
     if (res.ok) setInstalled(res.value)
   }, [server.id])
+  // Vérifie les mises à jour ; les jars mis à la main reconnus prennent leur vrai nom et leur icône, d'où le refresh
+  const check = useCallback(async () => {
+    if (server.type === 'vanilla' || !server.installed) return
+    setUpdates(null)
+    const res = await window.aloria.servers.contentUpdates(server.id)
+    setUpdates(res.ok ? Object.fromEntries(res.value.map((u) => [u.fileName, u])) : {})
+    refresh()
+  }, [server.id, server.type, server.installed?.gameVersion, server.gameVersion, refresh])
   useEffect(() => {
     refresh()
-  }, [refresh])
+    check()
+  }, [refresh, check])
 
   // Recherche Modrinth, un instant après la dernière lettre tapée
   useEffect(() => {
@@ -384,9 +399,51 @@ export function ContentTab({ server, alive, onError, onRestart }: TabProps & { o
     else if (alive) setChangedWhileOn(true)
     refresh()
   }
+  const toUpdate = installed.filter((c) => updates?.[c.fileName]?.status === 'update').map((c) => c.fileName)
+  const update = async (fileNames: string[]) => {
+    setUpdating(fileNames)
+    const res = await window.aloria.servers.contentUpdate(server.id, fileNames)
+    setUpdating([])
+    if (!res.ok) onError(res.error)
+    await refresh()
+    check()
+  }
+  // Statut sous le nom d'un fichier installé
+  const statusOf = (c: ServerContent) => {
+    const u = updates?.[c.fileName]
+    if (!u) return null
+    return (
+      <>
+        {u.wrongLoader && (
+          <small className="warning">{t('server.content.wrongLoader', { loader: u.wrongLoader, server: SERVER_TYPE_LABELS[server.type] })}</small>
+        )}
+        {u.status === 'upToDate' ? (
+          <small className="success-text">✓ {t('server.content.upToDate')}</small>
+        ) : u.status === 'update' ? (
+          <small className="warning">⬆ {t('server.content.updateTo', { version: u.newVersion ?? '?' })}</small>
+        ) : u.status === 'missing' ? (
+          <small className="warning">{t('server.content.missing', { version: server.gameVersion })}</small>
+        ) : (
+          <small className="muted">{t('server.content.unknown')}</small>
+        )}
+      </>
+    )
+  }
+  const versionChanged = !!server.installed && server.installed.gameVersion !== server.gameVersion
+  const allUpToDate = updates !== null && installed.length > 0 && installed.every((c) => updates[c.fileName]?.status === 'upToDate')
 
   return (
     <div className="manage-tab">
+      {versionChanged && (
+        <div className="card manage-footer">
+          <small className="warning">
+            {t(plugins ? 'server.content.versionChangedPlugins' : 'server.content.versionChangedMods', {
+              from: server.installed!.gameVersion,
+              to: server.gameVersion
+            })}
+          </small>
+        </div>
+      )}
       {changedWhileOn && (
         <div className="card manage-footer">
           <small className="muted">{t('server.content.restartHint')}</small>
@@ -396,10 +453,34 @@ export function ContentTab({ server, alive, onError, onRestart }: TabProps & { o
         </div>
       )}
       <div className="card manage-list">
-        <strong>
-          {t(plugins ? 'server.content.installedPlugins' : 'server.content.installedMods')}{' '}
-          <span className="muted">({installed.length})</span>
-        </strong>
+        <div className="manage-row manage-row--head">
+          <strong>
+            {t(plugins ? 'server.content.installedPlugins' : 'server.content.installedMods')}{' '}
+            <span className="muted">({installed.length})</span>
+          </strong>
+          {installed.length > 0 && (
+            <span className="manage-row__actions">
+              {updates === null ? (
+                <small className="muted">{t('server.content.checking')}</small>
+              ) : toUpdate.length > 0 ? (
+                <button
+                  className="primary"
+                  disabled={alive || updating.length > 0}
+                  title={alive ? t('server.content.stopToUpdate') : undefined}
+                  onClick={() => update(toUpdate)}
+                >
+                  {updating.length > 1 ? t('common.loading') : t('server.content.updateAll', { n: toUpdate.length })}
+                </button>
+              ) : (
+                <button className="secondary" disabled={updating.length > 0} onClick={check}>
+                  ⟳ {t('server.content.check')}
+                </button>
+              )}
+            </span>
+          )}
+        </div>
+        {toUpdate.length > 0 && <small className="muted">{t(alive ? 'server.content.stopToUpdate' : 'server.content.oldKept')}</small>}
+        {allUpToDate && <small className="success-text">{t('server.content.allUpToDate', { version: server.gameVersion })}</small>}
         {installed.length === 0 ? (
           <small className="muted">{t('server.content.none')}</small>
         ) : (
@@ -407,8 +488,23 @@ export function ContentTab({ server, alive, onError, onRestart }: TabProps & { o
             <div key={c.fileName} className={'manage-row' + (c.enabled ? '' : ' disabled')}>
               <span className="manage-content">
                 {c.iconUrl ? <img src={c.iconUrl} alt="" /> : <span className="manage-content__blank">🧩</span>}
-                {c.title}
+                <span>
+                  <strong>{c.title}</strong>
+                  {statusOf(c)}
+                </span>
               </span>
+              {updates?.[c.fileName]?.status === 'update' && (
+                <button
+                  className="primary"
+                  disabled={alive || updating.length > 0}
+                  title={alive ? t('server.content.stopToUpdate') : undefined}
+                  onClick={() => update([c.fileName])}
+                >
+                  {updating.includes(c.fileName)
+                    ? t('common.loading')
+                    : t(updates[c.fileName].wrongLoader ? 'server.content.replace' : 'server.content.update')}
+                </button>
+              )}
               <label className="switch" title={c.enabled ? t('library.disable') : t('library.enable')}>
                 <input type="checkbox" checked={c.enabled} onChange={(e) => toggle(c, e.target.checked)} />
                 <span />

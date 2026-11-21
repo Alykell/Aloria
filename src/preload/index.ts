@@ -45,6 +45,7 @@ import type {
   ServerInput,
   ServerLogLine,
   ServerContent,
+  ServerContentUpdate,
   ServerBackup,
   ServerContentHit,
   ServerContentDependency,
@@ -255,6 +256,10 @@ const api = {
     contentInstall: (id: string, projectId: string, withDeps = true): Promise<Result<void>> =>
       ipcRenderer.invoke('servers:contentInstall', id, projectId, withDeps),
     contentDeps: (id: string, projectId: string): Promise<Result<ServerContentDependency[]>> => ipcRenderer.invoke('servers:contentDeps', id, projectId),
+    /** État de chaque mod/plugin face à la version du serveur */
+    contentUpdates: (id: string): Promise<Result<ServerContentUpdate[]>> => ipcRenderer.invoke('servers:contentUpdates', id),
+    /** Remplace ces fichiers par leur version pour le serveur (anciens gardés dans aloria-old) */
+    contentUpdate: (id: string, fileNames: string[]): Promise<Result<void>> => ipcRenderer.invoke('servers:contentUpdate', id, fileNames),
     files: (id: string, rel: string): Promise<Result<ServerFile[]>> => ipcRenderer.invoke('servers:files', id, rel),
     quickFiles: (id: string): Promise<string[]> => ipcRenderer.invoke('servers:quickFiles', id),
     readFile: (id: string, rel: string): Promise<Result<string>> => ipcRenderer.invoke('servers:readFile', id, rel),
